@@ -14,55 +14,59 @@ import { unmuteUser } from '../lib/moderation.js';
 function allowed(interaction: ButtonInteraction<'cached'>): boolean {
   return Boolean(
     interaction.memberPermissions?.has(PermissionFlagsBits.BanMembers) ||
-      interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild),
+    interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild),
   );
 }
 
-export async function handleAppealButton(
-  interaction: ButtonInteraction<'cached'>,
-): Promise<void> {
+export async function handleAppealButton(interaction: ButtonInteraction<'cached'>): Promise<void> {
   const [scope, action, guildId, rawId] = interaction.customId.split(':');
   if (scope !== 'appeal' || interaction.guild.id !== guildId) {
-    await interaction.reply({
-      components: [errorCard('Эта кнопка относится к другому серверу.')],
-      flags: V2 | MessageFlags.Ephemeral,
-    }).catch(() => {});
+    await interaction
+      .reply({
+        components: [errorCard('Эта кнопка относится к другому серверу.')],
+        flags: V2 | MessageFlags.Ephemeral,
+      })
+      .catch(() => {});
     return;
   }
 
   if (!allowed(interaction)) {
-    await interaction.reply({
-      components: [errorCard('Нужно право «Банить участников» или «Управление сервером».')],
-      flags: V2 | MessageFlags.Ephemeral,
-    }).catch(() => {});
+    await interaction
+      .reply({
+        components: [errorCard('Нужно право «Банить участников» или «Управление сервером».')],
+        flags: V2 | MessageFlags.Ephemeral,
+      })
+      .catch(() => {});
     return;
   }
 
   const appealId = Number(rawId);
-  const appeal = Number.isInteger(appealId)
-    ? getAppeal(interaction.guild.id, appealId)
-    : null;
+  const appeal = Number.isInteger(appealId) ? getAppeal(interaction.guild.id, appealId) : null;
 
   if (!appeal) {
-    await interaction.update({
-      components: [errorCard('Апелляция не найдена.')],
-      flags: V2,
-    }).catch(() => {});
+    await interaction
+      .update({
+        components: [errorCard('Апелляция не найдена.')],
+        flags: V2,
+      })
+      .catch(() => {});
     return;
   }
 
   if (appeal.status !== 'pending') {
-    await interaction.update({
-      components: [
-        card({
-          tone: 'neutral',
-          title: '📨 Апелляция',
-          description: 'Эта апелляция уже рассмотрена.',
-          timestamp: false,
-        }),
-      ],
-      flags: V2,
-    }).catch(() => {});
+    await interaction
+      .update({
+        components: [
+          card({
+            tone: 'neutral',
+            title: '📨 Апелляция',
+            description: 'Эта апелляция уже рассмотрена.',
+            timestamp: false,
+          }),
+        ],
+        flags: V2,
+      })
+      .catch(() => {});
     return;
   }
 
@@ -80,9 +84,7 @@ export async function handleAppealButton(
         await interaction
           .reply({
             components: [
-              errorCard(
-                'Не удалось проверить бан. Проверьте право бота «Банить участников».',
-              ),
+              errorCard('Не удалось проверить бан. Проверьте право бота «Банить участников».'),
             ],
             flags: V2 | MessageFlags.Ephemeral,
           })
@@ -102,9 +104,7 @@ export async function handleAppealButton(
         await interaction
           .reply({
             components: [
-              errorCard(
-                'Не удалось снять бан. Проверьте право бота «Банить участников».',
-              ),
+              errorCard('Не удалось снять бан. Проверьте право бота «Банить участников».'),
             ],
             flags: V2 | MessageFlags.Ephemeral,
           })
@@ -129,9 +129,7 @@ export async function handleAppealButton(
     messageId: interaction.message.id,
   });
 
-  const user = await interaction.client.users
-    .fetch(appeal.userId)
-    .catch(() => null);
+  const user = await interaction.client.users.fetch(appeal.userId).catch(() => null);
   await user
     ?.send(
       approve
@@ -140,19 +138,21 @@ export async function handleAppealButton(
     )
     .catch(() => {});
 
-  await interaction.update({
-    components: [
-      card({
-        tone: approve ? 'success' : 'danger',
-        title: approve ? '✅ Апелляция одобрена' : '❌ Апелляция отклонена',
-        description: `Пользователь: <@${appeal.userId}>\nРассмотрел: ${interaction.user}`,
-        fields: [{ label: 'Причина', value: appeal.reason, block: true }],
-        footer: `Апелляция #${appeal.id}`,
-        timestamp: reviewedAt,
-      }),
-    ],
-    flags: V2,
-  }).catch(() => {});
+  await interaction
+    .update({
+      components: [
+        card({
+          tone: approve ? 'success' : 'danger',
+          title: approve ? '✅ Апелляция одобрена' : '❌ Апелляция отклонена',
+          description: `Пользователь: <@${appeal.userId}>\nРассмотрел: ${interaction.user}`,
+          fields: [{ label: 'Причина', value: appeal.reason, block: true }],
+          footer: `Апелляция #${appeal.id}`,
+          timestamp: reviewedAt,
+        }),
+      ],
+      flags: V2,
+    })
+    .catch(() => {});
 
   await sendLog(
     interaction.guild,

@@ -165,9 +165,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(guild, {
         title: '📅 Событие удалено',
         color: COLORS.danger,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         fields: [{ name: 'Название', value: `\`${event.name}\``, inline: true }],
         footer: `ID: ${event.id}`,
       });

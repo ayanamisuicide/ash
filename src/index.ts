@@ -1,11 +1,7 @@
 import { assertConfig, config } from './config.js';
 import { startBot } from './bot.js';
 import { stopScheduler } from './lib/scheduler.js';
-import {
-  closeDatabase,
-  startDatabaseBackups,
-  stopDatabaseBackups,
-} from './storage/sqlite.js';
+import { closeDatabase, startDatabaseBackups, stopDatabaseBackups } from './storage/sqlite.js';
 
 async function main(): Promise<void> {
   assertConfig();

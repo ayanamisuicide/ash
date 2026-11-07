@@ -1,7 +1,6 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
-import { setRole } from '../../lib/moderation.js';
-import { replyActionResult } from '../../lib/reply.js';
+import { buildConfirmationView, createConfirmation } from '../../lib/confirmations.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -19,22 +18,34 @@ export default {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
 
   async execute(interaction) {
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const user = interaction.options.getUser('user', true);
     const role = interaction.options.getRole('role', true);
     const reason = interaction.options.getString('reason') ?? 'Без причины';
 
-    const result = await setRole(
-      interaction.guild,
-      interaction.user.id,
-      user.id,
-      role.id,
-      reason,
-    );
-
-    await replyActionResult(interaction, result, {
-      title: '🎭 Установка роли',
-      thumbnail: user.displayAvatarURL(),
+    const id = createConfirmation({
+      guildId: interaction.guild.id,
+      userId: interaction.user.id,
+      kind: 'setrole',
+      permission: PermissionFlagsBits.ManageRoles,
+      payload: {
+        userId: user.id,
+        roleId: role.id,
+        reason,
+      },
     });
+
+    await interaction.editReply(
+      buildConfirmationView(
+        id,
+        '🎭 Подтверждение setrole',
+        `Заменить все управляемые роли участника ${user} на ${role}?`,
+        [
+          { label: 'Участник', value: `${user}`, block: false },
+          { label: 'Роль', value: `${role}`, block: false },
+          { label: 'Причина', value: reason, block: true },
+        ],
+      ),
+    );
   },
 } satisfies Command;

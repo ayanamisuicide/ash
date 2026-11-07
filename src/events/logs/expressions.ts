@@ -21,9 +21,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(emoji.guild, {
         title: '😀 Эмодзи добавлен',
         color: COLORS.success,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         thumbnail: emoji.imageURL(),
         fields,
         footer: `ID: ${emoji.id}`,
@@ -45,9 +43,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(emoji.guild, {
         title: '😀 Эмодзи удалён',
         color: COLORS.danger,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         fields,
         footer: `ID: ${emoji.id}`,
       });
@@ -72,9 +68,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(newEmoji.guild, {
         title: '😀 Эмодзи изменён',
         color: COLORS.warn,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         thumbnail: newEmoji.imageURL(),
         fields,
         footer: `ID: ${newEmoji.id}`,
@@ -102,9 +96,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(guild, {
         title: '🩹 Стикер добавлен',
         color: COLORS.success,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         description: sticker.description ?? undefined,
         thumbnail: sticker.url,
         fields,
@@ -130,9 +122,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(guild, {
         title: '🩹 Стикер удалён',
         color: COLORS.danger,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         fields,
         footer: `ID: ${sticker.id}`,
       });
@@ -158,16 +148,18 @@ const events: AnyBotEvent[] = [
 
       const fields = [{ name: 'Название', value: `\`${newSticker.name}\``, inline: true }];
       if (oldSticker.name !== newSticker.name) {
-        fields.push({ name: 'Имя', value: `\`${oldSticker.name}\` → \`${newSticker.name}\``, inline: false });
+        fields.push({
+          name: 'Имя',
+          value: `\`${oldSticker.name}\` → \`${newSticker.name}\``,
+          inline: false,
+        });
       }
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
 
       const embed = logCard(guild, {
         title: '🩹 Стикер изменён',
         color: COLORS.warn,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         description:
           oldSticker.description !== newSticker.description
             ? `${oldSticker.description ?? '*нет описания*'} → ${newSticker.description ?? '*нет описания*'}`

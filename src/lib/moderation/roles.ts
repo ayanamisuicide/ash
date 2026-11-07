@@ -1,13 +1,7 @@
 import type { Guild } from 'discord.js';
 import { createCase } from '../cases.js';
 import { humanDuration } from '../format.js';
-import {
-  checkTarget,
-  fail,
-  fetchMember,
-  ok,
-  type ActionResult,
-} from './helpers.js';
+import { checkTarget, fail, fetchMember, ok, type ActionResult } from './helpers.js';
 
 export async function setNickname(
   guild: Guild,
@@ -97,9 +91,7 @@ export async function roleAction(
     extra: { action, roleId },
   });
   return ok(
-    action === 'add'
-      ? `Роль ${role} выдана ${member}.`
-      : `Роль ${role} снята с ${member}.`,
+    action === 'add' ? `Роль ${role} выдана ${member}.` : `Роль ${role} снята с ${member}.`,
     modCase.id,
   );
 }
@@ -129,18 +121,12 @@ export async function setRole(
   if (problem) return fail(problem);
 
   const toRemove = member.roles.cache.filter(
-    (item) =>
-      item.id !== guild.id &&
-      item.id !== role.id &&
-      !item.managed,
+    (item) => item.id !== guild.id && item.id !== role.id && !item.managed,
   );
 
   try {
     if (!member.roles.cache.has(role.id)) {
-      await member.roles.add(
-        role,
-        `Модератор ${moderatorId}: setrole ${role.name} (${reason})`,
-      );
+      await member.roles.add(role, `Модератор ${moderatorId}: setrole ${role.name} (${reason})`);
     }
     if (toRemove.size > 0) {
       await member.roles.remove(
@@ -163,10 +149,7 @@ export async function setRole(
     extra: { action: 'set', roleId, removed: toRemove.size },
   });
 
-  return ok(
-    `Роли ${member} заменены на ${role} (снято: **${toRemove.size}**).`,
-    modCase.id,
-  );
+  return ok(`Роли ${member} заменены на ${role} (снято: **${toRemove.size}**).`, modCase.id);
 }
 
 export async function tempRole(
@@ -216,8 +199,5 @@ export async function tempRole(
     expiresAt: Date.now() + durationMs,
     extra: { roleId },
   });
-  return ok(
-    `Роль ${role} выдана ${member} на ${humanDuration(durationMs)}.`,
-    modCase.id,
-  );
+  return ok(`Роль ${role} выдана ${member} на ${humanDuration(durationMs)}.`, modCase.id);
 }

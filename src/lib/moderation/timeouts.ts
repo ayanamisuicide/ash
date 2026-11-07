@@ -107,17 +107,14 @@ async function findMuteRole(guild: Guild): Promise<Role | null> {
   }
 
   return (
-    guild.roles.cache.find(
-      (role) => role.name.toLowerCase() === 'muted' && !role.managed,
-    ) ?? null
+    guild.roles.cache.find((role) => role.name.toLowerCase() === 'muted' && !role.managed) ?? null
   );
 }
 
 async function applyMuteOverwrites(guild: Guild, role: Role): Promise<void> {
   const channels = [...guild.channels.cache.values()].filter(
     (channel) =>
-      'permissionOverwrites' in channel &&
-      (channel.isTextBased() || channel.isVoiceBased()),
+      'permissionOverwrites' in channel && (channel.isTextBased() || channel.isVoiceBased()),
   );
 
   await Promise.all(
@@ -189,7 +186,8 @@ export async function muteUser(
   }
 
   const role = await ensureMuteRole(guild);
-  if (!role) return fail('Не удалось создать или найти роль Muted. Проверьте право «Управление ролями».');
+  if (!role)
+    return fail('Не удалось создать или найти роль Muted. Проверьте право «Управление ролями».');
   if (member.roles.cache.has(role.id)) return fail('Участник уже заглушен.');
 
   try {
@@ -243,10 +241,7 @@ export async function unmuteUser(
     return fail('Discord отклонил снятие мута.');
   }
 
-  await dm(
-    member.user,
-    `🔊 С тебя снят мут на сервере **${guild.name}**.\n🧾 Причина: ${reason}`,
-  );
+  await dm(member.user, `🔊 С тебя снят мут на сервере **${guild.name}**.\n🧾 Причина: ${reason}`);
 
   closeActiveCases(guild.id, userId, ['mute'], `Снятие мута: ${reason}`);
 

@@ -6,9 +6,7 @@ export function parseDuration(input: string): number | null {
   const text = input.trim().toLowerCase().replace(/\s+/g, '');
   if (!text) return null;
 
-  const match = /^(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(
-    text,
-  );
+  const match = /^(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(text);
   if (!match || match.slice(1).every((value) => value === undefined)) return null;
 
   const [, weeks, days, hours, minutes, seconds] = match;

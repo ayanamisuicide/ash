@@ -1,7 +1,7 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
-import { massbanUsers } from '../../lib/moderation.js';
-import { replyActionResult } from '../../lib/reply.js';
+import { V2, errorCard } from '../../lib/card.js';
+import { buildConfirmationView, createConfirmation } from '../../lib/confirmations.js';
 
 const DELETE_CHOICES = [
   { name: 'не удалять', value: '0' },
@@ -32,22 +32,52 @@ export default {
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
   async execute(interaction) {
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const input = interaction.options.getString('users', true);
     const reason = interaction.options.getString('reason') ?? 'Без причины';
-    const deleteSeconds = Number(
-      interaction.options.getString('delete_messages') ?? '0',
-    );
+    const deleteSeconds = Number(interaction.options.getString('delete_messages') ?? '0');
+    const ids = input
+      .split(/[\s,]+/)
+      .map((id) => id.trim())
+      .filter(Boolean);
 
-    const ids = input.split(/[\s,]+/).map((id) => id.trim()).filter(Boolean);
-    const result = await massbanUsers(
-      interaction.guild,
-      interaction.user.id,
-      ids,
-      reason,
-      Number.isFinite(deleteSeconds) ? deleteSeconds : 0,
-    );
+    if (ids.length === 0) {
+      await interaction.editReply({
+        components: [errorCard('Укажите хотя бы один ID пользователя.')],
+        flags: V2,
+      });
+      return;
+    }
+    if (ids.length > 50) {
+      await interaction.editReply({
+        components: [errorCard('За один раз можно забанить не более 50 пользователей.')],
+        flags: V2,
+      });
+      return;
+    }
 
-    await replyActionResult(interaction, result, { title: '🔨 Массовый бан' });
+    const id = createConfirmation({
+      guildId: interaction.guild.id,
+      userId: interaction.user.id,
+      kind: 'massban',
+      permission: PermissionFlagsBits.BanMembers,
+      payload: {
+        userIds: ids,
+        reason,
+        deleteSeconds: Number.isFinite(deleteSeconds) ? deleteSeconds : 0,
+      },
+    });
+
+    await interaction.editReply(
+      buildConfirmationView(
+        id,
+        '🔨 Подтверждение массового бана',
+        `Забанить **${ids.length}** пользователей?`,
+        [
+          { label: 'ID', value: ids.slice(0, 10).join(', '), block: true },
+          { label: 'Причина', value: reason, block: true },
+        ],
+      ),
+    );
   },
 } satisfies Command;

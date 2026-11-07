@@ -131,7 +131,10 @@ export default {
               title: '🚫 Запрещённые слова',
               description:
                 words.length > 0
-                  ? words.slice(0, 50).map((item) => `\`${item}\``).join(', ')
+                  ? words
+                      .slice(0, 50)
+                      .map((item) => `\`${item}\``)
+                      .join(', ')
                   : 'Список пуст.',
               footer: `Слов: ${words.length}`,
               timestamp: false,
@@ -160,9 +163,7 @@ export default {
           changed
             ? successCard(
                 '🚫 Запрещённые слова',
-                action === 'add'
-                  ? `Слово \`${word}\` добавлено.`
-                  : `Слово \`${word}\` удалено.`,
+                action === 'add' ? `Слово \`${word}\` добавлено.` : `Слово \`${word}\` удалено.`,
               )
             : errorCard(
                 action === 'add'
@@ -182,9 +183,7 @@ export default {
         components: [
           successCard(
             '🛡️ Автомодерация',
-            max === 0
-              ? 'Проверка упоминаний выключена.'
-              : `Максимум упоминаний: **${max}**.`,
+            max === 0 ? 'Проверка упоминаний выключена.' : `Максимум упоминаний: **${max}**.`,
           ),
         ],
         flags: V2,

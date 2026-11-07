@@ -181,9 +181,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(guild, {
         title: '🧹 Массовое удаление сообщений',
         color: COLORS.danger,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         description: preview || '*содержимое недоступно*',
         fields,
       });
@@ -194,10 +192,7 @@ const events: AnyBotEvent[] = [
 
   {
     name: Events.MessageReactionAdd,
-    async execute(
-      reaction: MessageReaction | PartialMessageReaction,
-      user: User | PartialUser,
-    ) {
+    async execute(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser) {
       const resolved = await resolveReaction(reaction);
       const guild = resolved.message.guild;
       if (!guild) return;
@@ -228,10 +223,7 @@ const events: AnyBotEvent[] = [
 
   {
     name: Events.MessageReactionRemove,
-    async execute(
-      reaction: MessageReaction | PartialMessageReaction,
-      user: User | PartialUser,
-    ) {
+    async execute(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser) {
       const resolved = await resolveReaction(reaction);
       const guild = resolved.message.guild;
       if (!guild) return;
@@ -262,7 +254,10 @@ const events: AnyBotEvent[] = [
 
   {
     name: Events.MessageReactionRemoveAll,
-    async execute(message: Message | PartialMessage, reactions: ReadonlyMap<string, MessageReaction>) {
+    async execute(
+      message: Message | PartialMessage,
+      reactions: ReadonlyMap<string, MessageReaction>,
+    ) {
       const guild = message.guild;
       if (!guild) return;
       if (!isLogEventEnabled(guild.id, 'reactionClear')) return;

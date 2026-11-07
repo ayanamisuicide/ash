@@ -16,9 +16,7 @@ async function fetchEntries(
   const hit = cache.get(key);
   if (!force && hit && Date.now() - hit.at < TTL_MS) return hit.entries;
 
-  const logs = await guild
-    .fetchAuditLogs({ type, limit: 10 })
-    .catch(() => null);
+  const logs = await guild.fetchAuditLogs({ type, limit: 10 }).catch(() => null);
 
   const entries = logs ? [...logs.entries.values()] : [];
   cache.set(key, { at: Date.now(), entries });
@@ -39,9 +37,7 @@ export async function findAuditEntry(
   for (let attempt = 0; attempt <= retries; attempt++) {
     const entries = await fetchEntries(guild, type, attempt > 0);
     const recent = entries.filter((entry) => Date.now() - entry.createdTimestamp < FRESH_MS);
-    const match = targetId
-      ? recent.find((entry) => entry.targetId === targetId)
-      : recent[0];
+    const match = targetId ? recent.find((entry) => entry.targetId === targetId) : recent[0];
 
     if (match) return match;
     if (attempt < retries) {

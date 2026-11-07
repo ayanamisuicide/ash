@@ -128,6 +128,25 @@ test('cases: close warn cases', () => {
   assert.equal(cases.getCase(warnGuild, first.id)?.extra.closedReason, 'Снятие предупреждений');
 });
 
+test('warns: expiry filters old warnings', () => {
+  const expiryGuild = 'test-expiry-guild';
+  storage.ensureGuild(expiryGuild);
+  settings.setWarnExpiry(expiryGuild, 1);
+
+  storage.db
+    .prepare(
+      `
+    INSERT INTO warns (guild_id, user_id, id, moderator_id, reason, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `,
+    )
+    .run(expiryGuild, userId, 'old-warn', moderatorId, 'old', Date.now() - 2 * 86_400_000);
+
+  assert.equal(warns.getWarns(expiryGuild, userId).length, 0);
+  const added = warns.addWarn(expiryGuild, userId, moderatorId, 'new');
+  assert.equal(added.total, 1);
+});
+
 test('warns: add, remove, clear', () => {
   const first = warns.addWarn(guildId, userId, moderatorId, 'first');
   assert.equal(first.total, 1);

@@ -2,11 +2,7 @@ import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.
 import type { Command } from '../../core/types.js';
 import { V2, card } from '../../lib/card.js';
 import { getNotes } from '../../lib/notes.js';
-import {
-  noteAddAction,
-  noteClearAction,
-  noteRemoveAction,
-} from '../../lib/moderation.js';
+import { noteAddAction, noteClearAction, noteRemoveAction } from '../../lib/moderation.js';
 import { replyActionResult } from '../../lib/reply.js';
 import { truncate } from '../../lib/logging.js';
 
@@ -22,7 +18,11 @@ export default {
           option.setName('user').setDescription('О ком заметка').setRequired(true),
         )
         .addStringOption((option) =>
-          option.setName('text').setDescription('Текст заметки').setRequired(true).setMaxLength(1000),
+          option
+            .setName('text')
+            .setDescription('Текст заметки')
+            .setRequired(true)
+            .setMaxLength(1000),
         ),
     )
     .addSubcommand((sub) =>
@@ -92,12 +92,7 @@ export default {
 
     if (sub === 'add') {
       const text = interaction.options.getString('text', true);
-      const result = await noteAddAction(
-        interaction.guild,
-        interaction.user.id,
-        user.id,
-        text,
-      );
+      const result = await noteAddAction(interaction.guild, interaction.user.id, user.id, text);
       await replyActionResult(interaction, result, {
         title: '📝 Заметка',
         thumbnail: user.displayAvatarURL(),
@@ -107,12 +102,7 @@ export default {
 
     if (sub === 'remove') {
       const id = interaction.options.getString('id', true);
-      const result = await noteRemoveAction(
-        interaction.guild,
-        interaction.user.id,
-        user.id,
-        id,
-      );
+      const result = await noteRemoveAction(interaction.guild, interaction.user.id, user.id, id);
       await replyActionResult(interaction, result, {
         title: '📝 Удаление заметки',
         thumbnail: user.displayAvatarURL(),
@@ -120,11 +110,7 @@ export default {
       return;
     }
 
-    const result = await noteClearAction(
-      interaction.guild,
-      interaction.user.id,
-      user.id,
-    );
+    const result = await noteClearAction(interaction.guild, interaction.user.id, user.id);
     await replyActionResult(interaction, result, {
       title: '📝 Очистка заметок',
       thumbnail: user.displayAvatarURL(),

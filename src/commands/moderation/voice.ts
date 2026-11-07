@@ -1,8 +1,4 @@
-import {
-  ChannelType,
-  PermissionFlagsBits,
-  SlashCommandBuilder,
-} from 'discord.js';
+import { ChannelType, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
 import { V2, errorCard } from '../../lib/card.js';
 import { voiceAction, type VoiceAction } from '../../lib/moderation.js';

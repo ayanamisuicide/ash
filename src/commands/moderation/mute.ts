@@ -11,9 +11,7 @@ export default {
       option.setName('user').setDescription('Кого заглушить').setRequired(true),
     )
     .addStringOption((option) =>
-      option
-        .setName('duration')
-        .setDescription('Длительность: 10m, 1h, 2d (пусто — навсегда)'),
+      option.setName('duration').setDescription('Длительность: 10m, 1h, 2d (пусто — навсегда)'),
     )
     .addStringOption((option) =>
       option.setName('reason').setDescription('Причина').setMaxLength(450),

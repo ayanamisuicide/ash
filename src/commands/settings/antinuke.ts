@@ -1,11 +1,8 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
 import { V2, card, successCard } from '../../lib/card.js';
-import {
-  getSecuritySettings,
-  updateNukeConfig,
-  type NukeAction,
-} from '../../lib/modSettings.js';
+import { buildConfirmationView, createConfirmation } from '../../lib/confirmations.js';
+import { getSecuritySettings, updateNukeConfig, type NukeAction } from '../../lib/modSettings.js';
 import { getNukeCounters, resetNukeRuntime } from '../../lib/nuke.js';
 
 const ACTION_CHOICES = [
@@ -82,10 +79,7 @@ export default {
       updateNukeConfig(guildId, { enabled });
       await interaction.editReply({
         components: [
-          successCard(
-            '🧨 Анти-нак',
-            enabled ? 'Анти-нак включён.' : 'Анти-нак выключен.',
-          ),
+          successCard('🧨 Анти-нак', enabled ? 'Анти-нак включён.' : 'Анти-нак выключен.'),
         ],
         flags: V2,
       });
@@ -98,10 +92,7 @@ export default {
       updateNukeConfig(guildId, { threshold, windowSec });
       await interaction.editReply({
         components: [
-          successCard(
-            '🧨 Анти-нак',
-            `Порог: **${threshold}** действий за **${windowSec} с**.`,
-          ),
+          successCard('🧨 Анти-нак', `Порог: **${threshold}** действий за **${windowSec} с**.`),
         ],
         flags: V2,
       });
@@ -110,11 +101,37 @@ export default {
 
     if (sub === 'action') {
       const action = interaction.options.getString('action', true) as NukeAction;
+
+      if (action === 'ban') {
+        const id = createConfirmation({
+          guildId,
+          userId: interaction.user.id,
+          kind: 'antinuke-action',
+          permission: PermissionFlagsBits.ManageGuild,
+          payload: { action },
+        });
+
+        await interaction.editReply(
+          buildConfirmationView(
+            id,
+            '🧨 Подтверждение анти-нака',
+            'Включить **автоматический бан** для нарушителей анти-нака?',
+            [
+              {
+                label: 'Важно',
+                value:
+                  'Это опасное действие. Убедитесь, что `ignoreadmins` включён, если не хотите банить администраторов.',
+                block: true,
+              },
+            ],
+          ),
+        );
+        return;
+      }
+
       updateNukeConfig(guildId, { action });
       await interaction.editReply({
-        components: [
-          successCard('🧨 Анти-нак', `Действие: **${nukeActionLabel(action)}**.`),
-        ],
+        components: [successCard('🧨 Анти-нак', `Действие: **${nukeActionLabel(action)}**.`)],
         flags: V2,
       });
       return;
@@ -173,9 +190,7 @@ export default {
             },
             {
               label: 'Администраторы',
-              value: config.ignoreAdmins
-                ? 'не наказываются автоматически'
-                : 'могут быть наказаны',
+              value: config.ignoreAdmins ? 'не наказываются автоматически' : 'могут быть наказаны',
               block: false,
             },
             ...(fields.length > 0

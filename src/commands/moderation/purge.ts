@@ -15,18 +15,10 @@ export default {
         .setMaxValue(1000)
         .setRequired(true),
     )
-    .addUserOption((option) =>
-      option.setName('user').setDescription('Только сообщения участника'),
-    )
-    .addBooleanOption((option) =>
-      option.setName('bots').setDescription('Только сообщения ботов'),
-    )
-    .addStringOption((option) =>
-      option.setName('contains').setDescription('Содержит текст'),
-    )
-    .addStringOption((option) =>
-      option.setName('regex').setDescription('Регулярное выражение'),
-    )
+    .addUserOption((option) => option.setName('user').setDescription('Только сообщения участника'))
+    .addBooleanOption((option) => option.setName('bots').setDescription('Только сообщения ботов'))
+    .addStringOption((option) => option.setName('contains').setDescription('Содержит текст'))
+    .addStringOption((option) => option.setName('regex').setDescription('Регулярное выражение'))
     .addBooleanOption((option) =>
       option.setName('embeds').setDescription('Только сообщения с эмбедами'),
     )

@@ -111,9 +111,7 @@ const events: AnyBotEvent[] = [
       const newTimeout = newMember.communicationDisabledUntilTimestamp ?? null;
       if (oldTimeout !== newTimeout) {
         changes.push(
-          newTimeout
-            ? `**Таймаут до:** ${fmtRelative(newTimeout)}`
-            : '**Таймаут снят**',
+          newTimeout ? `**Таймаут до:** ${fmtRelative(newTimeout)}` : '**Таймаут снят**',
         );
       }
 

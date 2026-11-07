@@ -5,17 +5,8 @@ import { COLORS } from '../../lib/embeds.js';
 import { humanDuration } from '../../lib/format.js';
 import { logCard } from '../../lib/logCard.js';
 import { sendLog } from '../../lib/logger.js';
-import {
-  getSecuritySettings,
-  updateRaidConfig,
-  type RaidAction,
-} from '../../lib/modSettings.js';
-import {
-  clearRaidMode,
-  getRaidRuntime,
-  resetRaidRuntime,
-  setRaidMode,
-} from '../../lib/raid.js';
+import { getSecuritySettings, updateRaidConfig, type RaidAction } from '../../lib/modSettings.js';
+import { clearRaidMode, getRaidRuntime, resetRaidRuntime, setRaidMode } from '../../lib/raid.js';
 
 const ACTION_CHOICES = [
   { name: 'Только уведомление', value: 'alert' },
@@ -131,10 +122,7 @@ export default {
       updateRaidConfig(guildId, { enabled });
       await interaction.editReply({
         components: [
-          successCard(
-            '🚨 Антирейд',
-            enabled ? 'Антирейд включён.' : 'Антирейд выключен.',
-          ),
+          successCard('🚨 Антирейд', enabled ? 'Антирейд включён.' : 'Антирейд выключен.'),
         ],
         flags: V2,
       });
@@ -178,9 +166,7 @@ export default {
       const action = interaction.options.getString('action', true) as RaidAction;
       updateRaidConfig(guildId, { action });
       await interaction.editReply({
-        components: [
-          successCard('🚨 Антирейд', `Действие: **${raidActionLabel(action)}**.`),
-        ],
+        components: [successCard('🚨 Антирейд', `Действие: **${raidActionLabel(action)}**.`)],
         flags: V2,
       });
       return;
@@ -208,9 +194,7 @@ export default {
         components: [
           successCard(
             '🚨 Антирейд',
-            ignoreBots
-              ? 'Заходы ботов игнорируются.'
-              : 'Заходы ботов учитываются.',
+            ignoreBots ? 'Заходы ботов игнорируются.' : 'Заходы ботов учитываются.',
           ),
         ],
         flags: V2,
@@ -221,8 +205,7 @@ export default {
     if (sub === 'panic') {
       const enabled = interaction.options.getBoolean('enabled', true);
       const seconds =
-        interaction.options.getInteger('seconds') ??
-        getSecuritySettings(guildId).raid.durationSec;
+        interaction.options.getInteger('seconds') ?? getSecuritySettings(guildId).raid.durationSec;
 
       if (enabled) {
         setRaidMode(guildId, seconds * 1_000);
@@ -289,7 +272,8 @@ export default {
             },
             {
               label: 'Возраст аккаунта',
-              value: config.accountAgeDays === 0 ? 'не проверяется' : `${config.accountAgeDays} дн.`,
+              value:
+                config.accountAgeDays === 0 ? 'не проверяется' : `${config.accountAgeDays} дн.`,
               block: false,
             },
             { label: 'Действие', value: raidActionLabel(config.action), block: false },

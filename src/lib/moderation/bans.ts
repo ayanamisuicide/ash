@@ -32,8 +32,7 @@ export async function banUser(
     if (!member.bannable) return fail('У бота нет прав забанить этого участника.');
   }
 
-  const expiresAt =
-    durationMs && durationMs > 0 ? Date.now() + Math.floor(durationMs) : null;
+  const expiresAt = durationMs && durationMs > 0 ? Date.now() + Math.floor(durationMs) : null;
 
   await dm(
     user,
@@ -175,10 +174,7 @@ export async function kickUser(
   if (problem) return fail(problem);
   if (!member.kickable) return fail('У бота нет прав кикнуть этого участника.');
 
-  await dm(
-    member.user,
-    `👢 Ты кикнут с сервера **${guild.name}**.\n🧾 Причина: ${reason}`,
-  );
+  await dm(member.user, `👢 Ты кикнут с сервера **${guild.name}**.\n🧾 Причина: ${reason}`);
 
   try {
     await member.kick(`Модератор ${moderatorId}: ${reason}`);
@@ -214,10 +210,7 @@ export async function unbanUser(
     return fail('Discord отклонил разбан. Проверьте права бота.');
   }
 
-  await dm(
-    banned.user,
-    `🔓 Ты разбанен на сервере **${guild.name}**.\n🧾 Причина: ${reason}`,
-  );
+  await dm(banned.user, `🔓 Ты разбанен на сервере **${guild.name}**.\n🧾 Причина: ${reason}`);
 
   closeActiveCases(guild.id, userId, ['ban', 'tempban'], `Разбан: ${reason}`);
 

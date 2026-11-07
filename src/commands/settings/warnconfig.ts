@@ -8,6 +8,7 @@ import {
   clearWarnActions,
   getModerationSettings,
   removeWarnAction,
+  setWarnExpiry,
   type WarnActionType,
 } from '../../lib/modSettings.js';
 
@@ -56,6 +57,19 @@ export default {
             .setDescription('Длительность для таймаута/мута/временного бана'),
         ),
     )
+    .addSubcommand((sub) =>
+      sub
+        .setName('expiry')
+        .setDescription('Срок жизни предупреждений')
+        .addIntegerOption((option) =>
+          option
+            .setName('days')
+            .setDescription('Дней (0 — не истекают)')
+            .setMinValue(0)
+            .setMaxValue(365)
+            .setRequired(true),
+        ),
+    )
     .addSubcommand((sub) => sub.setName('list').setDescription('Показать правила'))
     .addSubcommand((sub) =>
       sub
@@ -71,14 +85,14 @@ export default {
   async execute(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const sub = interaction.options.getSubcommand(true);
+    const guildId = interaction.guild.id;
 
     if (sub === 'add') {
       const count = interaction.options.getInteger('count', true);
       const windowDays = interaction.options.getInteger('window', true);
       const action = interaction.options.getString('action', true) as WarnActionType;
       const durationInput = interaction.options.getString('duration');
-      const needsDuration =
-        action === 'timeout' || action === 'mute' || action === 'tempban';
+      const needsDuration = action === 'timeout' || action === 'mute' || action === 'tempban';
       const durationMs = durationInput ? parseDuration(durationInput) : null;
 
       if (needsDuration && !durationMs) {
@@ -127,6 +141,23 @@ export default {
       return;
     }
 
+    if (sub === 'expiry') {
+      const days = interaction.options.getInteger('days', true);
+      setWarnExpiry(guildId, days);
+      await interaction.editReply({
+        components: [
+          successCard(
+            '⚠️ Срок жизни варнов',
+            days === 0
+              ? 'Варны не истекают автоматически.'
+              : `Варны старше **${days} дн.** больше не учитываются.`,
+          ),
+        ],
+        flags: V2,
+      });
+      return;
+    }
+
     if (sub === 'remove') {
       const id = interaction.options.getString('id', true);
       const removed = removeWarnAction(interaction.guild.id, id);
@@ -162,8 +193,7 @@ export default {
         card({
           tone: 'info',
           title: '⚡ Автонаказания по варнам',
-          description:
-            rules.length > 0 ? 'Срабатывает первое подходящее правило.' : 'Правил нет.',
+          description: rules.length > 0 ? 'Срабатывает первое подходящее правило.' : 'Правил нет.',
           fields,
           timestamp: false,
         }),

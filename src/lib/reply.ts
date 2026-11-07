@@ -22,9 +22,7 @@ export async function replyActionResult(
         title: result.ok ? (options.title ?? 'Готово') : 'Ошибка',
         description: result.message,
         thumbnail: options.thumbnail ?? null,
-        footer:
-          options.footer ??
-          (result.caseId ? `Кейс #${result.caseId}` : null),
+        footer: options.footer ?? (result.caseId ? `Кейс #${result.caseId}` : null),
         timestamp: false,
       }),
     ],

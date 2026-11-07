@@ -28,6 +28,7 @@ export interface ModerationSettings {
   reportChannelId: string | null;
   appealChannelId: string | null;
   muteRoleId: string | null;
+  warnExpiryDays: number;
   warnActions: WarnAction[];
   automod: AutomodConfig;
 }
@@ -99,10 +100,7 @@ const SETTINGS_CACHE_TTL_MS = (() => {
 const moderationCache = new Map<string, CacheEntry<ModerationSettings>>();
 const securityCache = new Map<string, CacheEntry<SecuritySettings>>();
 
-function cacheGet<T>(
-  cache: Map<string, CacheEntry<T>>,
-  guildId: string,
-): T | null {
+function cacheGet<T>(cache: Map<string, CacheEntry<T>>, guildId: string): T | null {
   if (SETTINGS_CACHE_TTL_MS === 0) return null;
   const hit = cache.get(guildId);
   if (!hit) return null;
@@ -113,11 +111,7 @@ function cacheGet<T>(
   return hit.value;
 }
 
-function cacheSet<T>(
-  cache: Map<string, CacheEntry<T>>,
-  guildId: string,
-  value: T,
-): T {
+function cacheSet<T>(cache: Map<string, CacheEntry<T>>, guildId: string, value: T): T {
   if (SETTINGS_CACHE_TTL_MS > 0) {
     cache.set(guildId, { at: Date.now(), value });
   }
@@ -135,6 +129,7 @@ interface ModerationRow {
   report_channel_id: string | null;
   appeal_channel_id: string | null;
   mute_role_id: string | null;
+  warn_expiry_days: number;
   warn_actions: string;
   automod: string;
 }
@@ -191,28 +186,12 @@ function normalizeRaid(value: unknown): RaidConfig {
 
   return {
     enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_RAID.enabled,
-    joinThreshold: clampInt(
-      raw.joinThreshold,
-      DEFAULT_RAID.joinThreshold,
-      1,
-      1_000,
-    ),
-    joinWindowSec: clampInt(
-      raw.joinWindowSec,
-      DEFAULT_RAID.joinWindowSec,
-      5,
-      3_600,
-    ),
-    accountAgeDays: clampInt(
-      raw.accountAgeDays,
-      DEFAULT_RAID.accountAgeDays,
-      0,
-      365,
-    ),
+    joinThreshold: clampInt(raw.joinThreshold, DEFAULT_RAID.joinThreshold, 1, 1_000),
+    joinWindowSec: clampInt(raw.joinWindowSec, DEFAULT_RAID.joinWindowSec, 5, 3_600),
+    accountAgeDays: clampInt(raw.accountAgeDays, DEFAULT_RAID.accountAgeDays, 0, 365),
     action,
     durationSec: clampInt(raw.durationSec, DEFAULT_RAID.durationSec, 30, 86_400),
-    ignoreBots:
-      typeof raw.ignoreBots === 'boolean' ? raw.ignoreBots : DEFAULT_RAID.ignoreBots,
+    ignoreBots: typeof raw.ignoreBots === 'boolean' ? raw.ignoreBots : DEFAULT_RAID.ignoreBots,
   };
 }
 
@@ -232,17 +211,13 @@ function normalizeNuke(value: unknown): NukeConfig {
     windowSec: clampInt(raw.windowSec, DEFAULT_NUKE.windowSec, 5, 3_600),
     action,
     ignoreAdmins:
-      typeof raw.ignoreAdmins === 'boolean'
-        ? raw.ignoreAdmins
-        : DEFAULT_NUKE.ignoreAdmins,
+      typeof raw.ignoreAdmins === 'boolean' ? raw.ignoreAdmins : DEFAULT_NUKE.ignoreAdmins,
   };
 }
 
 function ensureSecurityRow(guildId: string): void {
   ensureGuild(guildId);
-  db.prepare(
-    'INSERT OR IGNORE INTO security_settings (guild_id) VALUES (?)',
-  ).run(guildId);
+  db.prepare('INSERT OR IGNORE INTO security_settings (guild_id) VALUES (?)').run(guildId);
 }
 
 function updateSecurityColumn(
@@ -251,17 +226,13 @@ function updateSecurityColumn(
   value: string,
 ): void {
   ensureSecurityRow(guildId);
-  db.prepare(
-    `UPDATE security_settings SET ${column} = ? WHERE guild_id = ?`,
-  ).run(value, guildId);
+  db.prepare(`UPDATE security_settings SET ${column} = ? WHERE guild_id = ?`).run(value, guildId);
   invalidate(guildId);
 }
 
 function ensureRow(guildId: string): void {
   ensureGuild(guildId);
-  db.prepare(
-    'INSERT OR IGNORE INTO moderation_settings (guild_id) VALUES (?)',
-  ).run(guildId);
+  db.prepare('INSERT OR IGNORE INTO moderation_settings (guild_id) VALUES (?)').run(guildId);
 }
 
 function updateColumn(
@@ -271,14 +242,13 @@ function updateColumn(
     | 'report_channel_id'
     | 'appeal_channel_id'
     | 'mute_role_id'
+    | 'warn_expiry_days'
     | 'warn_actions'
     | 'automod',
-  value: string | null,
+  value: string | number | null,
 ): void {
   ensureRow(guildId);
-  db.prepare(
-    `UPDATE moderation_settings SET ${column} = ? WHERE guild_id = ?`,
-  ).run(value, guildId);
+  db.prepare(`UPDATE moderation_settings SET ${column} = ? WHERE guild_id = ?`).run(value, guildId);
   invalidate(guildId);
 }
 
@@ -286,13 +256,10 @@ export function getModerationSettings(guildId: string): ModerationSettings {
   const cached = cacheGet(moderationCache, guildId);
   if (cached) return cached;
 
-  const row = db
-    .prepare('SELECT * FROM moderation_settings WHERE guild_id = ?')
-    .get(guildId) as ModerationRow | undefined;
+  const row = db.prepare('SELECT * FROM moderation_settings WHERE guild_id = ?').get(guildId) as
+    ModerationRow | undefined;
 
-  const immunityRoles = row
-    ? parseJson<unknown>(row.immunity_roles, [])
-    : [];
+  const immunityRoles = row ? parseJson<unknown>(row.immunity_roles, []) : [];
   const roles = Array.isArray(immunityRoles)
     ? immunityRoles.filter((id): id is string => typeof id === 'string')
     : [];
@@ -308,25 +275,12 @@ export function getModerationSettings(guildId: string): ModerationSettings {
   const storedAutomod = isObject(automodRaw) ? automodRaw : {};
   const automod: AutomodConfig = {
     enabled:
-      typeof storedAutomod.enabled === 'boolean'
-        ? storedAutomod.enabled
-        : DEFAULT_AUTOMOD.enabled,
+      typeof storedAutomod.enabled === 'boolean' ? storedAutomod.enabled : DEFAULT_AUTOMOD.enabled,
     invites:
-      typeof storedAutomod.invites === 'boolean'
-        ? storedAutomod.invites
-        : DEFAULT_AUTOMOD.invites,
-    links:
-      typeof storedAutomod.links === 'boolean'
-        ? storedAutomod.links
-        : DEFAULT_AUTOMOD.links,
-    caps:
-      typeof storedAutomod.caps === 'boolean'
-        ? storedAutomod.caps
-        : DEFAULT_AUTOMOD.caps,
-    spam:
-      typeof storedAutomod.spam === 'boolean'
-        ? storedAutomod.spam
-        : DEFAULT_AUTOMOD.spam,
+      typeof storedAutomod.invites === 'boolean' ? storedAutomod.invites : DEFAULT_AUTOMOD.invites,
+    links: typeof storedAutomod.links === 'boolean' ? storedAutomod.links : DEFAULT_AUTOMOD.links,
+    caps: typeof storedAutomod.caps === 'boolean' ? storedAutomod.caps : DEFAULT_AUTOMOD.caps,
+    spam: typeof storedAutomod.spam === 'boolean' ? storedAutomod.spam : DEFAULT_AUTOMOD.spam,
     words: Array.isArray(storedAutomod.words)
       ? storedAutomod.words.filter((word): word is string => typeof word === 'string')
       : [],
@@ -341,6 +295,7 @@ export function getModerationSettings(guildId: string): ModerationSettings {
     reportChannelId: row?.report_channel_id ?? null,
     appealChannelId: row?.appeal_channel_id ?? null,
     muteRoleId: row?.mute_role_id ?? null,
+    warnExpiryDays: Number(row?.warn_expiry_days ?? 0),
     warnActions,
     automod,
   });
@@ -386,10 +341,11 @@ export function setMuteRoleId(guildId: string, roleId: string | null): void {
   updateColumn(guildId, 'mute_role_id', roleId);
 }
 
-export function addWarnAction(
-  guildId: string,
-  input: Omit<WarnAction, 'id'>,
-): WarnAction {
+export function setWarnExpiry(guildId: string, days: number): void {
+  updateColumn(guildId, 'warn_expiry_days', Math.max(0, Math.min(Math.floor(days), 365)));
+}
+
+export function addWarnAction(guildId: string, input: Omit<WarnAction, 'id'>): WarnAction {
   const actions = getModerationSettings(guildId).warnActions;
   const action: WarnAction = {
     ...input,
@@ -411,10 +367,7 @@ export function clearWarnActions(guildId: string): void {
   updateColumn(guildId, 'warn_actions', '[]');
 }
 
-export function updateAutomod(
-  guildId: string,
-  patch: Partial<AutomodConfig>,
-): AutomodConfig {
+export function updateAutomod(guildId: string, patch: Partial<AutomodConfig>): AutomodConfig {
   const current = getModerationSettings(guildId).automod;
   const next: AutomodConfig = { ...current, ...patch };
   updateColumn(guildId, 'automod', toJson(next));
@@ -427,11 +380,7 @@ export function addAutomodWord(guildId: string, word: string): boolean {
   if (!normalized || automod.words.some((item) => item.toLowerCase() === normalized)) {
     return false;
   }
-  updateColumn(
-    guildId,
-    'automod',
-    toJson({ ...automod, words: [...automod.words, word.trim()] }),
-  );
+  updateColumn(guildId, 'automod', toJson({ ...automod, words: [...automod.words, word.trim()] }));
   return true;
 }
 
@@ -448,9 +397,8 @@ export function getSecuritySettings(guildId: string): SecuritySettings {
   const cached = cacheGet(securityCache, guildId);
   if (cached) return cached;
 
-  const row = db
-    .prepare('SELECT * FROM security_settings WHERE guild_id = ?')
-    .get(guildId) as SecurityRow | undefined;
+  const row = db.prepare('SELECT * FROM security_settings WHERE guild_id = ?').get(guildId) as
+    SecurityRow | undefined;
 
   return cacheSet(securityCache, guildId, {
     raid: normalizeRaid(row ? parseJson<unknown>(row.raid_config, {}) : {}),
@@ -458,20 +406,14 @@ export function getSecuritySettings(guildId: string): SecuritySettings {
   });
 }
 
-export function updateRaidConfig(
-  guildId: string,
-  patch: Partial<RaidConfig>,
-): RaidConfig {
+export function updateRaidConfig(guildId: string, patch: Partial<RaidConfig>): RaidConfig {
   const current = getSecuritySettings(guildId).raid;
   const next = normalizeRaid({ ...current, ...patch });
   updateSecurityColumn(guildId, 'raid_config', toJson(next));
   return next;
 }
 
-export function updateNukeConfig(
-  guildId: string,
-  patch: Partial<NukeConfig>,
-): NukeConfig {
+export function updateNukeConfig(guildId: string, patch: Partial<NukeConfig>): NukeConfig {
   const current = getSecuritySettings(guildId).nuke;
   const next = normalizeNuke({ ...current, ...patch });
   updateSecurityColumn(guildId, 'nuke_config', toJson(next));

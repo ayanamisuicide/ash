@@ -1,8 +1,4 @@
-import {
-  PermissionFlagsBits,
-  type Guild,
-  type GuildTextBasedChannel,
-} from 'discord.js';
+import { PermissionFlagsBits, type Guild, type GuildTextBasedChannel } from 'discord.js';
 import { createCase } from '../cases.js';
 import { COLORS } from '../embeds.js';
 import { logCard } from '../logCard.js';
@@ -112,18 +108,9 @@ export async function unlockChannel(
         {
           SendMessages: overwriteValue(state, PermissionFlagsBits.SendMessages),
           AddReactions: overwriteValue(state, PermissionFlagsBits.AddReactions),
-          SendMessagesInThreads: overwriteValue(
-            state,
-            PermissionFlagsBits.SendMessagesInThreads,
-          ),
-          CreatePublicThreads: overwriteValue(
-            state,
-            PermissionFlagsBits.CreatePublicThreads,
-          ),
-          CreatePrivateThreads: overwriteValue(
-            state,
-            PermissionFlagsBits.CreatePrivateThreads,
-          ),
+          SendMessagesInThreads: overwriteValue(state, PermissionFlagsBits.SendMessagesInThreads),
+          CreatePublicThreads: overwriteValue(state, PermissionFlagsBits.CreatePublicThreads),
+          CreatePrivateThreads: overwriteValue(state, PermissionFlagsBits.CreatePrivateThreads),
         },
         { reason: `Модератор ${moderatorId}: ${reason}` },
       );
@@ -184,8 +171,7 @@ export async function lockdownGuild(
   reason: string,
 ): Promise<ActionResult> {
   const channels = [...guild.channels.cache.values()].filter(
-    (channel): channel is GuildTextBasedChannel =>
-      channel.isTextBased() && !channel.isThread(),
+    (channel): channel is GuildTextBasedChannel => channel.isTextBased() && !channel.isThread(),
   );
 
   let count = 0;

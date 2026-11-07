@@ -7,8 +7,7 @@ import { getModerationSettings } from '../lib/modSettings.js';
 import { warnUser } from '../lib/moderation.js';
 import { quote, truncate } from '../lib/logging.js';
 
-const INVITE_RE =
-  /(?:discord\.(?:gg|io|me|li|link)|discord(?:app)?\.com\/invite|dsc\.gg)\/[\w-]+/i;
+const INVITE_RE = /(?:discord\.(?:gg|io|me|li|link)|discord(?:app)?\.com\/invite|dsc\.gg)\/[\w-]+/i;
 const LINK_RE = /https?:\/\/[^\s]+/i;
 
 const MOD_PERMS = [
@@ -92,10 +91,7 @@ export default {
       violation = 'запрещённое слово';
     } else if (config.caps && capsViolation(content)) {
       violation = 'чрезмерный капс';
-    } else if (
-      config.mentions > 0 &&
-      message.mentions.users.size >= config.mentions
-    ) {
+    } else if (config.mentions > 0 && message.mentions.users.size >= config.mentions) {
       violation = `массовые упоминания (${message.mentions.users.size})`;
     } else if (config.spam && checkSpam(guild.id, message.author.id, content)) {
       violation = 'спам';

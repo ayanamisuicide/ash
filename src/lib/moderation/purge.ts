@@ -1,12 +1,6 @@
 import type { GuildTextBasedChannel, Message } from 'discord.js';
 import { createCase } from '../cases.js';
-import {
-  FOURTEEN_DAYS_MS,
-  MAX_PURGE,
-  fail,
-  ok,
-  type ActionResult,
-} from './helpers.js';
+import { FOURTEEN_DAYS_MS, MAX_PURGE, fail, ok, type ActionResult } from './helpers.js';
 
 export interface PurgeOptions {
   amount: number;
@@ -33,13 +27,13 @@ export async function purgeMessages(
   const amount = Math.max(1, Math.min(Math.floor(options.amount), MAX_PURGE));
   const needsScan = Boolean(
     options.userId ||
-      options.bots ||
-      options.contains ||
-      options.regex ||
-      options.embeds ||
-      options.files ||
-      options.links ||
-      options.images,
+    options.bots ||
+    options.contains ||
+    options.regex ||
+    options.embeds ||
+    options.files ||
+    options.links ||
+    options.images,
   );
   const fetchLimit = needsScan ? Math.min(MAX_PURGE, Math.max(amount * 4, 100)) : amount;
 
@@ -77,10 +71,7 @@ export async function purgeMessages(
       if (options.bots && !message.author.bot) return false;
 
       const content = message.content ?? '';
-      if (
-        options.contains &&
-        !content.toLowerCase().includes(options.contains.toLowerCase())
-      ) {
+      if (options.contains && !content.toLowerCase().includes(options.contains.toLowerCase())) {
         return false;
       }
       if (regex && !regex.test(content)) return false;

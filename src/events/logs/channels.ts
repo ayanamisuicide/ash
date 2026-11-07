@@ -1,9 +1,4 @@
-import {
-  AuditLogEvent,
-  Events,
-  type DMChannel,
-  type NonThreadGuildBasedChannel,
-} from 'discord.js';
+import { AuditLogEvent, Events, type DMChannel, type NonThreadGuildBasedChannel } from 'discord.js';
 import type { AnyBotEvent } from '../../core/types.js';
 import { auditInfo } from '../../lib/audit.js';
 import { COLORS } from '../../lib/embeds.js';
@@ -31,9 +26,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(channel.guild, {
         title: '📁 Канал создан',
         color: COLORS.success,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         fields,
         footer: `ID: ${channel.id}`,
       });
@@ -61,9 +54,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(channel.guild, {
         title: '🗑️ Канал удалён',
         color: COLORS.danger,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         fields,
         footer: `ID: ${channel.id}`,
       });
@@ -107,7 +98,9 @@ const events: AnyBotEvent[] = [
         );
       }
       if ('nsfw' in oldChannel && 'nsfw' in newChannel && oldChannel.nsfw !== newChannel.nsfw) {
-        changes.push(`**NSFW:** ${oldChannel.nsfw ? 'да' : 'нет'} → ${newChannel.nsfw ? 'да' : 'нет'}`);
+        changes.push(
+          `**NSFW:** ${oldChannel.nsfw ? 'да' : 'нет'} → ${newChannel.nsfw ? 'да' : 'нет'}`,
+        );
       }
 
       if (changes.length === 0) return;
@@ -120,9 +113,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(guild, {
         title: '✏️ Канал изменён',
         color: COLORS.warn,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         description: changes.join('\n'),
         fields,
         footer: `ID: ${newChannel.id}`,

@@ -1,16 +1,6 @@
-import {
-  ChannelType,
-  MessageFlags,
-  PermissionFlagsBits,
-  SlashCommandBuilder,
-} from 'discord.js';
+import { ChannelType, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
-import {
-  V2,
-  card,
-  errorCard,
-  successCard,
-} from '../../lib/card.js';
+import { V2, card, errorCard, successCard } from '../../lib/card.js';
 import {
   LOG_CATEGORIES,
   LOG_EVENTS,
@@ -78,11 +68,16 @@ export default {
         .setName('all')
         .setDescription('Включить или выключить все логи')
         .addBooleanOption((option) =>
-          option.setName('enabled').setDescription('true — всё вкл, false — всё выкл').setRequired(true),
+          option
+            .setName('enabled')
+            .setDescription('true — всё вкл, false — всё выкл')
+            .setRequired(true),
         ),
     )
     .addSubcommand((sub) => sub.setName('status').setDescription('Показать текущие настройки'))
-    .addSubcommand((sub) => sub.setName('reset').setDescription('Сбросить фильтры к значениям по умолчанию'))
+    .addSubcommand((sub) =>
+      sub.setName('reset').setDescription('Сбросить фильтры к значениям по умолчанию'),
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction) {
@@ -95,8 +90,7 @@ export default {
 
       if (channel) {
         const me = interaction.guild.members.me;
-        const permissions =
-          'permissionsFor' in channel && me ? channel.permissionsFor(me) : null;
+        const permissions = 'permissionsFor' in channel && me ? channel.permissionsFor(me) : null;
         if (
           !permissions?.has([
             PermissionFlagsBits.ViewChannel,
@@ -190,9 +184,7 @@ export default {
     if (sub === 'reset') {
       resetLogFilters(guildId);
       return interaction.editReply({
-        components: [
-          successCard('♻️ Фильтры сброшены', 'Вернулись значения по умолчанию.'),
-        ],
+        components: [successCard('♻️ Фильтры сброшены', 'Вернулись значения по умолчанию.')],
         flags: V2,
       });
     }
@@ -201,10 +193,12 @@ export default {
     const config = getLogConfig(guildId);
     const fields: Array<{ label: string; value: string; block?: boolean }> = [];
 
-    for (const [category, label] of Object.entries(LOG_CATEGORIES) as Array<[LogCategory, string]>) {
-      const events = (Object.entries(LOG_EVENTS) as Array<
-        [LogEventKey, { category: LogCategory; label: string }]
-      >).filter(([, meta]) => meta.category === category);
+    for (const [category, label] of Object.entries(LOG_CATEGORIES) as Array<
+      [LogCategory, string]
+    >) {
+      const events = (
+        Object.entries(LOG_EVENTS) as Array<[LogEventKey, { category: LogCategory; label: string }]>
+      ).filter(([, meta]) => meta.category === category);
 
       const disabled = events.filter(([key]) => !config.events[key]).map(([, meta]) => meta.label);
       const categoryOn = config.categories[category];
@@ -236,9 +230,9 @@ export default {
   async autocomplete(interaction) {
     const query = interaction.options.getFocused().toLowerCase();
 
-    const matches = (Object.entries(LOG_EVENTS) as Array<
-      [LogEventKey, { category: LogCategory; label: string }]
-    >)
+    const matches = (
+      Object.entries(LOG_EVENTS) as Array<[LogEventKey, { category: LogCategory; label: string }]>
+    )
       .filter(([key, meta]) => {
         const haystack = `${key} ${meta.label} ${LOG_CATEGORIES[meta.category]}`.toLowerCase();
         return haystack.includes(query);

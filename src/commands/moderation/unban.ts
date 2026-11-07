@@ -32,12 +32,7 @@ export default {
       return;
     }
 
-    const result = await unbanUser(
-      interaction.guild,
-      interaction.user.id,
-      userId,
-      reason,
-    );
+    const result = await unbanUser(interaction.guild, interaction.user.id, userId, reason);
 
     await replyActionResult(interaction, result, { title: '🔓 Разбан' });
   },

@@ -21,11 +21,7 @@ export function fail(message: string): ActionResult {
   return { ok: false, message };
 }
 
-export function checkTarget(
-  guild: Guild,
-  member: GuildMember,
-  moderatorId: string,
-): string | null {
+export function checkTarget(guild: Guild, member: GuildMember, moderatorId: string): string | null {
   const me = guild.members.me;
 
   if (member.id === moderatorId) return 'Нельзя применить действие к самому себе.';
@@ -53,10 +49,7 @@ export async function fetchUser(guild: Guild, userId: string): Promise<User | nu
   return guild.client.users.fetch(userId).catch(() => null);
 }
 
-export async function fetchMember(
-  guild: Guild,
-  userId: string,
-): Promise<GuildMember | null> {
+export async function fetchMember(guild: Guild, userId: string): Promise<GuildMember | null> {
   return guild.members.fetch(userId).catch(() => null);
 }
 

@@ -84,18 +84,18 @@ export function createCase(input: CreateCaseInput): ModCase {
   ensureGuild(input.guildId);
 
   return transaction(() => {
-    db.prepare(
-      'INSERT OR IGNORE INTO case_counters (guild_id, next_id) VALUES (?, 1)',
-    ).run(input.guildId);
+    db.prepare('INSERT OR IGNORE INTO case_counters (guild_id, next_id) VALUES (?, 1)').run(
+      input.guildId,
+    );
 
     const counter = db
       .prepare('SELECT next_id FROM case_counters WHERE guild_id = ?')
       .get(input.guildId) as { next_id: number } | undefined;
 
     const id = Number(counter?.next_id ?? 1);
-    db.prepare(
-      'UPDATE case_counters SET next_id = next_id + 1 WHERE guild_id = ?',
-    ).run(input.guildId);
+    db.prepare('UPDATE case_counters SET next_id = next_id + 1 WHERE guild_id = ?').run(
+      input.guildId,
+    );
 
     const entry: ModCase = {
       id,
@@ -110,11 +110,13 @@ export function createCase(input: CreateCaseInput): ModCase {
       extra: input.extra ?? {},
     };
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO cases
         (guild_id, id, type, user_id, moderator_id, reason, created_at, expires_at, active, extra)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `,
+    ).run(
       entry.guildId,
       entry.id,
       entry.type,
@@ -138,16 +140,10 @@ export function getCase(guildId: string, caseId: number): ModCase | null {
   return row ? rowToCase(row) : null;
 }
 
-export function listCases(
-  guildId: string,
-  userId?: string | null,
-  limit = 25,
-): ModCase[] {
+export function listCases(guildId: string, userId?: string | null, limit = 25): ModCase[] {
   const rows = userId
     ? (db
-        .prepare(
-          'SELECT * FROM cases WHERE guild_id = ? AND user_id = ? ORDER BY id DESC LIMIT ?',
-        )
+        .prepare('SELECT * FROM cases WHERE guild_id = ? AND user_id = ? ORDER BY id DESC LIMIT ?')
         .all(guildId, userId, limit) as unknown as CaseRow[])
     : (db
         .prepare('SELECT * FROM cases WHERE guild_id = ? ORDER BY id DESC LIMIT ?')
@@ -200,9 +196,7 @@ export function updateCase(
   if (sets.length === 0) return getCase(guildId, caseId);
 
   values.push(guildId, caseId);
-  db.prepare(
-    `UPDATE cases SET ${sets.join(', ')} WHERE guild_id = ? AND id = ?`,
-  ).run(...values);
+  db.prepare(`UPDATE cases SET ${sets.join(', ')} WHERE guild_id = ? AND id = ?`).run(...values);
 
   return getCase(guildId, caseId);
 }
@@ -212,43 +206,37 @@ export function closeCase(guildId: string, caseId: number, reason?: string): Mod
   if (!current) return null;
   return updateCase(guildId, caseId, {
     active: false,
-    extra: reason
-      ? { ...current.extra, closedReason: reason }
-      : current.extra,
+    extra: reason ? { ...current.extra, closedReason: reason } : current.extra,
   });
 }
 
 /** Активные кейсы с истёкшим сроком — для планировщика */
 export function expiredCases(guildId: string, now = Date.now()): ModCase[] {
   const rows = db
-    .prepare(`
+    .prepare(
+      `
       SELECT * FROM cases
       WHERE guild_id = ? AND active = 1 AND expires_at IS NOT NULL AND expires_at <= ?
       ORDER BY expires_at ASC
-    `)
+    `,
+    )
     .all(guildId, now) as unknown as CaseRow[];
 
   return rows.map(rowToCase);
 }
 
-export function findCaseByWarnId(
-  guildId: string,
-  userId: string,
-  warnId: string,
-): ModCase | null {
+export function findCaseByWarnId(guildId: string, userId: string, warnId: string): ModCase | null {
   const rows = db
-    .prepare(`
+    .prepare(
+      `
       SELECT * FROM cases
       WHERE guild_id = ? AND user_id = ? AND type = 'warn'
       ORDER BY id DESC
-    `)
+    `,
+    )
     .all(guildId, userId) as unknown as CaseRow[];
 
-  return (
-    rows
-      .map(rowToCase)
-      .find((item) => item.extra.warnId === warnId) ?? null
-  );
+  return rows.map(rowToCase).find((item) => item.extra.warnId === warnId) ?? null;
 }
 
 export function closeActiveCases(
@@ -262,20 +250,20 @@ export function closeActiveCases(
   return transaction(() => {
     const placeholders = types.map(() => '?').join(', ');
     const rows = db
-      .prepare(`
+      .prepare(
+        `
         SELECT * FROM cases
         WHERE guild_id = ? AND user_id = ? AND active = 1
           AND type IN (${placeholders})
-      `)
+      `,
+      )
       .all(guildId, userId, ...types) as unknown as CaseRow[];
 
     for (const row of rows) {
       const item = rowToCase(row);
       updateCase(guildId, item.id, {
         active: false,
-        extra: reason
-          ? { ...item.extra, closedReason: reason }
-          : item.extra,
+        extra: reason ? { ...item.extra, closedReason: reason } : item.extra,
       });
     }
 
@@ -286,11 +274,13 @@ export function closeActiveCases(
 export function closeWarnCases(guildId: string, userId: string): ModCase[] {
   return transaction(() => {
     const rows = db
-      .prepare(`
+      .prepare(
+        `
         SELECT * FROM cases
         WHERE guild_id = ? AND user_id = ? AND type = 'warn' AND active = 1
         ORDER BY id ASC
-      `)
+      `,
+      )
       .all(guildId, userId) as unknown as CaseRow[];
 
     const closed: ModCase[] = [];

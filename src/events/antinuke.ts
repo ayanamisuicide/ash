@@ -17,12 +17,7 @@ import {
 import type { AnyBotEvent } from '../core/types.js';
 import { recordNuke } from '../lib/nuke.js';
 
-type WebhookChannel =
-  | TextChannel
-  | NewsChannel
-  | VoiceChannel
-  | ForumChannel
-  | MediaChannel;
+type WebhookChannel = TextChannel | NewsChannel | VoiceChannel | ForumChannel | MediaChannel;
 
 const events: AnyBotEvent[] = [
   {

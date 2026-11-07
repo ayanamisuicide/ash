@@ -8,10 +8,7 @@ import type { MenuInteraction } from '../src/features/menu/handler.js';
 
 const dbFile = path.join(os.tmpdir(), `probot-menu-${process.pid}.sqlite`);
 process.env.DB_FILE = dbFile;
-process.env.DATA_FILE = path.join(
-  os.tmpdir(),
-  `probot-menu-legacy-${process.pid}.json`,
-);
+process.env.DATA_FILE = path.join(os.tmpdir(), `probot-menu-legacy-${process.pid}.json`);
 
 const storage = await import('../src/storage/sqlite.js');
 const views = await import('../src/features/menu/views.js');
@@ -86,9 +83,7 @@ test('menu views: main and moderation contain navigation buttons', () => {
   assert.ok(main.includes('menu:info'));
   assert.ok(main.includes('menu:close'));
 
-  const moderation = json(
-    views.buildModerationView().components.map((item) => item.toJSON()),
-  );
+  const moderation = json(views.buildModerationView().components.map((item) => item.toJSON()));
   assert.ok(moderation.includes('menu:action:ban'));
   assert.ok(moderation.includes('menu:action:warn'));
   assert.ok(moderation.includes('menu:home'));
@@ -118,9 +113,7 @@ test('menu handler: access denied without permissions', async () => {
 });
 
 test('menu handler: logs allowed with ManageGuild', async () => {
-  const { interaction, replies, updates } = button('menu:logs', [
-    PermissionFlagsBits.ManageGuild,
-  ]);
+  const { interaction, replies, updates } = button('menu:logs', [PermissionFlagsBits.ManageGuild]);
   await handleMenuInteraction(interaction as unknown as MenuInteraction);
   assert.equal(replies.length, 0);
   assert.equal(updates.length, 1);

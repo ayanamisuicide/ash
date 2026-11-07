@@ -1,12 +1,6 @@
 import type { Guild } from 'discord.js';
 import { createCase } from '../cases.js';
-import {
-  checkTarget,
-  fail,
-  fetchMember,
-  ok,
-  type ActionResult,
-} from './helpers.js';
+import { checkTarget, fail, fetchMember, ok, type ActionResult } from './helpers.js';
 
 export type VoiceAction = 'kick' | 'move' | 'mute' | 'unmute' | 'deafen' | 'undeafen';
 

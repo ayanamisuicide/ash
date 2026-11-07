@@ -12,9 +12,7 @@ export default {
       sub
         .setName('add')
         .setDescription('Выдать роль')
-        .addUserOption((option) =>
-          option.setName('user').setDescription('Кому').setRequired(true),
-        )
+        .addUserOption((option) => option.setName('user').setDescription('Кому').setRequired(true))
         .addRoleOption((option) =>
           option.setName('role').setDescription('Какую роль').setRequired(true),
         )
@@ -40,17 +38,12 @@ export default {
       sub
         .setName('temp')
         .setDescription('Выдать роль на время')
-        .addUserOption((option) =>
-          option.setName('user').setDescription('Кому').setRequired(true),
-        )
+        .addUserOption((option) => option.setName('user').setDescription('Кому').setRequired(true))
         .addRoleOption((option) =>
           option.setName('role').setDescription('Какую роль').setRequired(true),
         )
         .addStringOption((option) =>
-          option
-            .setName('duration')
-            .setDescription('Длительность: 1h, 2d, 1w')
-            .setRequired(true),
+          option.setName('duration').setDescription('Длительность: 1h, 2d, 1w').setRequired(true),
         )
         .addStringOption((option) =>
           option.setName('reason').setDescription('Причина').setMaxLength(450),

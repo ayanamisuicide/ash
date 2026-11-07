@@ -1,25 +1,12 @@
 import type { Guild } from 'discord.js';
-import {
-  closeCase,
-  closeWarnCases,
-  createCase,
-  findCaseByWarnId,
-} from '../cases.js';
+import { closeCase, closeWarnCases, createCase, findCaseByWarnId } from '../cases.js';
 import { COLORS } from '../embeds.js';
 import { logCard } from '../logCard.js';
 import { sendLog } from '../logger.js';
 import { truncate } from '../logging.js';
 import { addWarn, clearWarns, getWarns, removeWarn } from '../warns.js';
 import { getModerationSettings, type WarnAction } from '../modSettings.js';
-import {
-  checkTarget,
-  dm,
-  fail,
-  fetchMember,
-  fetchUser,
-  ok,
-  type ActionResult,
-} from './helpers.js';
+import { checkTarget, dm, fail, fetchMember, fetchUser, ok, type ActionResult } from './helpers.js';
 import { banUser, kickUser } from './bans.js';
 import { muteUser, timeoutUser } from './timeouts.js';
 
@@ -108,13 +95,7 @@ async function applyWarnActions(guild: Guild, userId: string): Promise<string[]>
         }
         break;
       case 'mute':
-        result = await muteUser(
-          guild,
-          moderatorId,
-          userId,
-          action.durationMs ?? null,
-          reason,
-        );
+        result = await muteUser(guild, moderatorId, userId, action.durationMs ?? null, reason);
         break;
       case 'kick':
         result = await kickUser(guild, moderatorId, userId, reason);
@@ -124,14 +105,7 @@ async function applyWarnActions(guild: Guild, userId: string): Promise<string[]>
         break;
       case 'tempban':
         if (action.durationMs) {
-          result = await banUser(
-            guild,
-            moderatorId,
-            userId,
-            reason,
-            0,
-            action.durationMs,
-          );
+          result = await banUser(guild, moderatorId, userId, reason, 0, action.durationMs);
         }
         break;
     }
@@ -230,9 +204,7 @@ export async function clearWarnsAction(
     logCard(guild, {
       title: warnId ? '🧽 Предупреждение снято' : '🧽 Предупреждения сняты',
       color: COLORS.success,
-      actor: target
-        ? { name: target.tag, iconURL: target.displayAvatarURL() }
-        : undefined,
+      actor: target ? { name: target.tag, iconURL: target.displayAvatarURL() } : undefined,
       fields,
       footer: `ID: ${userId}`,
     }),

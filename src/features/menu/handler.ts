@@ -59,14 +59,20 @@ const ACTION_PERMISSIONS: Record<string, bigint> = {
 };
 
 function hasPermission(
-  interaction: ButtonInteraction<'cached'> | AnySelectMenuInteraction<'cached'> | ModalSubmitInteraction<'cached'>,
+  interaction:
+    | ButtonInteraction<'cached'>
+    | AnySelectMenuInteraction<'cached'>
+    | ModalSubmitInteraction<'cached'>,
   permission: bigint,
 ): boolean {
   return interaction.memberPermissions?.has(permission) ?? false;
 }
 
 async function deny(
-  interaction: ButtonInteraction<'cached'> | AnySelectMenuInteraction<'cached'> | ModalSubmitInteraction<'cached'>,
+  interaction:
+    | ButtonInteraction<'cached'>
+    | AnySelectMenuInteraction<'cached'>
+    | ModalSubmitInteraction<'cached'>,
   message: string,
 ): Promise<void> {
   const payload = { components: [errorCard(message)], flags: v2Flags(true) } as const;
@@ -105,9 +111,14 @@ function buildActionModal(action: string): ModalBuilder | null {
         .setCustomId('modal:ban')
         .setTitle('🔨 Забанить участника')
         .addComponents(
-          input('user', 'ID или @упоминание', { required: true, placeholder: '@user или 123456789012345678' }),
+          input('user', 'ID или @упоминание', {
+            required: true,
+            placeholder: '@user или 123456789012345678',
+          }),
           input('reason', 'Причина', { style: TextInputStyle.Paragraph, maxLength: 450 }),
-          input('delete', 'Удалить сообщения (секунды)', { placeholder: '0 / 3600 / 86400 / 604800' }),
+          input('delete', 'Удалить сообщения (секунды)', {
+            placeholder: '0 / 3600 / 86400 / 604800',
+          }),
         );
     case 'kick':
       return new ModalBuilder()
@@ -341,17 +352,13 @@ async function handleModal(interaction: ModalSubmitInteraction<'cached'>): Promi
   if (action === 'clear') {
     if (userInput && !userId) {
       return void interaction.editReply({
-        components: [
-          errorCard('Не удалось распознать участника. Укажи ID или @упоминание.'),
-        ],
+        components: [errorCard('Не удалось распознать участника. Укажи ID или @упоминание.')],
         flags: V2,
       });
     }
   } else if (!userId) {
     return void interaction.editReply({
-      components: [
-        errorCard('Не удалось распознать участника. Укажи ID или @упоминание.'),
-      ],
+      components: [errorCard('Не удалось распознать участника. Укажи ID или @упоминание.')],
       flags: V2,
     });
   }
@@ -360,93 +367,88 @@ async function handleModal(interaction: ModalSubmitInteraction<'cached'>): Promi
 
   try {
     switch (action) {
-    case 'ban': {
-      const deleteSeconds = Number(field(interaction, 'delete') ?? '0');
-      result = await banUser(
-        guild,
-        moderatorId,
-        userId!,
-        reason,
-        Number.isFinite(deleteSeconds) ? deleteSeconds : 0,
-      );
-      break;
-    }
-    case 'kick':
-      result = await kickUser(guild, moderatorId, userId!, reason);
-      break;
-    case 'unban':
-      result = await unbanUser(guild, moderatorId, userId!, reason);
-      break;
-    case 'timeout':
-      result = await timeoutUser(
-        guild,
-        moderatorId,
-        userId!,
-        field(interaction, 'duration') ?? '',
-        reason,
-      );
-      break;
-    case 'untimeout':
-      result = await untimeoutUser(guild, moderatorId, userId!, reason);
-      break;
-    case 'warn':
-      result = await warnUser(guild, moderatorId, userId!, reason);
-      break;
-    case 'clearwarns':
-      result = await clearWarnsAction(
-        guild,
-        moderatorId,
-        userId!,
-        field(interaction, 'warn_id'),
-      );
-      break;
-    case 'clear': {
-      const amount = Number(field(interaction, 'amount') ?? '0');
-      if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
-        return void interaction.editReply({
-          components: [errorCard('Количество должно быть целым числом от 1 до 100.')],
-          flags: V2,
-        });
+      case 'ban': {
+        const deleteSeconds = Number(field(interaction, 'delete') ?? '0');
+        result = await banUser(
+          guild,
+          moderatorId,
+          userId!,
+          reason,
+          Number.isFinite(deleteSeconds) ? deleteSeconds : 0,
+        );
+        break;
       }
-      if (!interaction.channel?.isTextBased() || !('bulkDelete' in interaction.channel)) {
-        return void interaction.editReply({
-          components: [errorCard('Это действие доступно только в текстовом канале.')],
-          flags: V2,
-        });
+      case 'kick':
+        result = await kickUser(guild, moderatorId, userId!, reason);
+        break;
+      case 'unban':
+        result = await unbanUser(guild, moderatorId, userId!, reason);
+        break;
+      case 'timeout':
+        result = await timeoutUser(
+          guild,
+          moderatorId,
+          userId!,
+          field(interaction, 'duration') ?? '',
+          reason,
+        );
+        break;
+      case 'untimeout':
+        result = await untimeoutUser(guild, moderatorId, userId!, reason);
+        break;
+      case 'warn':
+        result = await warnUser(guild, moderatorId, userId!, reason);
+        break;
+      case 'clearwarns':
+        result = await clearWarnsAction(guild, moderatorId, userId!, field(interaction, 'warn_id'));
+        break;
+      case 'clear': {
+        const amount = Number(field(interaction, 'amount') ?? '0');
+        if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
+          return void interaction.editReply({
+            components: [errorCard('Количество должно быть целым числом от 1 до 100.')],
+            flags: V2,
+          });
+        }
+        if (!interaction.channel?.isTextBased() || !('bulkDelete' in interaction.channel)) {
+          return void interaction.editReply({
+            components: [errorCard('Это действие доступно только в текстовом канале.')],
+            flags: V2,
+          });
+        }
+        result = await clearMessages(interaction.channel, amount, userId, moderatorId);
+        break;
       }
-      result = await clearMessages(interaction.channel, amount, userId, moderatorId);
-      break;
-    }
-    case 'warns': {
-      const warns = getWarns(guild.id, userId!);
-      const warnFields = warns.slice(0, 10).map((warn) => ({
-        label: `#${warn.id} · <t:${Math.floor(warn.createdAt / 1_000)}:d>`,
-        value: `${truncate(warn.reason, 900)}\n-# Выдал: <@${warn.moderatorId}>`,
-        block: true,
-      }));
+      case 'warns': {
+        const warns = getWarns(guild.id, userId!);
+        const warnFields = warns.slice(0, 10).map((warn) => ({
+          label: `#${warn.id} · <t:${Math.floor(warn.createdAt / 1_000)}:d>`,
+          value: `${truncate(warn.reason, 900)}\n-# Выдал: <@${warn.moderatorId}>`,
+          block: true,
+        }));
 
-      return void interaction.editReply({
-        components: [
-          card({
-            tone: warns.length ? 'warn' : 'success',
-            title: '📋 Предупреждения',
-            description: `<@${userId}> · **${warns.length}**`,
-            fields:
-              warnFields.length > 0
-                ? warnFields
-                : [{ label: 'Пока пусто', value: 'Предупреждений нет. 🎉' }],
-            footer: `ID: ${userId}`,
-            timestamp: false,
-          }),
-        ],
-        flags: V2,
-      });
-    }
-    default:
-      return void interaction.editReply({
-        components: [errorCard('Неизвестное действие.')],
-        flags: V2,
-      });
+        return void interaction.editReply({
+          components: [
+            card({
+              tone: warns.length ? 'warn' : 'success',
+              title: '📋 Предупреждения',
+              description: `<@${userId}> · **${warns.length}**`,
+              fields:
+                warnFields.length > 0
+                  ? warnFields
+                  : [{ label: 'Пока пусто', value: 'Предупреждений нет. 🎉' }],
+              footer: `ID: ${userId}`,
+              timestamp: false,
+            }),
+          ],
+          flags: V2,
+        });
+      }
+      default:
+        return void interaction.editReply({
+          components: [errorCard('Неизвестное действие.')],
+          flags: V2,
+        });
     }
   } catch (error) {
     console.error(`[menu] ошибка действия ${action}:`, error);
@@ -461,18 +463,12 @@ async function handleModal(interaction: ModalSubmitInteraction<'cached'>): Promi
   }
 
   await interaction.editReply({
-    components: [
-      result.ok
-        ? successCard('Готово', result.message)
-        : errorCard(result.message),
-    ],
+    components: [result.ok ? successCard('Готово', result.message) : errorCard(result.message)],
     flags: V2,
   });
 }
 
-async function handleChannelSelect(
-  interaction: AnySelectMenuInteraction<'cached'>,
-): Promise<void> {
+async function handleChannelSelect(interaction: AnySelectMenuInteraction<'cached'>): Promise<void> {
   if (!hasPermission(interaction, PermissionFlagsBits.ManageGuild)) {
     return deny(interaction, 'Нужно право «Управление сервером».');
   }

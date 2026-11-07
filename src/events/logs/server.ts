@@ -44,9 +44,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(newGuild, {
         title: '🏠 Сервер изменён',
         color: COLORS.warn,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         description: changes.join('\n'),
       });
 
@@ -69,7 +67,11 @@ const events: AnyBotEvent[] = [
         fields.push({ name: 'Лимит', value: String(invite.maxUses), inline: true });
       }
       if (invite.expiresTimestamp) {
-        fields.push({ name: 'Истекает', value: fmtRelative(invite.expiresTimestamp), inline: true });
+        fields.push({
+          name: 'Истекает',
+          value: fmtRelative(invite.expiresTimestamp),
+          inline: true,
+        });
       }
 
       const embed = logCard(guild, {
@@ -105,9 +107,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(guild, {
         title: '🔗 Приглашение удалено',
         color: COLORS.danger,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         fields,
         footer: `Код: ${invite.code}`,
       });

@@ -1,8 +1,5 @@
 import type { GuildTextBasedChannel } from 'discord.js';
-import {
-  purgeMessages,
-  type ActionResult,
-} from '../../lib/moderation.js';
+import { purgeMessages, type ActionResult } from '../../lib/moderation.js';
 
 // Меню и команды используют один и тот же модерационный сервис.
 export {

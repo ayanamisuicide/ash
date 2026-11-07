@@ -6,10 +6,7 @@ import test, { after } from 'node:test';
 
 const dbFile = path.join(os.tmpdir(), `probot-commands-${process.pid}.sqlite`);
 process.env.DB_FILE = dbFile;
-process.env.DATA_FILE = path.join(
-  os.tmpdir(),
-  `probot-commands-legacy-${process.pid}.json`,
-);
+process.env.DATA_FILE = path.join(os.tmpdir(), `probot-commands-legacy-${process.pid}.json`);
 
 const storage = await import('../src/storage/sqlite.js');
 const { loadCommands } = await import('../src/core/loader.js');
@@ -30,7 +27,7 @@ after(() => {
 
 test('commands: unique names and descriptions', () => {
   assert.equal(byName.size, commands.length);
-  assert.equal(commands.length, 42);
+  assert.equal(commands.length, 56);
   for (const command of commands) {
     assert.ok(command.data.name.length > 0);
     assert.ok(command.data.description.length > 0);
@@ -77,6 +74,20 @@ test('commands: expected set is registered', () => {
     'immunity',
     'antiraid',
     'antinuke',
+    'diagnose',
+    'backup',
+    'settings',
+    'caseexport',
+    'rolepersist',
+    'welcome',
+    'autorole',
+    'leveling',
+    'rank',
+    'top',
+    'tag',
+    'reactionrole',
+    'tempvoice',
+    'ticket',
     'logs',
     'help',
     'ping',
@@ -122,6 +133,20 @@ test('commands: default permissions match expectations', () => {
     immunity: '32',
     antiraid: '32',
     antinuke: '32',
+    diagnose: '32',
+    backup: '32',
+    settings: '32',
+    caseexport: '32',
+    rolepersist: '268435456',
+    welcome: '32',
+    autorole: '32',
+    leveling: '32',
+    reactionrole: '32',
+    tempvoice: '32',
+    ticket: undefined,
+    rank: undefined,
+    top: undefined,
+    tag: undefined,
     logs: '32',
     report: undefined,
     appeal: undefined,

@@ -147,9 +147,7 @@ export function getLogChannelId(guildId: string): string | null {
 function read(guildId: string): StoredLogConfig {
   const row = db
     .prepare('SELECT categories, events, channel_id FROM guild_logs WHERE guild_id = ?')
-    .get(guildId) as
-    | { categories: string; events: string; channel_id: string | null }
-    | undefined;
+    .get(guildId) as { categories: string; events: string; channel_id: string | null } | undefined;
 
   if (!row) return {};
   return {
@@ -186,40 +184,48 @@ export function getLogConfig(guildId: string): LogConfig {
 
 export function setLogChannel(guildId: string, channelId: string | null): void {
   ensureGuild(guildId);
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO guild_logs (guild_id, channel_id) VALUES (?, ?)
     ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id
-  `).run(guildId, channelId);
+  `,
+  ).run(guildId, channelId);
   invalidateLogCache(guildId);
 }
 
 export function setLogCategory(guildId: string, category: LogCategory, enabled: boolean): void {
   ensureGuild(guildId);
   const categories = { ...(read(guildId).categories ?? {}), [category]: enabled };
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO guild_logs (guild_id, categories) VALUES (?, ?)
     ON CONFLICT(guild_id) DO UPDATE SET categories = excluded.categories
-  `).run(guildId, toJson(categories));
+  `,
+  ).run(guildId, toJson(categories));
   invalidateLogCache(guildId);
 }
 
 export function setLogEvent(guildId: string, event: LogEventKey, enabled: boolean): void {
   ensureGuild(guildId);
   const events = { ...(read(guildId).events ?? {}), [event]: enabled };
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO guild_logs (guild_id, events) VALUES (?, ?)
     ON CONFLICT(guild_id) DO UPDATE SET events = excluded.events
-  `).run(guildId, toJson(events));
+  `,
+  ).run(guildId, toJson(events));
   invalidateLogCache(guildId);
 }
 
 /** Сбрасывает все фильтры к значениям по умолчанию (канал остаётся) */
 export function resetLogFilters(guildId: string): void {
   ensureGuild(guildId);
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO guild_logs (guild_id, categories, events) VALUES (?, '{}', '{}')
     ON CONFLICT(guild_id) DO UPDATE SET categories = '{}', events = '{}'
-  `).run(guildId);
+  `,
+  ).run(guildId);
   invalidateLogCache(guildId);
 }
 

@@ -6,12 +6,11 @@ import { DatabaseSync } from 'node:sqlite';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const rawDbFile = process.env.DB_FILE?.trim();
-export const DB_FILE =
-  !rawDbFile
-    ? path.join(ROOT, 'data', 'bot.sqlite')
-    : rawDbFile === ':memory:'
-      ? rawDbFile
-      : path.resolve(rawDbFile);
+export const DB_FILE = !rawDbFile
+  ? path.join(ROOT, 'data', 'bot.sqlite')
+  : rawDbFile === ':memory:'
+    ? rawDbFile
+    : path.resolve(rawDbFile);
 
 const LEGACY_FILE = process.env.DATA_FILE
   ? path.resolve(process.env.DATA_FILE)
@@ -173,12 +172,99 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 4,
+    up: () => {
+      const columns = db
+        .prepare('PRAGMA table_info(moderation_settings)')
+        .all() as unknown as Array<{ name: string }>;
+      if (!columns.some((column) => column.name === 'warn_expiry_days')) {
+        db.exec(`
+          ALTER TABLE moderation_settings
+          ADD COLUMN warn_expiry_days INTEGER NOT NULL DEFAULT 0;
+        `);
+      }
+    },
+  },
+  {
+    version: 5,
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS persisted_roles (
+          guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL,
+          role_id TEXT NOT NULL,
+          PRIMARY KEY (guild_id, user_id, role_id)
+        );
+      `);
+    },
+  },
+  {
+    version: 6,
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS community_settings (
+          guild_id TEXT PRIMARY KEY REFERENCES guilds(id) ON DELETE CASCADE,
+          welcome_channel_id TEXT,
+          welcome_message TEXT NOT NULL DEFAULT 'Добро пожаловать, {user}, на {guild}!',
+          goodbye_channel_id TEXT,
+          goodbye_message TEXT NOT NULL DEFAULT '{user} покинул сервер {guild}.',
+          autorole_ids TEXT NOT NULL DEFAULT '[]',
+          leveling_enabled INTEGER NOT NULL DEFAULT 0,
+          levelup_channel_id TEXT,
+          levelup_message TEXT NOT NULL DEFAULT '🎉 {user} достиг уровня {level}!',
+          temp_voice_channel_id TEXT,
+          ticket_category_id TEXT,
+          ticket_log_channel_id TEXT,
+          ticket_support_role_id TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS levels (
+          guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL,
+          xp INTEGER NOT NULL DEFAULT 0,
+          last_xp_at INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (guild_id, user_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS tags (
+          guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          content TEXT NOT NULL,
+          author_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (guild_id, name)
+        );
+
+        CREATE TABLE IF NOT EXISTS reaction_roles (
+          guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+          message_id TEXT NOT NULL,
+          emoji TEXT NOT NULL,
+          role_id TEXT NOT NULL,
+          PRIMARY KEY (guild_id, message_id, emoji)
+        );
+
+        CREATE TABLE IF NOT EXISTS tickets (
+          guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+          channel_id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          status TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS temp_voice_channels (
+          channel_id TEXT PRIMARY KEY,
+          guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+          owner_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        );
+      `);
+    },
+  },
 ];
 
 function currentSchemaVersion(): number {
-  const row = db.prepare('PRAGMA user_version').get() as
-    | { user_version: number }
-    | undefined;
+  const row = db.prepare('PRAGMA user_version').get() as { user_version: number } | undefined;
   return Number(row?.user_version ?? 0);
 }
 
@@ -317,8 +403,7 @@ export function stopDatabaseBackups(): void {
 
 function getMeta(key: string): string | null {
   const row = db.prepare('SELECT value FROM meta WHERE key = ?').get(key) as
-    | { value: string }
-    | undefined;
+    { value: string } | undefined;
   return row?.value ?? null;
 }
 
@@ -437,8 +522,7 @@ function importLegacy(data: Record<string, unknown>): void {
 
     const settings = asRecord(guild.settings);
     const logs = asRecord(guild.logs);
-    const logsChannel =
-      asString(logs.channelId) || asString(settings.logsChannel) || null;
+    const logsChannel = asString(logs.channelId) || asString(settings.logsChannel) || null;
 
     if (Object.keys(logs).length > 0 || logsChannel) {
       insertLogs.run(
@@ -538,12 +622,8 @@ function importLegacy(data: Record<string, unknown>): void {
       upsertModeration.run(
         guildId,
         toJson(asArray(moderation.immunityRoles)),
-        typeof moderation.reportChannelId === 'string'
-          ? moderation.reportChannelId
-          : null,
-        typeof moderation.appealChannelId === 'string'
-          ? moderation.appealChannelId
-          : null,
+        typeof moderation.reportChannelId === 'string' ? moderation.reportChannelId : null,
+        typeof moderation.appealChannelId === 'string' ? moderation.appealChannelId : null,
         typeof moderation.muteRoleId === 'string' ? moderation.muteRoleId : null,
         toJson(asArray(moderation.warnActions)),
         toJson(asRecord(moderation.automod)),
@@ -554,12 +634,7 @@ function importLegacy(data: Record<string, unknown>): void {
     for (const [channelId, stateRaw] of Object.entries(locks)) {
       const state = asRecord(stateRaw);
       if (Object.keys(state).length === 0) continue;
-      insertLock.run(
-        guildId,
-        channelId,
-        asString(state.allow, '0'),
-        asString(state.deny, '0'),
-      );
+      insertLock.run(guildId, channelId, asString(state.allow, '0'), asString(state.deny, '0'));
     }
   }
 
@@ -571,9 +646,8 @@ function importLegacy(data: Record<string, unknown>): void {
 function migrateLegacyJson(): void {
   if (getMeta('legacy_json_migrated')) return;
 
-  const existing = db
-    .prepare('SELECT COUNT(*) AS count FROM guilds')
-    .get() as { count: number } | undefined;
+  const existing = db.prepare('SELECT COUNT(*) AS count FROM guilds').get() as
+    { count: number } | undefined;
   if (Number(existing?.count ?? 0) > 0) {
     // База уже содержит данные (например, создана более ранней версией) —
     // не пытаемся повторно импортировать поверх неё.

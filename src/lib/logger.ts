@@ -1,10 +1,6 @@
 import type { ContainerBuilder, Guild, GuildBasedChannel } from 'discord.js';
 import { MessageFlags } from 'discord.js';
-import {
-  getLogChannelId,
-  isLogEventEnabled,
-  type LogEventKey,
-} from './logSettings.js';
+import { getLogChannelId, isLogEventEnabled, type LogEventKey } from './logSettings.js';
 
 /** Канал логов, настроенный командой /logs channel (или null) */
 export function getLogChannel(guild: Guild): GuildBasedChannel | null {

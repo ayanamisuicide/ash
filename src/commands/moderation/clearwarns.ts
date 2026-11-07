@@ -11,9 +11,7 @@ export default {
       option.setName('user').setDescription('С кого снять').setRequired(true),
     )
     .addStringOption((option) =>
-      option
-        .setName('warn_id')
-        .setDescription('ID конкретного предупреждения (иначе — все)'),
+      option.setName('warn_id').setDescription('ID конкретного предупреждения (иначе — все)'),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
@@ -22,12 +20,7 @@ export default {
     const user = interaction.options.getUser('user', true);
     const warnId = interaction.options.getString('warn_id');
 
-    const result = await clearWarnsAction(
-      interaction.guild,
-      interaction.user.id,
-      user.id,
-      warnId,
-    );
+    const result = await clearWarnsAction(interaction.guild, interaction.user.id, user.id, warnId);
 
     await replyActionResult(interaction, result, {
       title: result.ok

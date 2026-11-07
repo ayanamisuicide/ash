@@ -31,9 +31,7 @@ export default {
     await interaction.deferReply();
     const user = interaction.options.getUser('user', true);
     const reason = interaction.options.getString('reason') ?? 'Без причины';
-    const deleteSeconds = Number(
-      interaction.options.getString('delete_messages') ?? '86400',
-    );
+    const deleteSeconds = Number(interaction.options.getString('delete_messages') ?? '86400');
 
     const result = await softbanUser(
       interaction.guild,

@@ -1,8 +1,4 @@
-import {
-  AuditLogEvent,
-  PermissionFlagsBits,
-  type Guild,
-} from 'discord.js';
+import { AuditLogEvent, PermissionFlagsBits, type Guild } from 'discord.js';
 import { auditInfo } from './audit.js';
 import { COLORS } from './embeds.js';
 import { logCard } from './logCard.js';
@@ -102,25 +98,22 @@ function loadNukeStates(guildId: string): Map<string, NukeState> {
   return result;
 }
 
-function persistNukeStates(
-  guildId: string,
-  guildStates: Map<string, NukeState>,
-): void {
+function persistNukeStates(guildId: string, guildStates: Map<string, NukeState>): void {
   ensureGuild(guildId);
-  db.prepare(
-    'INSERT OR IGNORE INTO security_runtime (guild_id) VALUES (?)',
-  ).run(guildId);
+  db.prepare('INSERT OR IGNORE INTO security_runtime (guild_id) VALUES (?)').run(guildId);
 
   const payload: Record<string, NukeState> = {};
   for (const [executorId, state] of guildStates) {
     payload[executorId] = state;
   }
 
-  db.prepare(`
+  db.prepare(
+    `
     UPDATE security_runtime
     SET nuke_state = ?, updated_at = ?
     WHERE guild_id = ?
-  `).run(toJson(payload), Date.now(), guildId);
+  `,
+  ).run(toJson(payload), Date.now(), guildId);
 }
 
 function guildStatesFor(guildId: string): Map<string, NukeState> {
@@ -146,19 +139,23 @@ function stateFor(guildId: string, executorId: string): NukeState {
 export function resetNukeRuntime(guildId?: string): void {
   if (guildId) {
     states.delete(guildId);
-    db.prepare(`
+    db.prepare(
+      `
       UPDATE security_runtime
       SET nuke_state = '{}', updated_at = ?
       WHERE guild_id = ?
-    `).run(Date.now(), guildId);
+    `,
+    ).run(Date.now(), guildId);
     return;
   }
 
   states.clear();
-  db.prepare(`
+  db.prepare(
+    `
     UPDATE security_runtime
     SET nuke_state = '{}', updated_at = ?
-  `).run(Date.now());
+  `,
+  ).run(Date.now());
 }
 
 export function getNukeCounters(guildId: string): NukeCounter[] {
@@ -170,9 +167,7 @@ export function getNukeCounters(guildId: string): NukeCounter[] {
   const counters: NukeCounter[] = [];
 
   for (const [executorId, state] of guildStates) {
-    state.events = state.events.filter(
-      (event) => now - event.at <= config.windowSec * 1_000,
-    );
+    state.events = state.events.filter((event) => now - event.at <= config.windowSec * 1_000);
     if (state.events.length === 0) {
       guildStates.delete(executorId);
       continue;
@@ -209,9 +204,7 @@ export async function recordNuke(
   const now = Date.now();
   const guildStates = guildStatesFor(guild.id);
   const state = stateFor(guild.id, executor.id);
-  state.events = state.events.filter(
-    (event) => now - event.at <= config.windowSec * 1_000,
-  );
+  state.events = state.events.filter((event) => now - event.at <= config.windowSec * 1_000);
   state.events.push({ at: now, action });
 
   if (state.events.length < config.threshold) {

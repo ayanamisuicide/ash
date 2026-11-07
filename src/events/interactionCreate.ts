@@ -4,6 +4,8 @@ import type { BotEvent } from '../core/types.js';
 import { V2, errorCard, v2Flags } from '../lib/card.js';
 import { handleMenuInteraction, type MenuInteraction } from '../features/menu/handler.js';
 import { handleAppealButton } from '../features/appeals.js';
+import { handleConfirmationButton } from '../features/confirmations.js';
+import { handleTicketButton } from '../features/tickets.js';
 
 function isUnknownInteraction(error: unknown): boolean {
   if (typeof error !== 'object' || error === null || !('code' in error)) return false;
@@ -49,7 +51,11 @@ export default {
       if (!interaction.inCachedGuild()) return;
 
       try {
-        if (interaction.isButton() && interaction.customId.startsWith('appeal:')) {
+        if (interaction.isButton() && interaction.customId.startsWith('confirm:')) {
+          await handleConfirmationButton(interaction);
+        } else if (interaction.isButton() && interaction.customId.startsWith('ticket:')) {
+          await handleTicketButton(interaction);
+        } else if (interaction.isButton() && interaction.customId.startsWith('appeal:')) {
           await handleAppealButton(interaction);
         } else {
           await handleMenuInteraction(interaction as MenuInteraction);

@@ -47,18 +47,16 @@ export function createAppeal(guildId: string, userId: string, reason: string): A
   ensureGuild(guildId);
 
   return transaction(() => {
-    db.prepare(
-      'INSERT OR IGNORE INTO appeal_counters (guild_id, next_id) VALUES (?, 1)',
-    ).run(guildId);
+    db.prepare('INSERT OR IGNORE INTO appeal_counters (guild_id, next_id) VALUES (?, 1)').run(
+      guildId,
+    );
 
     const counter = db
       .prepare('SELECT next_id FROM appeal_counters WHERE guild_id = ?')
       .get(guildId) as { next_id: number } | undefined;
 
     const id = Number(counter?.next_id ?? 1);
-    db.prepare(
-      'UPDATE appeal_counters SET next_id = next_id + 1 WHERE guild_id = ?',
-    ).run(guildId);
+    db.prepare('UPDATE appeal_counters SET next_id = next_id + 1 WHERE guild_id = ?').run(guildId);
 
     const appeal: Appeal = {
       id,
@@ -73,11 +71,13 @@ export function createAppeal(guildId: string, userId: string, reason: string): A
       reviewedAt: null,
     };
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO appeals
         (guild_id, id, user_id, reason, status, created_at, channel_id, message_id, reviewed_by, reviewed_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `,
+    ).run(
       appeal.guildId,
       appeal.id,
       appeal.userId,
@@ -145,20 +145,20 @@ export function updateAppeal(
   if (sets.length === 0) return getAppeal(guildId, appealId);
 
   values.push(guildId, appealId);
-  db.prepare(
-    `UPDATE appeals SET ${sets.join(', ')} WHERE guild_id = ? AND id = ?`,
-  ).run(...values);
+  db.prepare(`UPDATE appeals SET ${sets.join(', ')} WHERE guild_id = ? AND id = ?`).run(...values);
 
   return getAppeal(guildId, appealId);
 }
 
 export function findPendingAppeal(guildId: string, userId: string): Appeal | null {
   const row = db
-    .prepare(`
+    .prepare(
+      `
       SELECT * FROM appeals
       WHERE guild_id = ? AND user_id = ? AND status = 'pending'
       ORDER BY id DESC LIMIT 1
-    `)
+    `,
+    )
     .get(guildId, userId) as AppealRow | undefined;
   return row ? rowToAppeal(row) : null;
 }
@@ -166,9 +166,7 @@ export function findPendingAppeal(guildId: string, userId: string): Appeal | nul
 export function listAppeals(guildId: string, status?: AppealStatus): Appeal[] {
   const rows = status
     ? (db
-        .prepare(
-          'SELECT * FROM appeals WHERE guild_id = ? AND status = ? ORDER BY id DESC',
-        )
+        .prepare('SELECT * FROM appeals WHERE guild_id = ? AND status = ? ORDER BY id DESC')
         .all(guildId, status) as unknown as AppealRow[])
     : (db
         .prepare('SELECT * FROM appeals WHERE guild_id = ? ORDER BY id DESC')

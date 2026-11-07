@@ -22,9 +22,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(role.guild, {
         title: '🎭 Роль создана',
         color: COLORS.success,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         fields,
         footer: `ID: ${role.id}`,
       });
@@ -49,9 +47,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(role.guild, {
         title: '🎭 Роль удалена',
         color: COLORS.danger,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         fields,
         footer: `ID: ${role.id}`,
       });
@@ -106,9 +102,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(newRole.guild, {
         title: '✏️ Роль изменена',
         color: COLORS.warn,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         description: truncate(changes.join('\n'), 3500),
         fields,
         footer: `ID: ${newRole.id}`,

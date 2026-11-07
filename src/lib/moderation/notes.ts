@@ -4,12 +4,7 @@ import { COLORS } from '../embeds.js';
 import { logCard } from '../logCard.js';
 import { sendLog } from '../logger.js';
 import { addNote, clearNotes, removeNote } from '../notes.js';
-import {
-  fail,
-  fetchUser,
-  ok,
-  type ActionResult,
-} from './helpers.js';
+import { fail, fetchUser, ok, type ActionResult } from './helpers.js';
 
 export async function noteAddAction(
   guild: Guild,
@@ -34,9 +29,7 @@ export async function noteAddAction(
     logCard(guild, {
       title: '📝 Заметка добавлена',
       color: COLORS.primary,
-      actor: target
-        ? { name: target.tag, iconURL: target.displayAvatarURL() }
-        : undefined,
+      actor: target ? { name: target.tag, iconURL: target.displayAvatarURL() } : undefined,
       fields: [
         { name: 'Кому', value: target ? `${target}` : `<@${userId}>`, inline: true },
         { name: 'Кем', value: `<@${moderatorId}>`, inline: true },

@@ -21,20 +21,19 @@ export function getLock(guildId: string, channelId: string): LockState | null {
 
 export function setLock(guildId: string, channelId: string, state: LockState): void {
   ensureGuild(guildId);
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO locks (guild_id, channel_id, allow, deny)
     VALUES (?, ?, ?, ?)
     ON CONFLICT(guild_id, channel_id) DO UPDATE SET
       allow = excluded.allow,
       deny = excluded.deny
-  `).run(guildId, channelId, state.allow, state.deny);
+  `,
+  ).run(guildId, channelId, state.allow, state.deny);
 }
 
 export function clearLock(guildId: string, channelId: string): void {
-  db.prepare('DELETE FROM locks WHERE guild_id = ? AND channel_id = ?').run(
-    guildId,
-    channelId,
-  );
+  db.prepare('DELETE FROM locks WHERE guild_id = ? AND channel_id = ?').run(guildId, channelId);
 }
 
 export function listLocks(guildId: string): Record<string, LockState> {

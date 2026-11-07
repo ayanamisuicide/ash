@@ -12,9 +12,7 @@ import type {
  * Такой тип принимает результат любого `new SlashCommandBuilder()...`.
  */
 export type CommandData =
-  | SlashCommandBuilder
-  | SlashCommandOptionsOnlyBuilder
-  | SlashCommandSubcommandsOnlyBuilder;
+  SlashCommandBuilder | SlashCommandOptionsOnlyBuilder | SlashCommandSubcommandsOnlyBuilder;
 
 /** Описание слэш-команды */
 export interface Command {

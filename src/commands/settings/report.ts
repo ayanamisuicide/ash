@@ -1,8 +1,4 @@
-import {
-  MessageFlags,
-  PermissionFlagsBits,
-  SlashCommandBuilder,
-} from 'discord.js';
+import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
 import { V2, card, errorCard, successCard } from '../../lib/card.js';
 import { getLogChannel } from '../../lib/logger.js';
@@ -56,9 +52,7 @@ export default {
 
       setReportChannel(interaction.guild.id, channel.id);
       await interaction.editReply({
-        components: [
-          successCard('📨 Жалобы', `Канал жалоб: <#${channel.id}>.`),
-        ],
+        components: [successCard('📨 Жалобы', `Канал жалоб: <#${channel.id}>.`)],
         flags: V2,
       });
       return;

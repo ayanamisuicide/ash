@@ -20,12 +20,7 @@ export default {
     const user = interaction.options.getUser('user', true);
     const reason = interaction.options.getString('reason', true);
 
-    const result = await warnUser(
-      interaction.guild,
-      interaction.user.id,
-      user.id,
-      reason,
-    );
+    const result = await warnUser(interaction.guild, interaction.user.id, user.id, reason);
 
     await replyActionResult(interaction, result, {
       title: '⚠️ Предупреждение',

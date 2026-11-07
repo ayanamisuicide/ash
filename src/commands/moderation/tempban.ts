@@ -19,10 +19,7 @@ export default {
       option.setName('user').setDescription('Кого забанить').setRequired(true),
     )
     .addStringOption((option) =>
-      option
-        .setName('duration')
-        .setDescription('Длительность: 1h, 2d, 1w')
-        .setRequired(true),
+      option.setName('duration').setDescription('Длительность: 1h, 2d, 1w').setRequired(true),
     )
     .addStringOption((option) =>
       option.setName('reason').setDescription('Причина').setMaxLength(450),
@@ -40,9 +37,7 @@ export default {
     const user = interaction.options.getUser('user', true);
     const durationInput = interaction.options.getString('duration', true);
     const reason = interaction.options.getString('reason') ?? 'Без причины';
-    const deleteSeconds = Number(
-      interaction.options.getString('delete_messages') ?? '0',
-    );
+    const deleteSeconds = Number(interaction.options.getString('delete_messages') ?? '0');
     const durationMs = parseDuration(durationInput);
 
     if (!durationMs) {

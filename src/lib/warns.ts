@@ -1,4 +1,5 @@
 import { db, ensureGuild } from '../storage/sqlite.js';
+import { getModerationSettings } from './modSettings.js';
 
 export interface Warn {
   id: string;
@@ -25,15 +26,20 @@ function rowToWarn(row: WarnRow): Warn {
 
 export function getWarns(guildId: string, userId: string): Warn[] {
   const rows = db
-    .prepare(`
+    .prepare(
+      `
       SELECT id, reason, moderator_id, created_at
       FROM warns
       WHERE guild_id = ? AND user_id = ?
       ORDER BY created_at ASC, id ASC
-    `)
+    `,
+    )
     .all(guildId, userId) as unknown as WarnRow[];
 
-  return rows.map(rowToWarn);
+  const expiryDays = getModerationSettings(guildId).warnExpiryDays;
+  const cutoff = expiryDays > 0 ? Date.now() - expiryDays * 86_400_000 : 0;
+
+  return rows.filter((row) => cutoff === 0 || Number(row.created_at) >= cutoff).map(rowToWarn);
 }
 
 /** Добавляет предупреждение и возвращает его вместе с новым количеством */
@@ -51,10 +57,22 @@ export function addWarn(
     createdAt: Date.now(),
   };
 
-  db.prepare(`
+  const expiryDays = getModerationSettings(guildId).warnExpiryDays;
+  if (expiryDays > 0) {
+    db.prepare(
+      `
+      DELETE FROM warns
+      WHERE guild_id = ? AND user_id = ? AND created_at < ?
+    `,
+    ).run(guildId, userId, Date.now() - expiryDays * 86_400_000);
+  }
+
+  db.prepare(
+    `
     INSERT INTO warns (guild_id, user_id, id, moderator_id, reason, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(guildId, userId, warn.id, warn.moderatorId, warn.reason, warn.createdAt);
+  `,
+  ).run(guildId, userId, warn.id, warn.moderatorId, warn.reason, warn.createdAt);
 
   const row = db
     .prepare('SELECT COUNT(*) AS count FROM warns WHERE guild_id = ? AND user_id = ?')
@@ -66,11 +84,13 @@ export function addWarn(
 /** Удаляет одно предупреждение по id. Возвращает удалённое или null */
 export function removeWarn(guildId: string, userId: string, warnId: string): Warn | null {
   const row = db
-    .prepare(`
+    .prepare(
+      `
       SELECT id, reason, moderator_id, created_at
       FROM warns
       WHERE guild_id = ? AND user_id = ? AND id = ?
-    `)
+    `,
+    )
     .get(guildId, userId, warnId) as WarnRow | undefined;
 
   if (!row) return null;

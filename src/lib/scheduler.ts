@@ -25,6 +25,10 @@ export function stopScheduler(): void {
   timer = null;
 }
 
+export function isSchedulerRunning(): boolean {
+  return timer !== null;
+}
+
 async function tick(client: BotClient): Promise<void> {
   try {
     for (const guild of client.guilds.cache.values()) {
@@ -98,9 +102,7 @@ async function expireCase(guild: Guild, modCase: ModCase): Promise<boolean> {
 
       const settings = getModerationSettings(guild.id);
       const roleId =
-        typeof modCase.extra.roleId === 'string'
-          ? modCase.extra.roleId
-          : settings.muteRoleId;
+        typeof modCase.extra.roleId === 'string' ? modCase.extra.roleId : settings.muteRoleId;
       const role = roleId ? guild.roles.cache.get(roleId) : null;
       if (!role || !member.roles.cache.has(role.id)) return true;
 
@@ -117,8 +119,7 @@ async function expireCase(guild: Guild, modCase: ModCase): Promise<boolean> {
       const member = await guild.members.fetch(userId).catch(() => null);
       if (!member) return true;
 
-      const roleId =
-        typeof modCase.extra.roleId === 'string' ? modCase.extra.roleId : null;
+      const roleId = typeof modCase.extra.roleId === 'string' ? modCase.extra.roleId : null;
       const role = roleId ? guild.roles.cache.get(roleId) : null;
       if (!role || !member.roles.cache.has(role.id)) return true;
 

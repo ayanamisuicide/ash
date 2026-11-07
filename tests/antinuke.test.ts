@@ -7,10 +7,7 @@ import type { Guild } from 'discord.js';
 
 const dbFile = path.join(os.tmpdir(), `probot-antinuke-${process.pid}.sqlite`);
 process.env.DB_FILE = dbFile;
-process.env.DATA_FILE = path.join(
-  os.tmpdir(),
-  `probot-antinuke-legacy-${process.pid}.json`,
-);
+process.env.DATA_FILE = path.join(os.tmpdir(), `probot-antinuke-legacy-${process.pid}.json`);
 
 const storage = await import('../src/storage/sqlite.js');
 const logSettings = await import('../src/lib/logSettings.js');

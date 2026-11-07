@@ -64,9 +64,7 @@ export default {
 
       setAppealChannel(interaction.guild.id, channel.id);
       await interaction.editReply({
-        components: [
-          successCard('📨 Апелляции', `Канал апелляций: <#${channel.id}>.`),
-        ],
+        components: [successCard('📨 Апелляции', `Канал апелляций: <#${channel.id}>.`)],
         flags: V2,
       });
       return;
@@ -111,9 +109,7 @@ export default {
     if (existing) {
       await interaction.editReply({
         components: [
-          errorCard(
-            `У тебя уже есть апелляция #${existing.id} на рассмотрении. Дождись ответа.`,
-          ),
+          errorCard(`У тебя уже есть апелляция #${existing.id} на рассмотрении. Дождись ответа.`),
         ],
         flags: V2,
       });
@@ -187,10 +183,7 @@ export default {
 
     await interaction.editReply({
       components: [
-        successCard(
-          '📨 Апелляция отправлена',
-          `Апелляция #${appeal.id} отправлена модераторам.`,
-        ),
+        successCard('📨 Апелляция отправлена', `Апелляция #${appeal.id} отправлена модераторам.`),
       ],
       flags: V2,
     });

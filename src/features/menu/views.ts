@@ -160,9 +160,9 @@ export function buildLogsView(guild: Guild): PanelView {
 
   const fields = (Object.entries(LOG_CATEGORIES) as Array<[LogCategory, string]>).map(
     ([category, label]) => {
-      const events = (Object.entries(LOG_EVENTS) as Array<
-        [LogEventKey, { category: LogCategory; label: string }]
-      >).filter(([, meta]) => meta.category === category);
+      const events = (
+        Object.entries(LOG_EVENTS) as Array<[LogEventKey, { category: LogCategory; label: string }]>
+      ).filter(([, meta]) => meta.category === category);
 
       const disabled = events.filter(([key]) => !config.events[key]);
       const enabled = config.categories[category];
@@ -286,9 +286,7 @@ export function buildCasesView(guild: Guild): PanelView {
         tone: 'info',
         title: '📋 Последние кейсы',
         description:
-          cases.length > 0
-            ? `Показаны последние **${cases.length}** кейсов.`
-            : 'Кейсов пока нет.',
+          cases.length > 0 ? `Показаны последние **${cases.length}** кейсов.` : 'Кейсов пока нет.',
         fields,
         buttons: [navRow],
         timestamp: false,

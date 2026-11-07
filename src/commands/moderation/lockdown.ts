@@ -1,7 +1,6 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
-import { lockdownGuild, unlockAll } from '../../lib/moderation.js';
-import { replyActionResult } from '../../lib/reply.js';
+import { buildConfirmationView, createConfirmation } from '../../lib/confirmations.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -19,16 +18,27 @@ export default {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   async execute(interaction) {
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const enabled = interaction.options.getBoolean('enabled', true);
     const reason = interaction.options.getString('reason') ?? 'Без причины';
 
-    const result = enabled
-      ? await lockdownGuild(interaction.guild, interaction.user.id, reason)
-      : await unlockAll(interaction.guild, interaction.user.id, reason);
-
-    await replyActionResult(interaction, result, {
-      title: enabled ? '🔒 Lockdown' : '🔓 Снятие lockdown',
+    const id = createConfirmation({
+      guildId: interaction.guild.id,
+      userId: interaction.user.id,
+      kind: 'lockdown',
+      permission: PermissionFlagsBits.ManageChannels,
+      payload: { enabled, reason },
     });
+
+    await interaction.editReply(
+      buildConfirmationView(
+        id,
+        enabled ? '🔒 Подтверждение lockdown' : '🔓 Подтверждение снятия lockdown',
+        enabled
+          ? 'Заблокировать **все текстовые каналы** сервера?'
+          : 'Разблокировать **все каналы**, заблокированные ботом?',
+        [{ label: 'Причина', value: reason, block: true }],
+      ),
+    );
   },
 } satisfies Command;

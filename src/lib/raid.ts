@@ -47,14 +47,14 @@ function loadRaidState(guildId: string): RaidState {
 
 function persistRaidState(guildId: string, state: RaidState): void {
   ensureGuild(guildId);
+  db.prepare('INSERT OR IGNORE INTO security_runtime (guild_id) VALUES (?)').run(guildId);
   db.prepare(
-    'INSERT OR IGNORE INTO security_runtime (guild_id) VALUES (?)',
-  ).run(guildId);
-  db.prepare(`
+    `
     UPDATE security_runtime
     SET raid_until = ?, raid_joins = ?, updated_at = ?
     WHERE guild_id = ?
-  `).run(Math.floor(state.raidUntil), toJson(state.joins), Date.now(), guildId);
+  `,
+  ).run(Math.floor(state.raidUntil), toJson(state.joins), Date.now(), guildId);
 }
 
 function stateFor(guildId: string): RaidState {
@@ -102,17 +102,16 @@ export function clearRaidMode(guildId: string): void {
 
 export function resetRaidRuntime(guildId: string): void {
   states.delete(guildId);
-  db.prepare(`
+  db.prepare(
+    `
     UPDATE security_runtime
     SET raid_until = 0, raid_joins = '[]', updated_at = ?
     WHERE guild_id = ?
-  `).run(Date.now(), guildId);
+  `,
+  ).run(Date.now(), guildId);
 }
 
-export async function handleRaidJoin(
-  guild: Guild,
-  member: GuildMember,
-): Promise<void> {
+export async function handleRaidJoin(guild: Guild, member: GuildMember): Promise<void> {
   const config = getSecuritySettings(guild.id).raid;
   if (!config.enabled) return;
   if (member.user.bot && config.ignoreBots) return;

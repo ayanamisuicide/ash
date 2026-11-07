@@ -32,9 +32,7 @@ export default {
     await interaction.deferReply();
     const user = interaction.options.getUser('user', true);
     const reason = interaction.options.getString('reason') ?? 'Без причины';
-    const deleteSeconds = Number(
-      interaction.options.getString('delete_messages') ?? '0',
-    );
+    const deleteSeconds = Number(interaction.options.getString('delete_messages') ?? '0');
 
     const result = await banUser(
       interaction.guild,

@@ -73,9 +73,7 @@ export function card(options: CardOptions): ContainerBuilder {
   if (options.thumbnail) {
     const section = new SectionBuilder()
       .addTextDisplayComponents(headerText)
-      .setThumbnailAccessory(
-        new ThumbnailBuilder({ media: { url: options.thumbnail } }),
-      );
+      .setThumbnailAccessory(new ThumbnailBuilder({ media: { url: options.thumbnail } }));
     container.addSectionComponents(section);
   } else {
     container.addTextDisplayComponents(headerText);
@@ -90,9 +88,7 @@ export function card(options: CardOptions): ContainerBuilder {
 
   if (options.fields?.length) {
     const lines = options.fields.map((field) =>
-      field.block
-        ? `**${field.label}**\n${field.value}`
-        : `**${field.label}:** ${field.value}`,
+      field.block ? `**${field.label}**\n${field.value}` : `**${field.label}:** ${field.value}`,
     );
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(clamp(lines.join('\n'))),
@@ -102,9 +98,7 @@ export function card(options: CardOptions): ContainerBuilder {
   const meta: string[] = [];
   if (options.footer) meta.push(options.footer);
   if (options.timestamp !== false) {
-    const ms = options.timestamp
-      ? new Date(options.timestamp).getTime()
-      : Date.now();
+    const ms = options.timestamp ? new Date(options.timestamp).getTime() : Date.now();
     meta.push(`<t:${Math.floor(ms / 1_000)}:R>`);
   }
   if (meta.length > 0) {

@@ -16,17 +16,13 @@ export default {
       sub
         .setName('add')
         .setDescription('Добавить роль в иммунитет')
-        .addRoleOption((option) =>
-          option.setName('role').setDescription('Роль').setRequired(true),
-        ),
+        .addRoleOption((option) => option.setName('role').setDescription('Роль').setRequired(true)),
     )
     .addSubcommand((sub) =>
       sub
         .setName('remove')
         .setDescription('Убрать роль из иммунитета')
-        .addRoleOption((option) =>
-          option.setName('role').setDescription('Роль').setRequired(true),
-        ),
+        .addRoleOption((option) => option.setName('role').setDescription('Роль').setRequired(true)),
     )
     .addSubcommand((sub) => sub.setName('list').setDescription('Показать роли иммунитета'))
     .addSubcommand((sub) => sub.setName('clear').setDescription('Очистить список иммунитета'))
@@ -86,9 +82,7 @@ export default {
           tone: 'info',
           title: '🛡️ Иммунитет',
           description:
-            roles.length > 0
-              ? roles.map((id) => `<@&${id}>`).join('\n')
-              : 'Список пуст.',
+            roles.length > 0 ? roles.map((id) => `<@&${id}>`).join('\n') : 'Список пуст.',
           footer: `Ролей: ${roles.length}`,
           timestamp: false,
         }),

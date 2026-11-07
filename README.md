@@ -20,6 +20,14 @@ Discord-бот на TypeScript (discord.js v14) с упором на модер�
 - **Безопасность:** `/antiraid` и `/antinuke` — защита от массовых заходов и
   разрушительных действий с аудитом и автонаказаниями
 - **Иммунитет:** `/immunity` — роли, на которые не действует модерация
+- **Эксплуатация:** `/diagnose`, `/backup`, `/settings` — проверка прав/БД/бэкапов,
+  ручной бэкап и обзор настроек
+- **Подтверждения:** опасные действия (`/setrole`, `/massban`, `/lockdown`,
+  анти-нак → бан) требуют нажатия кнопки
+- **Rolepersist:** `/rolepersist` — роли, которые возвращаются после реджойна
+- **Срок варнов:** `/warnconfig expiry` — автоматическое устаревание предупреждений
+- **Сообщество:** `/welcome`, `/autorole`, `/leveling`, `/rank`, `/top`, `/tag`,
+  `/reactionrole`, `/tempvoice`, `/ticket`
 - **Жалобы:** `/report user`, `/report channel`
 - **Апелляции:** `/appeal submit`, `/appeal channel`, `/appeal list` + кнопки Approve/Reject
 - **Статистика:** `/modstats`
@@ -66,9 +74,25 @@ npm start
 
 ```bash
 npm run typecheck
+npm run lint
 npm test
-npm run ci        # typecheck + tests + build одной командой
+npm run ci        # typecheck + lint + format + tests + build
 ```
+
+## Production
+
+- `Dockerfile` + `docker-compose.yml` — запуск в контейнере с volume `./data:/app/data`.
+- `deploy/probot.service` — unit для systemd.
+- `npm run health` — проверка SQLite (используется в Docker HEALTHCHECK).
+- `npm run restore -- ./data/backups/bot-....sqlite` — восстановление из бэкапа
+  (бот перед этим нужно остановить; текущая база сохраняется в `.before-restore-*`).
+
+```bash
+docker compose up -d --build
+```
+
+Если папка `data` на хосте принадлежит другому пользователю, выдайте права
+пользователю контейнера: `sudo chown -R 1000:1000 data`.
 
 ## Структура
 
@@ -83,18 +107,23 @@ src/
 │   ├── loader.ts         # автозагрузка команд и событий
 │   └── types.ts          # типы Command и BotEvent
 ├── commands/
-│   ├── moderation/       # бан, кик, мут, варны, кейсы, очистка, каналы, голос, апелляции
-│   ├── settings/         # /logs, /automod, /warnconfig, /immunity, /report, /antiraid, /antinuke
-│   └── info/             # /help, /ping, /menu
+│   ├── moderation/       # бан, мут, варны, кейсы, очистка, роли, экспорт
+│   ├── settings/         # логи, автомод, безопасность, тикеты, уровни, бэкапы
+│   └── info/             # /help, /ping, /menu, /rank, /top, /tag
 ├── features/
 │   ├── menu/             # интерактивная панель (/menu)
-│   └── appeals.ts        # кнопки Approve/Reject для апелляций
-├── events/               # ready, interactionCreate, automod, антирейд, анти-нак и логи
+│   ├── appeals.ts        # кнопки Approve/Reject для апелляций
+│   ├── confirmations.ts  # кнопки подтверждения опасных действий
+│   └── tickets.ts        # создание/закрытие тикетов
+├── events/               # ready, interactionCreate, automod, безопасность, community, логи
 ├── lib/
 │   ├── cases.ts          # модерационные кейсы
 │   ├── moderation/       # сервис модерации по доменам (bans, timeouts, warns, ...)
 │   ├── moderation.ts     # публичный barrel модерации
 │   ├── modSettings.ts    # иммунитет, автомод, автонаказания, безопасность
+│   ├── community.ts      # welcome, autorole, уровни, теги, reaction roles, тикеты
+│   ├── rolepersist.ts    # сохранение ролей после выхода
+│   ├── confirmations.ts  # pending-подтверждения
 │   ├── raid.ts           # антирейд
 │   ├── nuke.ts           # анти-нак
 │   ├── scheduler.ts      # истечение временных наказаний
@@ -103,12 +132,17 @@ src/
 │   ├── warns.ts          # предупреждения
 │   ├── card.ts           # Components V2-карточки
 │   └── ...               # embeds, format, logger, logging, locks, reply
-├── storage/sqlite.ts     # SQLite, схема и миграция из JSON
+├── storage/sqlite.ts     # SQLite, миграции, бэкапы, runtime security
 └── web/server.ts         # заготовка веб-панели
+
+scripts/                  # healthcheck и restore
+deploy/probot.service     # systemd unit
+tests/                    # 43 теста
 ```
 
 Тесты лежат в `tests/`: хранилище, миграции и бэкапы, парсер длительностей,
-команды и права, меню, анти-нак, настройки безопасности и runtime.
+команды и права, меню, анти-нак, антирейд, community, rolepersist, подтверждения,
+настройки безопасности и runtime.
 
 ## Как добавить команду
 
@@ -163,15 +197,25 @@ export default {
 
 Каждое действие модерации создаёт кейс с номером:
 
-| Команда | Что делает |
-|---|---|
-| `/case id` | показать кейс |
-| `/modlogs user [page]` | история модерации участника |
-| `/reason case_id reason` | изменить причину кейса |
+| Команда                      | Что делает                              |
+| ---------------------------- | --------------------------------------- |
+| `/case id`                   | показать кейс                           |
+| `/modlogs user [page]`       | история модерации участника             |
+| `/reason case_id reason`     | изменить причину кейса                  |
 | `/duration case_id duration` | изменить срок (`1h`, `2d`, `permanent`) |
 
 Временные наказания (`tempban`, `timeout`, `mute`, `role temp`) хранят `expiresAt`.
 Планировщик раз в 30 секунд снимает истёкшие наказания и пишет об этом в лог.
+
+## Диагностика и эксплуатация
+
+- `/diagnose` — права бота, Audit Log, канал логов, версия БД, размер, счётчики,
+  последний бэкап, планировщик, пинг и аптайм.
+- `/backup create|list` — ручной бэкап и список копий.
+- `/settings` — обзор логов, автомода, иммунитета, безопасности и бэкапов.
+- `/caseexport format:json|csv` — экспорт кейсов.
+- `/modlogs user [type] [page]` — фильтр истории по типу.
+- `/modstats moderator export:true` — статистика с CSV-экспортом.
 
 ## Автомодерация
 
@@ -240,6 +284,40 @@ export default {
 
 `/role add|remove|temp` остаются как групповой вариант тех же действий.
 
+## Подтверждения
+
+Опасные действия не выполняются сразу — сначала приходит карточка с кнопками
+**Подтвердить / Отмена**:
+
+- `/setrole`
+- `/massban`
+- `/lockdown`
+- `/antinuke action:ban`
+
+Кнопки привязаны к автору команды, живут 5 минут и перепроверяют права.
+
+## Rolepersist
+
+`/rolepersist add|remove|list|clear` — роли, которые бот запоминает при выходе
+участника и возвращает после повторного захода. Учитываются только управляемые
+роли ниже роли бота.
+
+## Срок варнов
+
+`/warnconfig expiry days:30` — варны старше указанного срока больше не
+учитываются и удаляются при следующей выдаче. `0` — бессрочно.
+
+## Сообщество
+
+- `/welcome channel|message|goodbye_channel|goodbye_message|disable|status` —
+  приветствия и прощания. Шаблоны: `{user}`, `{guild}`, `{memberCount}`.
+- `/autorole add|remove|list|clear` — роли при входе.
+- `/leveling enable|channel|message|status`, `/rank`, `/top` — XP и уровни.
+- `/tag show|list|add|remove` — теги/кастомные ответы.
+- `/reactionrole add|remove|list` — роли по реакциям.
+- `/tempvoice setup|disable|status` — временные голосовые каналы.
+- `/ticket setup|panel|close` — тикеты с кнопкой открытия и закрытия.
+
 ## Апелляции
 
 - `/appeal channel #appeals` — канал для апелляций.
@@ -277,14 +355,14 @@ export default {
 
 Все настройки — через `/logs` (нужно право «Управление сервером»):
 
-| Подкоманда | Что делает |
-|---|---|
-| `/logs channel #dev` | выбрать канал логов (без канала — выключить) |
-| `/logs status` | показать категории и выключенные события |
-| `/logs event` | включить/выключить отдельное событие (автодополнение) |
-| `/logs category` | включить/выключить всю категорию |
+| Подкоманда               | Что делает                                               |
+| ------------------------ | -------------------------------------------------------- |
+| `/logs channel #dev`     | выбрать канал логов (без канала — выключить)             |
+| `/logs status`           | показать категории и выключенные события                 |
+| `/logs event`            | включить/выключить отдельное событие (автодополнение)    |
+| `/logs category`         | включить/выключить всю категорию                         |
 | `/logs all enabled:true` | включить/выключить всё сразу (кроме «каждого сообщения») |
-| `/logs reset` | сбросить фильтры к значениям по умолчанию |
+| `/logs reset`            | сбросить фильтры к значениям по умолчанию                |
 
 Категории: сообщения, участники, каналы, роли, ветки, голосовые каналы, сервер,
 приглашения, эмодзи/стикеры, события сервера, автомодерация, вебхуки,
@@ -295,6 +373,7 @@ export default {
 События безопасности: `raidAlert`, `raidAction`, `nukeAlert`, `nukeAction`.
 
 Важно:
+
 - Для «кто это сделал» и анти-нака бот должен иметь право **View Audit Log**.
 - Для логов вебхуков — **Manage Webhooks**.
 - Для автонаказаний анти-нака — соответствующие **Ban/Kick/Moderate Members**.

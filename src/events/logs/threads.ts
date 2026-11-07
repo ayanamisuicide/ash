@@ -29,9 +29,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(thread.guild, {
         title: '🧵 Ветка создана',
         color: COLORS.success,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         fields,
         footer: `ID: ${thread.id}`,
       });
@@ -55,9 +53,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(thread.guild, {
         title: '🧵 Ветка удалена',
         color: COLORS.danger,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         fields,
         footer: `ID: ${thread.id}`,
       });
@@ -98,7 +94,11 @@ const events: AnyBotEvent[] = [
 
       if (changes.length === 0) return;
 
-      const { executor } = await auditInfo(newThread.guild, AuditLogEvent.ThreadUpdate, newThread.id);
+      const { executor } = await auditInfo(
+        newThread.guild,
+        AuditLogEvent.ThreadUpdate,
+        newThread.id,
+      );
 
       const fields = [{ name: 'Ветка', value: `<#${newThread.id}>`, inline: true }];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
@@ -106,9 +106,7 @@ const events: AnyBotEvent[] = [
       const embed = logCard(newThread.guild, {
         title: '✏️ Ветка изменена',
         color: COLORS.warn,
-        actor: executor
-          ? { name: executor.tag, iconURL: executor.displayAvatarURL() }
-          : undefined,
+        actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         description: changes.join('\n'),
         fields,
         footer: `ID: ${newThread.id}`,

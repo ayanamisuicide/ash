@@ -20,12 +20,7 @@ export default {
     const user = interaction.options.getUser('user', true);
     const reason = interaction.options.getString('reason') ?? 'Без причины';
 
-    const result = await untimeoutUser(
-      interaction.guild,
-      interaction.user.id,
-      user.id,
-      reason,
-    );
+    const result = await untimeoutUser(interaction.guild, interaction.user.id, user.id, reason);
 
     await replyActionResult(interaction, result, {
       title: '🔊 Снятие таймаута',

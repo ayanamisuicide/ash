@@ -7,9 +7,7 @@ export default {
   data: new SlashCommandBuilder()
     .setName('setnick')
     .setDescription('Изменить или сбросить ник участника')
-    .addUserOption((option) =>
-      option.setName('user').setDescription('Участник').setRequired(true),
-    )
+    .addUserOption((option) => option.setName('user').setDescription('Участник').setRequired(true))
     .addStringOption((option) =>
       option.setName('nickname').setDescription('Новый ник (пусто — сбросить)').setMaxLength(32),
     )

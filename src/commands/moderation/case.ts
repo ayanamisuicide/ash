@@ -47,9 +47,7 @@ export default {
       },
       {
         label: 'Истекает',
-        value: modCase.expiresAt
-          ? `<t:${Math.floor(modCase.expiresAt / 1_000)}:f>`
-          : 'бессрочно',
+        value: modCase.expiresAt ? `<t:${Math.floor(modCase.expiresAt / 1_000)}:f>` : 'бессрочно',
         block: false,
       },
       { label: 'Активен', value: modCase.active ? 'да' : 'нет', block: false },

@@ -24,7 +24,7 @@ test('sqlite schema is versioned', () => {
   const row = storage.db.prepare('PRAGMA user_version').get() as {
     user_version: number;
   };
-  assert.ok(Number(row.user_version) >= 2);
+  assert.ok(Number(row.user_version) >= 3);
 });
 
 test('sqlite backup creates a consistent copy', () => {

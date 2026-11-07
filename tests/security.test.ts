@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
+import type { Guild, GuildMember } from 'discord.js';
 
 const dbFile = path.join(os.tmpdir(), `probot-security-${process.pid}.sqlite`);
 const legacyFile = path.join(os.tmpdir(), `probot-security-legacy-${process.pid}.json`);
@@ -14,6 +15,7 @@ const storage = await import('../src/storage/sqlite.js');
 const settings = await import('../src/lib/modSettings.js');
 const raid = await import('../src/lib/raid.js');
 const nuke = await import('../src/lib/nuke.js');
+const logSettings = await import('../src/lib/logSettings.js');
 
 const guildId = 'test-security-guild';
 
@@ -125,4 +127,55 @@ test('nuke runtime: counters and reset', () => {
   assert.deepEqual(nuke.getNukeCounters(guildId), []);
   nuke.resetNukeRuntime();
   assert.deepEqual(nuke.getNukeCounters(guildId), []);
+});
+
+test('antiraid: threshold activates raid mode and sends alert', async () => {
+  const raidGuildId = 'test-raid-guild';
+  const sent: unknown[] = [];
+  const logChannel = {
+    id: 'log-1',
+    isTextBased: () => true,
+    send: async (payload: unknown) => {
+      sent.push(payload);
+      return { id: `message-${sent.length}` };
+    },
+  };
+
+  const fakeGuild = {
+    id: raidGuildId,
+    name: 'Raid Guild',
+    channels: { cache: new Map([['log-1', logChannel]]) },
+  } as unknown as Guild;
+
+  const fakeMember = {
+    id: 'member-1',
+    user: {
+      tag: 'User#0001',
+      bot: false,
+      createdTimestamp: Date.now(),
+      displayAvatarURL: () => '',
+    },
+    toString: () => '<@member-1>',
+  } as unknown as GuildMember;
+
+  logSettings.setLogChannel(raidGuildId, 'log-1');
+  settings.updateRaidConfig(raidGuildId, {
+    enabled: true,
+    joinThreshold: 2,
+    joinWindowSec: 60,
+    accountAgeDays: 0,
+    action: 'alert',
+    durationSec: 60,
+    ignoreBots: true,
+  });
+  raid.resetRaidRuntime(raidGuildId);
+
+  await raid.handleRaidJoin(fakeGuild, fakeMember);
+  assert.equal(sent.length, 0);
+
+  await raid.handleRaidJoin(fakeGuild, fakeMember);
+  assert.equal(sent.length, 1);
+  assert.equal(raid.getRaidRuntime(raidGuildId).active, true);
+
+  raid.resetRaidRuntime(raidGuildId);
 });

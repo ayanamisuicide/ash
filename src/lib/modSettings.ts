@@ -358,8 +358,7 @@ export function hasImmunity(guild: Guild, member: GuildMember): boolean {
 export function addImmunityRole(guildId: string, roleId: string): boolean {
   const roles = getImmunityRoles(guildId);
   if (roles.includes(roleId)) return false;
-  roles.push(roleId);
-  updateColumn(guildId, 'immunity_roles', toJson(roles));
+  updateColumn(guildId, 'immunity_roles', toJson([...roles, roleId]));
   return true;
 }
 
@@ -396,8 +395,7 @@ export function addWarnAction(
     ...input,
     id: Math.random().toString(36).slice(2, 9),
   };
-  actions.push(action);
-  updateColumn(guildId, 'warn_actions', toJson(actions));
+  updateColumn(guildId, 'warn_actions', toJson([...actions, action]));
   return action;
 }
 
@@ -429,8 +427,11 @@ export function addAutomodWord(guildId: string, word: string): boolean {
   if (!normalized || automod.words.some((item) => item.toLowerCase() === normalized)) {
     return false;
   }
-  automod.words.push(word.trim());
-  updateColumn(guildId, 'automod', toJson(automod));
+  updateColumn(
+    guildId,
+    'automod',
+    toJson({ ...automod, words: [...automod.words, word.trim()] }),
+  );
   return true;
 }
 
@@ -439,8 +440,7 @@ export function removeAutomodWord(guildId: string, word: string): boolean {
   const normalized = word.trim().toLowerCase();
   const next = automod.words.filter((item) => item.toLowerCase() !== normalized);
   if (next.length === automod.words.length) return false;
-  automod.words = next;
-  updateColumn(guildId, 'automod', toJson(automod));
+  updateColumn(guildId, 'automod', toJson({ ...automod, words: next }));
   return true;
 }
 

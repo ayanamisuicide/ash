@@ -1,0 +1,29 @@
+{
+  "name": "probot-style-bot",
+  "version": "2.0.0",
+  "description": "Discord-бот в стиле ProBot: модерация, логирование, заготовка под веб-панель",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx watch src/index.ts",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc",
+    "start": "NODE_OPTIONS=--disable-warning=ExperimentalWarning node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx --test tests/*.test.ts",
+    "ci": "npm run typecheck && npm test && npm run build",
+    "deploy": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/deploy-commands.ts"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "discord.js": "^14.25.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

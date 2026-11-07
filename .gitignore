@@ -1,0 +1,9 @@
+node_modules/
+dist/
+data/
+.env
+*.log
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+legacy-js/node_modules/

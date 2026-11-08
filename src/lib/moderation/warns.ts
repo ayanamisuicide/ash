@@ -68,51 +68,66 @@ export async function warnUser(
   );
 }
 
+const DAY_MS = 24 * 60 * 60 * 1_000;
+
+/**
+ * Выбирает правило автонаказания: срабатывает правило с наибольшим достигнутым
+ * порогом (при правилах «3» и «5» на 4 варнах сработает «3», на 5 — «5»).
+ * Раньше требовалось точное совпадение, из-за чего 4-й варн не наказывался вовсе.
+ */
+export function pickWarnRule<T extends { count: number; windowDays: number }>(
+  actions: T[],
+  countRecent: (rule: T) => number,
+): T | null {
+  const sorted = [...actions].sort((a, b) => b.count - a.count);
+  for (const action of sorted) {
+    if (countRecent(action) >= action.count) return action;
+  }
+  return null;
+}
+
 async function applyWarnActions(guild: Guild, userId: string): Promise<string[]> {
   const actions = getModerationSettings(guild.id).warnActions;
   if (actions.length === 0) return [];
 
   const warns = getWarns(guild.id, userId);
   const now = Date.now();
-  const applied: string[] = [];
   const moderatorId = guild.client.user?.id;
-  if (!moderatorId) return applied;
+  if (!moderatorId) return [];
 
-  const sorted = [...actions].sort((a, b) => a.count - b.count);
-  for (const action of sorted) {
-    const recent = warns.filter(
-      (warn) => now - warn.createdAt <= action.windowDays * 24 * 60 * 60 * 1_000,
-    ).length;
-    if (recent !== action.count) continue;
+  const action = pickWarnRule(actions, (rule) => {
+    const windowMs = rule.windowDays * DAY_MS;
+    return warns.filter((warn) => now - warn.createdAt <= windowMs).length;
+  });
+  if (!action) return [];
 
-    const reason = `Автонаказание: ${action.count} предупреждений за ${action.windowDays} дн.`;
-    let result: ActionResult | null = null;
+  const applied: string[] = [];
+  const reason = `Автонаказание: ${action.count} предупреждений за ${action.windowDays} дн.`;
+  let result: ActionResult | null = null;
 
-    switch (action.action) {
-      case 'timeout':
-        if (action.durationMs) {
-          result = await timeoutUser(guild, moderatorId, userId, action.durationMs, reason);
-        }
-        break;
-      case 'mute':
-        result = await muteUser(guild, moderatorId, userId, action.durationMs ?? null, reason);
-        break;
-      case 'kick':
-        result = await kickUser(guild, moderatorId, userId, reason);
-        break;
-      case 'ban':
-        result = await banUser(guild, moderatorId, userId, reason);
-        break;
-      case 'tempban':
-        if (action.durationMs) {
-          result = await banUser(guild, moderatorId, userId, reason, 0, action.durationMs);
-        }
-        break;
-    }
-
-    if (result?.ok) applied.push(result.message);
-    break;
+  switch (action.action) {
+    case 'timeout':
+      if (action.durationMs) {
+        result = await timeoutUser(guild, moderatorId, userId, action.durationMs, reason);
+      }
+      break;
+    case 'mute':
+      result = await muteUser(guild, moderatorId, userId, action.durationMs ?? null, reason);
+      break;
+    case 'kick':
+      result = await kickUser(guild, moderatorId, userId, reason);
+      break;
+    case 'ban':
+      result = await banUser(guild, moderatorId, userId, reason);
+      break;
+    case 'tempban':
+      if (action.durationMs) {
+        result = await banUser(guild, moderatorId, userId, reason, 0, action.durationMs);
+      }
+      break;
   }
+
+  if (result?.ok) applied.push(result.message);
 
   if (applied.length > 0) {
     await sendLog(

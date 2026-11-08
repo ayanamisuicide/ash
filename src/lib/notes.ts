@@ -1,4 +1,5 @@
 import { db, ensureGuild } from '../storage/sqlite.js';
+import { newId } from './ids.js';
 
 /** Заметка о пользователе: не наказание, а внутренняя информация для staff */
 export interface Note {
@@ -42,7 +43,7 @@ export function getNotes(guildId: string, userId: string): Note[] {
 export function addNote(guildId: string, userId: string, authorId: string, text: string): Note {
   ensureGuild(guildId);
   const note: Note = {
-    id: Math.random().toString(36).slice(2, 8),
+    id: newId(),
     text,
     authorId,
     createdAt: Date.now(),

@@ -20,34 +20,53 @@ const MOD_PERMS = [
 ];
 
 const SPAM_WINDOW_MS = 10_000;
-const SPAM_LIMIT = 5;
+/** Сколько сообщений подряд за окно считается флудом */
+const SPAM_MESSAGE_LIMIT = 8;
+/** Сколько одинаковых сообщений за окно считается спамом */
+const SPAM_DUPLICATE_LIMIT = 5;
+const SPAM_MAX_KEYS = 5_000;
 
-interface SpamState {
-  content: string;
-  count: number;
+interface SpamHit {
   at: number;
+  text: string;
 }
 
-const spam = new Map<string, SpamState>();
+const spam = new Map<string, SpamHit[]>();
 
-function checkSpam(guildId: string, userId: string, content: string): boolean {
+/**
+ * Флуд-детектор: считает и общий поток сообщений, и повторы одного текста.
+ * Раньше учитывались только полностью идентичные сообщения, поэтому спам
+ * разными фразами не ловился вообще.
+ */
+export function checkSpam(guildId: string, userId: string, content: string): boolean {
   const key = `${guildId}:${userId}`;
   const now = Date.now();
-  const previous = spam.get(key);
+  const text = content.slice(0, 200);
 
-  if (!previous || previous.content !== content || now - previous.at > SPAM_WINDOW_MS) {
-    spam.set(key, { content, count: 1, at: now });
-    if (spam.size > 5_000) spam.clear();
-    return false;
-  }
+  const hits = (spam.get(key) ?? []).filter((hit) => now - hit.at <= SPAM_WINDOW_MS);
+  hits.push({ at: now, text });
 
-  previous.count++;
-  previous.at = now;
-  if (previous.count >= SPAM_LIMIT) {
+  const duplicates = hits.filter((hit) => hit.text === text).length;
+  if (hits.length >= SPAM_MESSAGE_LIMIT || duplicates >= SPAM_DUPLICATE_LIMIT) {
     spam.delete(key);
     return true;
   }
+
+  spam.set(key, hits);
+  if (spam.size > SPAM_MAX_KEYS) pruneSpam(now);
   return false;
+}
+
+function pruneSpam(now: number): void {
+  for (const [key, hits] of spam) {
+    if (hits.every((hit) => now - hit.at > SPAM_WINDOW_MS)) spam.delete(key);
+  }
+  if (spam.size > SPAM_MAX_KEYS) spam.clear();
+}
+
+/** Сброс состояния (используется в тестах) */
+export function resetSpamState(): void {
+  spam.clear();
 }
 
 function capsViolation(content: string): boolean {

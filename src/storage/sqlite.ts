@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
+import { newId } from '../lib/ids.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -292,8 +293,6 @@ function runMigrations(): void {
   }
 }
 
-runMigrations();
-
 export function ensureGuild(guildId: string): void {
   if (!guildId) return;
   db.prepare('INSERT OR IGNORE INTO guilds (id, created_at) VALUES (?, ?)').run(
@@ -302,7 +301,17 @@ export function ensureGuild(guildId: string): void {
   );
 }
 
+let transactionDepth = 0;
+
+/**
+ * Выполняет функцию в транзакции.
+ * Вложенный вызов не открывает новую транзакцию (SQLite не умеет вложенные
+ * BEGIN), а присоединяется к уже открытой — коммит/rollback делает внешний вызов.
+ */
 export function transaction<T>(fn: () => T): T {
+  if (transactionDepth > 0) return fn();
+
+  transactionDepth++;
   db.exec('BEGIN IMMEDIATE');
   try {
     const result = fn();
@@ -315,6 +324,8 @@ export function transaction<T>(fn: () => T): T {
       // ignore rollback errors
     }
     throw error;
+  } finally {
+    transactionDepth--;
   }
 }
 
@@ -540,7 +551,7 @@ function importLegacy(data: Record<string, unknown>): void {
         insertWarn.run(
           guildId,
           userId,
-          asString(warn.id) || Math.random().toString(36).slice(2, 8),
+          asString(warn.id) || newId(),
           asString(warn.moderatorId) || '0',
           asString(warn.reason) || 'Без причины',
           asNumber(warn.createdAt, Date.now()),
@@ -583,7 +594,7 @@ function importLegacy(data: Record<string, unknown>): void {
         insertNote.run(
           guildId,
           userId,
-          asString(note.id) || Math.random().toString(36).slice(2, 8),
+          asString(note.id) || newId(),
           asString(note.text) || '',
           asString(note.authorId) || '0',
           asNumber(note.createdAt, Date.now()),
@@ -673,4 +684,18 @@ function migrateLegacyJson(): void {
   });
 }
 
-migrateLegacyJson();
+let initialized = false;
+
+/**
+ * Готовит хранилище: версионные миграции схемы и импорт legacy JSON.
+ * Идемпотентна. Вызывается автоматически при импорте модуля, но её можно
+ * вызвать и явно (скрипты, тесты) — повторный вызов ничего не делает.
+ */
+export function initializeDatabase(): void {
+  if (initialized) return;
+  initialized = true;
+  runMigrations();
+  migrateLegacyJson();
+}
+
+initializeDatabase();

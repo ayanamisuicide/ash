@@ -2,7 +2,7 @@ import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.
 import type { Command } from '../../core/types.js';
 import { V2, card } from '../../lib/card.js';
 import { caseTypeLabel, listCases } from '../../lib/cases.js';
-import { truncate } from '../../lib/logging.js';
+import { fitFields, truncate } from '../../lib/logging.js';
 
 const PAGE_SIZE = 10;
 
@@ -86,7 +86,7 @@ export default {
           title: '📋 История модерации',
           description: `${user} · всего кейсов: **${all.length}**`,
           thumbnail: user.displayAvatarURL(),
-          fields,
+          fields: fitFields(fields),
           footer: `Страница ${safePage} из ${totalPages} · ID: ${user.id}`,
           timestamp: false,
         }),

@@ -24,6 +24,27 @@ export function messageLink(guildId: string, channelId: string, messageId: strin
   return `https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
 }
 
+/**
+ * Укладывает список полей в бюджет текста сообщения (Components V2 допускает
+ * около 4000 символов суммарного текста). Длинные значения подрезаются, чтобы
+ * карточка с 10 кейсами или варнами не была отклонена Discord.
+ */
+export function fitFields<T extends { label: string; value: string }>(
+  fields: T[],
+  budget = 3_400,
+): T[] {
+  const total = fields.reduce((sum, item) => sum + item.label.length + item.value.length, 0);
+  if (total <= budget) return fields;
+
+  const labels = fields.reduce((sum, item) => sum + item.label.length, 0);
+  const perValue = Math.max(60, Math.floor((budget - labels) / Math.max(1, fields.length)));
+
+  return fields.map((item) => ({
+    ...item,
+    value: item.value.length > perValue ? `${item.value.slice(0, perValue - 1)}…` : item.value,
+  }));
+}
+
 /** Цитата для содержимого сообщений — выглядит аккуратнее блока кода */
 export function quote(text: string, max = 1000): string {
   const clean = text.trim();

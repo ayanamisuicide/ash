@@ -1,5 +1,6 @@
 import type { Guild, GuildMember } from 'discord.js';
 import { db, ensureGuild, parseJson, toJson } from '../storage/sqlite.js';
+import { newId } from './ids.js';
 
 /** Действие, которое выдаётся после N варнов за окно времени */
 export type WarnActionType = 'timeout' | 'mute' | 'kick' | 'ban' | 'tempban';
@@ -158,7 +159,7 @@ function normalizeWarnAction(value: unknown): WarnAction | null {
   }
 
   return {
-    id: typeof value.id === 'string' ? value.id : Math.random().toString(36).slice(2, 9),
+    id: typeof value.id === 'string' ? value.id : newId(),
     count: typeof value.count === 'number' && value.count > 0 ? Math.floor(value.count) : 1,
     windowDays:
       typeof value.windowDays === 'number' && value.windowDays > 0
@@ -349,7 +350,7 @@ export function addWarnAction(guildId: string, input: Omit<WarnAction, 'id'>): W
   const actions = getModerationSettings(guildId).warnActions;
   const action: WarnAction = {
     ...input,
-    id: Math.random().toString(36).slice(2, 9),
+    id: newId(),
   };
   updateColumn(guildId, 'warn_actions', toJson([...actions, action]));
   return action;

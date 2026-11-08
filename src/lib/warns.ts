@@ -1,4 +1,5 @@
 import { db, ensureGuild } from '../storage/sqlite.js';
+import { newId } from './ids.js';
 import { getModerationSettings } from './modSettings.js';
 
 export interface Warn {
@@ -51,7 +52,7 @@ export function addWarn(
 ): { total: number; warn: Warn } {
   ensureGuild(guildId);
   const warn: Warn = {
-    id: Math.random().toString(36).slice(2, 8),
+    id: newId(),
     reason,
     moderatorId,
     createdAt: Date.now(),

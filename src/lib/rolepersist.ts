@@ -6,6 +6,36 @@ interface RoleRow {
   role_id: string;
 }
 
+/**
+ * Участники, которых удалили наказанием (кик/бан): их роли запоминать не нужно,
+ * иначе после разбана и повторного захода они вернутся автоматически.
+ * Метка ставится до вызова Discord API, поэтому не зависит от порядка событий.
+ */
+const MODERATION_REMOVAL_TTL_MS = 120_000;
+const moderationRemovals = new Map<string, number>();
+
+function removalKey(guildId: string, userId: string): string {
+  return `${guildId}:${userId}`;
+}
+
+export function markModerationRemoval(guildId: string, userId: string): void {
+  if (moderationRemovals.size > 1_000) {
+    const now = Date.now();
+    for (const [key, at] of moderationRemovals) {
+      if (now - at > MODERATION_REMOVAL_TTL_MS) moderationRemovals.delete(key);
+    }
+  }
+  moderationRemovals.set(removalKey(guildId, userId), Date.now());
+}
+
+function consumeModerationRemoval(guildId: string, userId: string): boolean {
+  const key = removalKey(guildId, userId);
+  const at = moderationRemovals.get(key);
+  if (at === undefined) return false;
+  moderationRemovals.delete(key);
+  return Date.now() - at <= MODERATION_REMOVAL_TTL_MS;
+}
+
 export function getPersistedRoles(guildId: string, userId: string): string[] {
   const rows = db
     .prepare(
@@ -68,6 +98,13 @@ function manageableRoles(guild: Guild, member: GuildMember | PartialGuildMember)
 
 export function saveMemberRoles(guild: Guild, member: GuildMember | PartialGuildMember): void {
   if (member.user.bot) return;
+
+  // Кик/бан: роли не запоминаем и старые записи чистим.
+  if (consumeModerationRemoval(guild.id, member.id)) {
+    clearPersistedRoles(guild.id, member.id);
+    return;
+  }
+
   const roleIds = manageableRoles(guild, member).map((role) => role.id);
   if (roleIds.length === 0) {
     clearPersistedRoles(guild.id, member.id);

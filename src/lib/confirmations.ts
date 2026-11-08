@@ -5,6 +5,7 @@ import {
   type MessageActionRowComponentBuilder,
 } from 'discord.js';
 import { V2, card, type CardField } from './card.js';
+import { newId } from './ids.js';
 
 export type ConfirmationKind = 'setrole' | 'massban' | 'lockdown' | 'antinuke-action';
 
@@ -30,7 +31,7 @@ function cleanup(): void {
 
 export function createConfirmation(input: Omit<PendingConfirmation, 'id' | 'createdAt'>): string {
   cleanup();
-  const id = Math.random().toString(36).slice(2, 10);
+  const id = newId(8);
   pending.set(id, { ...input, id, createdAt: Date.now() });
   return id;
 }

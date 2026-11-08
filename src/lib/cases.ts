@@ -152,6 +152,86 @@ export function listCases(guildId: string, userId?: string | null, limit = 25): 
   return rows.map(rowToCase);
 }
 
+export interface CaseSearchOptions {
+  /** Страница начиная с 1 */
+  page?: number;
+  /** Размер страницы, 1..100 */
+  pageSize?: number;
+  type?: CaseType | null;
+  userId?: string | null;
+  moderatorId?: string | null;
+  active?: boolean | null;
+  /** Поиск по причине, ID участника или модератора */
+  query?: string | null;
+}
+
+export interface CaseSearchResult {
+  items: ModCase[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pages: number;
+}
+
+/** Экранирует спецсимволы LIKE (\, %, _), чтобы поиск по «%» не находил всё подряд */
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+/** Поиск кейсов с фильтрами и пагинацией для веб-панели */
+export function searchCases(guildId: string, options: CaseSearchOptions = {}): CaseSearchResult {
+  const page = Math.max(1, Math.floor(options.page ?? 1));
+  const pageSize = Math.min(100, Math.max(1, Math.floor(options.pageSize ?? 25)));
+
+  const where = ['guild_id = ?'];
+  const values: Array<string | number> = [guildId];
+
+  if (options.type) {
+    where.push('type = ?');
+    values.push(options.type);
+  }
+  if (options.userId) {
+    where.push('user_id = ?');
+    values.push(options.userId);
+  }
+  if (options.moderatorId) {
+    where.push('moderator_id = ?');
+    values.push(options.moderatorId);
+  }
+  if (typeof options.active === 'boolean') {
+    where.push('active = ?');
+    values.push(options.active ? 1 : 0);
+  }
+
+  const query = options.query?.trim();
+  if (query) {
+    where.push(
+      "(reason LIKE ? ESCAPE '\\' OR user_id LIKE ? ESCAPE '\\' OR moderator_id LIKE ? ESCAPE '\\')",
+    );
+    const like = `%${escapeLike(query)}%`;
+    values.push(like, like, like);
+  }
+
+  const clause = where.join(' AND ');
+  const totalRow = db
+    .prepare(`SELECT COUNT(*) AS count FROM cases WHERE ${clause}`)
+    .get(...values) as { count: number } | undefined;
+  const total = Number(totalRow?.count ?? 0);
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+
+  const rows = db
+    .prepare(`SELECT * FROM cases WHERE ${clause} ORDER BY id DESC LIMIT ? OFFSET ?`)
+    .all(...values, pageSize, (page - 1) * pageSize) as unknown as CaseRow[];
+
+  return {
+    items: rows.map(rowToCase),
+    total,
+    page: Math.min(page, pages),
+    pageSize,
+    pages,
+  };
+}
+
 export function updateCase(
   guildId: string,
   caseId: number,
@@ -295,6 +375,69 @@ export function closeWarnCases(guildId: string, userId: string): ModCase[] {
 
     return closed;
   });
+}
+
+const CASE_TYPE_VALUES: CaseType[] = [
+  'ban',
+  'tempban',
+  'softban',
+  'kick',
+  'unban',
+  'timeout',
+  'untimeout',
+  'mute',
+  'unmute',
+  'warn',
+  'warnRemove',
+  'note',
+  'noteRemove',
+  'voice',
+  'nick',
+  'role',
+  'temprole',
+  'lock',
+  'unlock',
+  'slowmode',
+  'purge',
+];
+
+export interface CaseTypeCount {
+  type: CaseType;
+  count: number;
+}
+
+/**
+ * Агрегированная статистика по типам кейсов.
+ * Считается в SQL, чтобы не тянуть тысячи строк в память ради `/modstats`.
+ */
+export function countCasesByType(
+  guildId: string,
+  options: { moderatorId?: string | null } = {},
+): CaseTypeCount[] {
+  const values: Array<string> = [guildId];
+  let where = 'guild_id = ?';
+  if (options.moderatorId) {
+    where += ' AND moderator_id = ?';
+    values.push(options.moderatorId);
+  }
+
+  const rows = db
+    .prepare(
+      `
+      SELECT type, COUNT(*) AS count
+      FROM cases
+      WHERE ${where}
+      GROUP BY type
+      ORDER BY count DESC
+    `,
+    )
+    .all(...values) as unknown as Array<{ type: string; count: number }>;
+
+  return rows.map((row) => ({ type: row.type as CaseType, count: Number(row.count) }));
+}
+
+export function isCaseType(value: unknown): value is CaseType {
+  return typeof value === 'string' && CASE_TYPE_VALUES.includes(value as CaseType);
 }
 
 export function caseTypeLabel(type: CaseType): string {

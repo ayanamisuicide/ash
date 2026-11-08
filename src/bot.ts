@@ -1,4 +1,4 @@
-import type { ClientEvents } from 'discord.js';
+import { Events, type ClientEvents } from 'discord.js';
 import { config } from './config.js';
 import { BotClient } from './core/client.js';
 import { loadCommands, loadEvents } from './core/loader.js';
@@ -9,6 +9,23 @@ import { loadCommands, loadEvents } from './core/loader.js';
  */
 export async function startBot(): Promise<BotClient> {
   const client = new BotClient();
+
+  // Без этих обработчиков сбой websocket либо молча роняет процесс,
+  // либо оставляет бота «онлайн», но не отвечающим на команды.
+  client.on(Events.Error, (error) => {
+    console.error('[bot] ошибка Discord-клиента:', error);
+  });
+  client.on(Events.Warn, (message) => {
+    console.warn('[bot] предупреждение Discord:', message);
+  });
+  client.on(Events.ShardDisconnect, (event, shardId) => {
+    console.warn(
+      `[bot] шард ${shardId} отключён (код ${event.code}${event.reason ? `, ${event.reason}` : ''}) — переподключаемся`,
+    );
+  });
+  client.on(Events.ShardReconnecting, (shardId) => {
+    console.warn(`[bot] шард ${shardId} переподключается`);
+  });
 
   for (const command of await loadCommands()) {
     client.commands.set(command.data.name, command);

@@ -1,7 +1,7 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import { V2, card } from '../../lib/card.js';
 import { findCaseByWarnId } from '../../lib/cases.js';
-import { truncate } from '../../lib/logging.js';
+import { fitFields, truncate } from '../../lib/logging.js';
 import { getWarns } from '../../lib/warns.js';
 import type { Command } from '../../core/types.js';
 
@@ -41,7 +41,7 @@ export default {
           title: '📋 Предупреждения',
           description: `${user} · **${warns.length}**`,
           thumbnail: user.displayAvatarURL(),
-          fields,
+          fields: fitFields(fields),
           footer:
             warns.length > MAX_SHOWN
               ? `Показаны первые ${MAX_SHOWN} из ${warns.length} · ID: ${user.id}`

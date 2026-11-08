@@ -1,23 +1,24 @@
 {
   "name": "probot-style-bot",
   "version": "2.0.0",
-  "description": "Discord-бот в стиле ProBot: модерация, логирование, заготовка под веб-панель",
+  "description": "Discord-бот в стиле ProBot: модерация, логирование, веб-панель модератора",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx watch src/index.ts",
+    "dev": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx watch src/index.ts",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "build": "npm run clean && tsc",
-    "start": "NODE_OPTIONS=--disable-warning=ExperimentalWarning node dist/index.js",
+    "build": "npm run clean && tsc && npm run copy-assets",
+    "copy-assets": "node scripts/copy-assets.mjs",
+    "start": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --max-warnings=0",
-    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"*.{json,md,yml}\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"*.{json,md,yml}\"",
-    "test": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx --test tests/*.test.ts",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"*.{json,md,yml}\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"*.{json,md,yml}\"",
+    "test": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx --test tests/*.test.ts",
     "ci": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build",
-    "health": "NODE_OPTIONS=--disable-warning=ExperimentalWarning node scripts/healthcheck.mjs",
+    "health": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning node scripts/healthcheck.mjs",
     "restore": "node scripts/restore.mjs",
-    "deploy": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/deploy-commands.ts"
+    "deploy": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/deploy-commands.ts"
   },
   "engines": {
     "node": ">=22.13"
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.10.2",
+    "cross-env": "^7.0.3",
     "eslint": "^10.14.0",
     "prettier": "^3.9.10",
     "tsx": "^4.19.2",

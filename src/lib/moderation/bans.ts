@@ -1,5 +1,6 @@
 import type { Guild } from 'discord.js';
 import { closeActiveCases, createCase } from '../cases.js';
+import { markModerationRemoval } from '../rolepersist.js';
 import {
   clampDeleteSeconds,
   checkTarget,
@@ -41,6 +42,7 @@ export async function banUser(
   );
 
   try {
+    markModerationRemoval(guild.id, userId);
     await guild.bans.create(userId, {
       reason: `Модератор ${moderatorId}: ${reason}`,
       deleteMessageSeconds: clampDeleteSeconds(deleteSeconds),
@@ -107,6 +109,7 @@ export async function softbanUser(
   );
 
   try {
+    markModerationRemoval(guild.id, userId);
     await guild.bans.create(userId, {
       reason: `Софтбан (${moderatorId}): ${reason}`,
       deleteMessageSeconds: clampDeleteSeconds(deleteSeconds),
@@ -177,6 +180,7 @@ export async function kickUser(
   await dm(member.user, `👢 Ты кикнут с сервера **${guild.name}**.\n🧾 Причина: ${reason}`);
 
   try {
+    markModerationRemoval(guild.id, userId);
     await member.kick(`Модератор ${moderatorId}: ${reason}`);
   } catch (error) {
     console.error('[moderation] не удалось кикнуть:', error);

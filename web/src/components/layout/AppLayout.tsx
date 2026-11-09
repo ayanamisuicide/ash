@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Outlet, useLocation } from 'react-router-dom';
+import { PageFallback } from '@/components/layout/PageFallback';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
 import { APP_NAME, APP_VERSION, EASE_OUT_SOFT } from '@/lib/constants';
@@ -44,7 +45,9 @@ export function AppLayout() {
                 }}
                 transition={{ duration: 0.4, ease: EASE_OUT_SOFT }}
               >
-                <Outlet />
+                <Suspense fallback={<PageFallback />}>
+                  <Outlet />
+                </Suspense>
               </motion.div>
             </AnimatePresence>
           </div>

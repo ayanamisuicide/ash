@@ -16,5 +16,21 @@ export default defineConfig({
     restoreMocks: true,
     // Небольшой набор тестов: 16 воркеров только замедляют старт на CI.
     maxWorkers: 2,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'text-summary'],
+      include: ['src/lib/**/*.{ts,tsx}'],
+      exclude: [
+        'src/lib/**/*.test.*',
+        // Демо-фикстуры: данные для demo-режима, тестировать их бессмысленно.
+        'src/lib/demo-*.ts',
+      ],
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        branches: 70,
+        functions: 80,
+      },
+    },
   },
 });

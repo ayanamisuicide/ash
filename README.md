@@ -104,6 +104,7 @@ npm run lint         # src + tests + scripts + web/src (react-hooks)
 npm test             # быстрые тесты бота (node:test)
 npm run test:coverage # тесты бота + порог покрытия (как в CI)
 npm run test:panel   # тесты панели (Vitest + Testing Library)
+npm run test:panel:coverage # тесты панели + порог покрытия (как в CI)
 npm run ci           # всё вышеперечисленное + format:check + строгая сборка
 ```
 

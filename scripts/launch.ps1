@@ -1,4 +1,8 @@
 ﻿#requires -Version 5.1
+# ВАЖНО: файл должен быть сохранён как UTF-8 with BOM.
+# Windows PowerShell 5.1 без BOM читает кириллицу, символы брайля и блочную
+# псевдографику как ANSI — баннер, рамки и спиннер превращаются в мусор.
+# В PowerShell 7+ BOM не обязателен.
 <#
 .SYNOPSIS
     NEXUS release pipeline для Windows PowerShell 5.1+.
@@ -6,8 +10,9 @@
 .DESCRIPTION
     Красивая консольная обёртка над npm-скриптами проекта NEXUS:
     stop -> typecheck -> lint -> format:check -> test -> build -> deploy.
-    Каждый шаг выполняется в фоновом job с braille-спиннером, прогресс-баром,
-    записью в data/launch.log и корректной обработкой exit code.
+    Каждый шаг выполняется в фоновом job (ThreadJob или Start-Job) с
+    braille-спиннером, прогресс-баром, записью в data/launch.log и
+    корректной обработкой exit code.
 
 .PARAMETER InWindow
     Внутренний флаг: скрипт уже запущен в отдельном окне.
@@ -63,7 +68,7 @@ $script:step = 0
 $script:totalSteps = if ($SkipDeploy) { 6 } else { 7 }
 $script:failures = New-Object System.Collections.ArrayList
 $script:esc = [char]27
-$script:useTrueColor = -not [string]::IsNullOrEmpty($env:WT_SESSION)
+$script:useTrueColor = [bool]$env:WT_SESSION -or ($env:COLORTERM -match 'truecolor|24bit') -or ($env:TERM_PROGRAM -eq 'vscode')
 
 $script:interactive = $true
 try { $script:interactive = -not [Console]::IsOutputRedirected } catch { }
@@ -79,6 +84,23 @@ function Write-LaunchLog {
         if (-not (Test-Path -LiteralPath $dir)) {
             New-Item -ItemType Directory -Force -Path $dir | Out-Null
         }
+    } catch {
+        return
+    }
+
+    # Ротация: не даём launch.log расти бесконечно. Ошибка ротации не критична.
+    try {
+        if (Test-Path -LiteralPath $script:launchLog) {
+            $logItem = Get-Item -LiteralPath $script:launchLog -ErrorAction Stop
+            if ($logItem.Length -gt 5MB) {
+                Move-Item -LiteralPath $script:launchLog -Destination ($script:launchLog + '.1') -Force -ErrorAction Stop
+            }
+        }
+    } catch {
+        # Файл занят или переименование не удалось — продолжаем писать в текущий.
+    }
+
+    try {
         $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
         Add-Content -LiteralPath $script:launchLog -Value ("[{0}] {1}" -f $stamp, $Message) -Encoding UTF8
     } catch {
@@ -120,6 +142,25 @@ if (-not $npmCmd) {
     throw 'npm не найден в PATH. Установи Node.js 22+ и перезапусти терминал.'
 }
 $npm = if ($npmCmd.Path) { $npmCmd.Path } else { $npmCmd.Source }
+
+# ThreadJob легче Start-Job, но в Windows PowerShell 5.1 его может не быть.
+# Проверяем модуль и прозрачно откатываемся на Start-Job.
+$script:threadJobAvailable = $false
+try {
+    # В PS 5.1 модуль называется ThreadJob, в PS 7 — Microsoft.PowerShell.ThreadJob.
+    $threadJobModules = @(
+        Get-Module -ListAvailable -Name 'ThreadJob' -ErrorAction SilentlyContinue
+        Get-Module -ListAvailable -Name 'Microsoft.PowerShell.ThreadJob' -ErrorAction SilentlyContinue
+    )
+    if ($threadJobModules.Count -gt 0) {
+        Import-Module -Name $threadJobModules[0].Name -ErrorAction Stop
+    }
+    $script:threadJobAvailable = $null -ne (Get-Command Start-ThreadJob -ErrorAction SilentlyContinue)
+} catch {
+    $script:threadJobAvailable = $null -ne (Get-Command Start-ThreadJob -ErrorAction SilentlyContinue)
+}
+$jobEngine = if ($script:threadJobAvailable) { 'Start-ThreadJob' } else { 'Start-Job (ThreadJob module not found)' }
+Write-LaunchLog ("job engine: $jobEngine")
 
 # 16-цветная палитра для fallback-режима (RGB -> ближайший ANSI-код)
 $script:ansiPalette = @(
@@ -340,6 +381,46 @@ function Get-PackageVersion {
     return '0.0.0'
 }
 
+function Get-JobErrorText {
+    param(
+        [Parameter(Mandatory = $true)]$Job,
+        [object[]]$StreamErrors = @()
+    )
+
+    $parts = @()
+
+    # Причина остановки: у ThreadJob — на самом Job, у Start-Job — на ChildJob.
+    if ($Job.JobStateInfo.Reason) {
+        $msg = $Job.JobStateInfo.Reason.Message
+        if (-not $msg) { $msg = [string]$Job.JobStateInfo.Reason }
+        if ($msg) { $parts += $msg }
+    }
+    foreach ($child in @($Job.ChildJobs)) {
+        if ($child -and $child.JobStateInfo.Reason) {
+            $msg = $child.JobStateInfo.Reason.Message
+            if (-not $msg) { $msg = [string]$child.JobStateInfo.Reason }
+            if ($msg) { $parts += $msg }
+        }
+    }
+
+    # ThreadJob складывает ошибки в $Job.Error, Start-Job — в ChildJobs[*].Error.
+    $errorRecords = @()
+    if ($Job.Error) { $errorRecords += @($Job.Error) }
+    foreach ($child in @($Job.ChildJobs)) {
+        if ($child -and $child.Error) { $errorRecords += @($child.Error) }
+    }
+    foreach ($streamError in $StreamErrors) {
+        if ($streamError) { $errorRecords += @($streamError) }
+    }
+
+    foreach ($errorRecord in $errorRecords) {
+        $msg = $errorRecord.ToString()
+        if ($msg) { $parts += $msg }
+    }
+
+    return (($parts | Select-Object -Unique) -join ' | ')
+}
+
 function Invoke-NpmStep {
     param(
         [Parameter(Mandatory = $true)][string]$Label,
@@ -370,7 +451,7 @@ function Invoke-NpmStep {
         Args = $NpmArgs
     }
 
-    $job = Start-Job -ScriptBlock {
+    $jobScript = {
         param($Payload)
 
         Set-Location -LiteralPath ([string]$Payload.Root)
@@ -384,7 +465,18 @@ function Invoke-NpmStep {
         if ($code -ne 0) {
             throw "npm exited with code $code"
         }
-    } -ArgumentList $jobPayload
+    }
+
+    if ($script:threadJobAvailable) {
+        try {
+            $job = Start-ThreadJob -ScriptBlock $jobScript -ArgumentList $jobPayload
+        } catch {
+            Write-LaunchLog ("Start-ThreadJob failed, falling back to Start-Job: " + $_.Exception.Message)
+            $job = Start-Job -ScriptBlock $jobScript -ArgumentList $jobPayload
+        }
+    } else {
+        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $jobPayload
+    }
 
     $frame = 0
     $collected = New-Object System.Collections.Generic.List[string]
@@ -455,21 +547,7 @@ function Invoke-NpmStep {
     }
 
     $state = $job.State
-    $reasonParts = @()
-
-    if ($state -eq 'Failed') {
-        $child = $job.ChildJobs[0]
-        if ($child -and $child.JobStateInfo.Reason) {
-            $msg = $child.JobStateInfo.Reason.Message
-            if (-not $msg) { $msg = [string]$child.JobStateInfo.Reason }
-            if ($msg) { $reasonParts += $msg }
-        }
-    }
-    foreach ($jobError in $jobErrors) {
-        $msg = $jobError.ToString()
-        if ($msg) { $reasonParts += $msg }
-    }
-    $reason = (($reasonParts | Select-Object -Unique) -join ' | ')
+    $reason = Get-JobErrorText -Job $job -StreamErrors $jobErrors
 
     Remove-Job -Job $job -Force -ErrorAction SilentlyContinue | Out-Null
 

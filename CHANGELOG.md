@@ -4,6 +4,34 @@
 [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии следуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [3.0.2] - 2026-11-10
+
+### Безопасность
+
+- **`react-router-dom` 6.30.6 → 7.18.5:** закрыты open redirect через обратный
+  слэш (`GHSA-wrjc-x8rr-h8h6`) и инъекция конструктора при SSR-гидратации
+  (`GHSA-337j-9hxr-rhxg`) — обе moderate. Код панели менять не пришлось:
+  `HashRouter`, `Routes`, `Link`, `NavLink`, `useNavigate`, `useLocation`,
+  `useSearchParams` и `Navigate` в v7 совместимы. Entry-чанк уменьшился
+  с 391 до 383 КБ.
+- **Тесты веб-безопасности:** `tests/web-server.test.ts` поднимает настоящий
+  HTTP-сервер и проверяет security-заголовки и CSP, отказ по CSRF без токена и
+  с неверным токеном, `429` после 180 мутаций и 30 попыток входа в минуту,
+  path traversal и `404` вместо HTML для отсутствующих ассетов.
+  `tests/web-api.test.ts` фиксирует порядок проверок (`401` → `403` CSRF →
+  `404`) и гашение сессии только при валидном токене, а
+  `tests/web-http.test.ts` — значения `securityHeaders` и `sendJson`.
+
+### Изменено
+
+- **Dependabot:** minor/patch объединяются в один PR на экосистему, мажоры
+  `typescript`, `cross-env`, `dotenv`, `@types/node` (бот) и `tailwindcss`,
+  `tailwind-merge`, `recharts`, `vitest`, `typescript`, `@types/node` (панель)
+  игнорируются до осознанной миграции — красные мажорные PR больше не
+  перекрывают сигнал CI.
+- **GitHub Actions:** `actions/checkout@v7`, `actions/setup-node@v7`.
+- **CONTRIBUTING.md:** описан порядок обновления зависимостей через Dependabot.
+
 ## [3.0.1] - 2026-11-10
 
 ### Исправлено

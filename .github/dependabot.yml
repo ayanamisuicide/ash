@@ -7,6 +7,31 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: deps
+    labels:
+      - dependencies
+    # Один PR на все minor/patch: CI проверяет совместимость пакетов вместе.
+    groups:
+      bot-minor-patch:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    # Мажоры требуют миграции и отдельного релиза, иначе красные PR
+    # перекрывают сигнал по обычным обновлениям.
+    ignore:
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+      - dependency-name: cross-env
+        update-types:
+          - version-update:semver-major
+      - dependency-name: dotenv
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@types/node'
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: npm
     directory: /web
@@ -15,6 +40,34 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: deps(web)
+    labels:
+      - dependencies
+    groups:
+      panel-minor-patch:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@types/node'
+        update-types:
+          - version-update:semver-major
+      - dependency-name: tailwindcss
+        update-types:
+          - version-update:semver-major
+      - dependency-name: tailwind-merge
+        update-types:
+          - version-update:semver-major
+      - dependency-name: recharts
+        update-types:
+          - version-update:semver-major
+      - dependency-name: vitest
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
@@ -22,3 +75,5 @@ updates:
       interval: weekly
     commit-message:
       prefix: deps(actions)
+    labels:
+      - dependencies

@@ -10,6 +10,9 @@ import {
   getClientIp,
   parseCookies,
   readJson,
+  securityHeaders,
+  sendError,
+  sendJson,
   serializeCookie,
 } from '../src/web/http.js';
 
@@ -112,6 +115,95 @@ test('rate limiter: считает окно и восстанавливаетс�
 
   limiter.prune();
   assert.equal(limiter.check('ip'), true);
+});
+
+test('origin: null и чужой Host отклоняются для мутаций', () => {
+  const publicUrl = 'https://panel.example.com';
+
+  assert.throws(
+    () =>
+      assertSameOrigin(
+        request({
+          method: 'POST',
+          headers: { origin: 'null', host: 'panel.example.com' },
+        }),
+        publicUrl,
+      ),
+    (error: unknown) => error instanceof HttpError && error.status === 403,
+  );
+
+  assert.doesNotThrow(() =>
+    assertSameOrigin(
+      request({
+        method: 'POST',
+        headers: { origin: 'https://panel.example.com', host: 'panel.example.com' },
+      }),
+      publicUrl,
+    ),
+  );
+});
+
+test('security headers: запрещают фрейминг, MIME-sniffing и inline-скрипты', () => {
+  const headers = new Map<string, string>();
+
+  securityHeaders({
+    setHeader(name: string, value: string) {
+      headers.set(name.toLowerCase(), value);
+    },
+  } as unknown as Parameters<typeof securityHeaders>[0]);
+
+  assert.equal(headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(headers.get('x-frame-options'), 'DENY');
+  assert.equal(headers.get('referrer-policy'), 'same-origin');
+  assert.equal(headers.get('permissions-policy'), 'camera=(), microphone=(), geolocation=()');
+
+  const csp = headers.get('content-security-policy') ?? '';
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /script-src 'self'/);
+  assert.doesNotMatch(csp, /script-src[^;]*unsafe-inline/);
+  assert.match(csp, /frame-ancestors 'none'/);
+  assert.match(csp, /base-uri 'none'/);
+  assert.match(csp, /form-action 'self'/);
+});
+
+test('sendJson/sendError: статус, no-store и JSON-ошибка', () => {
+  const makeResponse = () => {
+    const headers = new Map<string, string | number>();
+    let body = '';
+    let status = 200;
+    const res = {
+      get statusCode(): number {
+        return status;
+      },
+      set statusCode(value: number) {
+        status = value;
+      },
+      setHeader(name: string, value: string | number) {
+        headers.set(name.toLowerCase(), value);
+      },
+      end(chunk?: unknown) {
+        if (chunk !== undefined) body += String(chunk);
+      },
+    };
+    return { res, headers, body: () => body };
+  };
+
+  const sent = makeResponse();
+  sendJson(sent.res as unknown as Parameters<typeof sendJson>[0], 418, { ok: false });
+
+  assert.equal(sent.res.statusCode, 418);
+  assert.equal(sent.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(sent.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(JSON.parse(sent.body()) as unknown, { ok: false });
+
+  const error = makeResponse();
+  sendError(error.res as unknown as Parameters<typeof sendError>[0], 403, 'Нет доступа.');
+
+  assert.equal(error.res.statusCode, 403);
+  assert.deepEqual(JSON.parse(error.body()) as unknown, {
+    ok: false,
+    error: 'Нет доступа.',
+  });
 });
 
 test('client ip: X-Forwarded-For учитывается только с trustProxy', () => {

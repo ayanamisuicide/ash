@@ -43,6 +43,15 @@ push, PR и тег `v*`; красный CI означает, что измене
 - Новые зависимости — только при явной пользе; для панели предпочтительны уже
   используемые React 18, Radix, TanStack Query и Tailwind.
 
+## Зависимости и Dependabot
+
+Dependabot присылает minor/patch одним сгруппированным PR на экосистему.
+Мажоры `typescript`, `cross-env`, `dotenv`, `@types/node` (бот) и
+`tailwindcss`, `tailwind-merge`, `recharts`, `vitest`, `typescript`,
+`@types/node` (панель) намеренно игнорируются: их обновляют отдельным
+коммитом с миграцией и полным `npm run ci`. Если нужен новый мажор — уберите
+строку из `.github/dependabot.yml` в том же коммите, где делаете миграцию.
+
 ## Коммиты и релизы
 
 Процесс описан в [AGENTS.md](AGENTS.md): один коммит — один релиз, версия по

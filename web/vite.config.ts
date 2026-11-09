@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  // Корневой .env содержит реальный WEB_PORT бота (по умолчанию 8080).
+  // Корневой .env содержит реальный WEB_PORT бота (по умолчанию 3000).
   // Без этого dev-прокси уходил на 3000 и панель в dev-режиме не видела API.
   const rootEnv = loadEnv(mode, fileURLToPath(new URL('..', import.meta.url)), '');
   const botPort = rootEnv.WEB_PORT || env.WEB_PORT || '3000';

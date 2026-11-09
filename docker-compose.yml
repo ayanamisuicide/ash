@@ -14,3 +14,8 @@ services:
       timeout: 5s
       start_period: 20s
       retries: 3
+    # Панель внутри контейнера слушает WEB_HOST (по умолчанию 127.0.0.1),
+    # поэтому наружу порт не публикуется. Для reverse-proxy/HTTPS раскомментируйте
+    # ports и задайте WEB_HOST=0.0.0.0 в .env.
+    # ports:
+    #   - '127.0.0.1:3000:3000'

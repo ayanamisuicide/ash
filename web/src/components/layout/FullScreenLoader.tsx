@@ -26,7 +26,9 @@ export function FullScreenLoader() {
         </div>
 
         <p className="text-sm font-semibold tracking-[-0.01em]">Подключаемся к NEXUS</p>
-        <p className="mt-1.5 text-xs text-muted-foreground">Проверяем сессию Discord и права доступа…</p>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Проверяем сессию Discord и права доступа…
+        </p>
 
         <div className="mt-7 w-full space-y-2.5">
           <div className="skeleton h-3 w-full" />

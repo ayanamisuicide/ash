@@ -98,11 +98,18 @@ export function LogsSettings({ guildId, settings, catalog, channels }: LogsSetti
 
   const busy = mutation.isPending;
   const textChannels = channels.filter((channel) => channel.isText && !channel.isCategory);
-  const categoryEntries = Object.entries(catalog.logCategories) as Array<[LogCategoryKey, string]>;
-  const eventEntries = Object.entries(catalog.logEvents) as Array<
-    [LogEventKey, LogEventCatalogEntry]
-  >;
-  const categoryOrder = new Map(categoryEntries.map(([key], index) => [key, index]));
+  const categoryEntries = useMemo(
+    () => Object.entries(catalog.logCategories) as Array<[LogCategoryKey, string]>,
+    [catalog.logCategories],
+  );
+  const eventEntries = useMemo(
+    () => Object.entries(catalog.logEvents) as Array<[LogEventKey, LogEventCatalogEntry]>,
+    [catalog.logEvents],
+  );
+  const categoryOrder = useMemo(
+    () => new Map(categoryEntries.map(([key], index) => [key, index])),
+    [categoryEntries],
+  );
 
   const totalEvents = eventEntries.length;
   const enabledEvents = eventEntries.filter(

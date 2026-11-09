@@ -437,14 +437,12 @@ export async function runStartupChecks(
     await guard(webGroup, 'Статика', () => {
       const dir = resolvePanelDir();
       const file = path.join(dir, 'index.html');
-      const hasReact = fs.existsSync(path.join(dir, 'assets'));
+      const found = fs.existsSync(file);
       record(
         webGroup,
         'Статика',
-        fs.existsSync(file) ? 'ok' : 'error',
-        fs.existsSync(file)
-          ? `${dir}${hasReact ? '' : ' (legacy)'}`
-          : `нет ${file} — выполните npm run build`,
+        found ? 'ok' : 'error',
+        found ? dir : `нет ${file} — выполните npm run build`,
       );
     });
     await guard(webGroup, 'Доступность', async () => {

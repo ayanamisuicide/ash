@@ -1,5 +1,8 @@
 node_modules/
+**/node_modules/
 dist/
+web/dist/
+web/coverage/
 data/
 legacy-js/
 package-lock.json

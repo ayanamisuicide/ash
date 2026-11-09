@@ -6,7 +6,9 @@ test('buildAppealButton: customId привязан к серверу', () => {
   const guildId = '1257590268262350908';
   const row = buildAppealButton(guildId);
   const button = row.components[0];
+  // discord.js отдаёт здесь объединённый тип компонентов — сужаем до кнопки.
+  const data = button?.data as { custom_id?: string; label?: string } | undefined;
 
-  assert.equal(button?.data.custom_id, `appeal:dm:start:${guildId}`);
-  assert.equal(button?.data.label, 'Подать апелляцию');
+  assert.equal(data?.custom_id, `appeal:dm:start:${guildId}`);
+  assert.equal(data?.label, 'Подать апелляцию');
 });

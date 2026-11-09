@@ -9,6 +9,9 @@ const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
  * В dev бот запускается из корня проекта и берёт свежий web/dist.
  * В production сборка заранее копирует web/dist в dist/web/public.
  * WEB_PANEL_DIR позволяет указать каталог вручную.
+ *
+ * Легаси-панель удалена: других источников статики нет, поэтому при
+ * отсутствии сборки панель честно сообщает об ошибке.
  */
 export function resolvePanelDir(): string {
   const candidates = [
@@ -25,5 +28,7 @@ export function resolvePanelDir(): string {
     if (fs.existsSync(path.join(resolved, 'index.html'))) return resolved;
   }
 
-  return path.resolve(MODULE_DIR, 'public');
+  // Возвращаем ожидаемый dev-каталог, чтобы сообщение об ошибке указывало,
+  // куда именно собирать панель.
+  return path.resolve(process.cwd(), 'web', 'dist');
 }

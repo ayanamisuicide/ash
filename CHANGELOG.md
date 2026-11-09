@@ -4,6 +4,52 @@
 [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии следуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [3.0.0] - 2026-11-10
+
+### Добавлено
+
+- **CI на GitHub Actions** (`.github/workflows/ci.yml`): на каждый push и PR
+  ставятся зависимости бота и панели, затем выполняется `npm run ci`
+  (typecheck, lint, format, тесты бота и панели, сборка). Тег `v*` проверяется
+  тем же прогоном.
+- **Dependabot** (`.github/dependabot.yml`): еженедельные PR для корневых
+  зависимостей, панели и GitHub Actions.
+- **Тесты веб-панели:** Vitest + Testing Library + jsdom, 39 тестов —
+  форматирование/склонения, палитра кейсов, парсер длительностей, заметки
+  релиза и пагинация (включая регресс 2.2.1). Запуск: `npm run test:panel`.
+- **CONTRIBUTING.md:** локальная настройка, обязательные проверки и релизный
+  процесс.
+
+### Изменено
+
+- **Семантическое версионирование:** `2.2.2.2` → `3.0.0` в `package.json`,
+  `package-lock.json`, `web/package.json` и `web/src/lib/constants.ts`.
+- **Строгие статические проверки:** `typecheck` дополнительно проверяет
+  `tests/` (`tsconfig.tests.json`); ESLint покрывает `tests/`, `scripts/` и
+  `web/src` (включая `react-hooks`); Prettier форматирует панель.
+- **Сборка панели обязательна:** `scripts/build-panel.mjs` падает без
+  `web/node_modules` и без `web/`, а `scripts/copy-assets.mjs` — без
+  `web/dist/index.html`. Зелёная сборка больше не может отдать старую панель.
+- **`npm run ci`** включает `test:panel` и строгую сборку панели.
+- **`uncaughtException`:** вместо логирования выполняется graceful shutdown
+  с кодом 1 — systemd/Docker перезапускают бота в чистом состоянии.
+- **Разбиение mega-файлов:** билдеры модалок меню вынесены из
+  `features/menu/handler.ts` в `features/menu/modals.ts`, а презентационные
+  части настроек — в `components/settings/moderationParts.tsx`.
+
+### Удалено
+
+- **Легаси SPA `src/web/public`** (`index.html`, `app.js`, `styles.css`,
+  `favicon.svg`): единственный источник статики — React-сборка `web/dist`.
+- **Тихий fallback** в `panelDir.ts`, `copy-assets.mjs` и `build-panel.mjs`.
+
+### Исправлено
+
+- **Документация:** README описывает актуальную структуру, порт `3000`,
+  обязательную установку зависимостей панели, ограничение «один экземпляр» и
+  публикацию порта в Docker; убран устаревший комментарий про `8080` в
+  `web/vite.config.ts`.
+
 ## [2.2.2.2] - 2026-11-09
 
 ### Изменено

@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: typecheck, lint, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: true
+      # Тесты бота используют временные файлы и не требуют реальных секретов.
+      WEB_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      - name: Install bot dependencies
+        run: npm ci
+
+      - name: Install panel dependencies
+        run: npm --prefix web ci
+
+      - name: Run checks
+        run: npm run ci

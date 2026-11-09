@@ -3,13 +3,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const legacy = path.join(root, 'src', 'web', 'public');
-const reactPanel = path.join(root, 'web', 'dist');
-const source = fs.existsSync(path.join(reactPanel, 'index.html')) ? reactPanel : legacy;
+const source = path.join(root, 'web', 'dist');
 const target = path.join(root, 'dist', 'web', 'public');
 
+// Легаси-панели (src/web/public) больше нет: единственный источник —
+// собранный React-панель. Если её нет, падать громко, а не копировать старое.
 if (!fs.existsSync(path.join(source, 'index.html'))) {
-  console.error(`copy-assets: не найден index.html в ${source}`);
+  console.error(
+    `copy-assets: не найден index.html в ${path.relative(root, source)}.\n` +
+      'Выполните `npm --prefix web ci` и `npm run build:panel`.',
+  );
   process.exit(1);
 }
 

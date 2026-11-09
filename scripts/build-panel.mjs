@@ -8,18 +8,20 @@ const webDir = path.join(root, 'web');
 const webPackage = path.join(webDir, 'package.json');
 const webModules = path.join(webDir, 'node_modules');
 
+// Панель — часть продукта: без неё сборка не считается успешной.
+// Раньше здесь был «мягкий» пропуск, из-за которого CI оставался зелёным,
+// а в production уезжала старая (legacy) панель. Теперь это ошибка.
 if (!fs.existsSync(webPackage)) {
-  console.log('build-panel: каталог web/ не найден — пропускаю сборку панели.');
-  process.exit(0);
+  console.error('build-panel: каталог web/ не найден — соберите панель перед сборкой бота.');
+  process.exit(1);
 }
 
 if (!fs.existsSync(webModules)) {
-  console.warn(
-    'build-panel: web/node_modules не установлены. ' +
-      'Выполните `npm --prefix web ci`, чтобы собрать React-панель. ' +
-      'Пока используется существующий web/dist или legacy-панель.',
+  console.error(
+    'build-panel: web/node_modules не установлены.\n' +
+      'Выполните `npm --prefix web ci` (или `npm --prefix web install`) и повторите сборку.',
   );
-  process.exit(0);
+  process.exit(1);
 }
 
 const isWindows = process.platform === 'win32';

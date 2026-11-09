@@ -2,7 +2,7 @@
 
 Discord-бот на TypeScript (discord.js v14) с упором на модерацию.
 Архитектура похожа на ProBot: команды и события подхватываются автоматически,
-настройки хранятся по серверам, есть заготовка под веб-панель.
+настройки хранятся по серверам, есть полноценная веб-панель модератора.
 
 ## Возможности
 
@@ -37,8 +37,9 @@ Discord-бот на TypeScript (discord.js v14) с упором на модер�
   кейсы, настройки, логи и информация
 - **SQLite-хранилище** (`data/bot.sqlite`, встроенный `node:sqlite`) с WAL;
   старый JSON автоматически импортируется при первом запуске
-- **Веб-панель модератора:** `src/web` — Discord OAuth2, REST API и SPA
-  (включается `WEB_ENABLED=true`), см. раздел «Веб-панель»
+- **Веб-панель модератора:** бэкенд `src/web` (Discord OAuth2 и REST API) и
+  React-панель `web/` (React 18 + Vite); включается `WEB_ENABLED=true`,
+  см. раздел «Веб-панель»
 
 ## Установка
 
@@ -46,6 +47,7 @@ Discord-бот на TypeScript (discord.js v14) с упором на модер�
 
 ```bash
 npm install
+npm --prefix web ci    # зависимости React-панели, нужны для npm run build
 cp .env.example .env   # и заполните DISCORD_TOKEN, DISCORD_CLIENT_ID
 ```
 
@@ -97,11 +99,16 @@ npm start
 Проверки:
 
 ```bash
-npm run typecheck
-npm run lint
-npm test
-npm run ci        # typecheck + lint + format + tests + build
+npm run typecheck    # бот + tests/ (tsconfig.tests.json)
+npm run lint         # src + tests + scripts + web/src (react-hooks)
+npm test             # тесты бота (node:test)
+npm run test:panel   # тесты панели (Vitest + Testing Library)
+npm run ci           # всё вышеперечисленное + format:check + строгая сборка
 ```
+
+Те же проверки выполняет GitHub Actions (`.github/workflows/ci.yml`) на каждый
+push, PR и тег `v*`: сначала `npm ci` и `npm --prefix web ci`, затем
+`npm run ci`.
 
 ## Production
 
@@ -110,6 +117,16 @@ npm run ci        # typecheck + lint + format + tests + build
 - `npm run health` — проверка SQLite (используется в Docker HEALTHCHECK).
 - `npm run restore -- ./data/backups/bot-....sqlite` — восстановление из бэкапа
   (бот перед этим нужно остановить; текущая база сохраняется в `.before-restore-*`).
+
+> **Один экземпляр.** Хранилище — синхронный `node:sqlite`, а rate limiter,
+> кэш прав и сессии живут в памяти процесса. Запускайте ровно один процесс бота
+> на одну базу; для нескольких реплик нужен PostgreSQL и общий стор (см.
+> «Дальнейшие шаги»).
+>
+> **Порт панели в Docker.** В контейнере панель слушает `WEB_HOST` (по умолчанию
+> `127.0.0.1`), поэтому `ports` в `docker-compose.yml` закомментированы. Для
+> доступа снаружи задайте `WEB_HOST=0.0.0.0` и раскомментируйте
+> `127.0.0.1:3000:3000` — публикуйте только через HTTPS-прокси.
 
 ```bash
 docker compose up -d --build
@@ -163,11 +180,13 @@ src/
 │   ├── ids.ts            # короткие случайные ID (варны, заметки, правила)
 │   └── ...               # embeds, format, logger, logging, locks, reply
 ├── storage/sqlite.ts     # SQLite, миграции, бэкапы, runtime security
-└── web/                  # веб-панель: server, auth, api, actions, data, settings, public/
+└── web/                  # бэкенд панели: server, auth, api, actions, data, settings
 
-scripts/                  # healthcheck, restore, copy-assets
+web/                      # React 18 + Vite: страницы, компоненты, тесты (Vitest)
+scripts/                  # healthcheck, restore, build-panel, copy-assets
 deploy/probot.service     # systemd unit
-tests/                    # 85 тестов
+tests/                    # 102 теста бота (node:test)
+.github/                  # CI (typecheck/lint/tests/build) и Dependabot
 legacy-js/                # архив первой JS-версии, сборкой не используется
 ```
 
@@ -175,7 +194,8 @@ legacy-js/                # архив первой JS-версии, сборк�
 команды и права, меню, анти-нак, антирейд, community, rolepersist, подтверждения,
 настройки безопасности и runtime, HTTP-слой и действия панели, полнота меню, а также
 регрессии (вложенные транзакции, экранирование LIKE, SQL-статистика, пороги
-автонаказаний, флуд-детектор, rolepersist после кика/бана).
+автонаказаний, флуд-детектор, rolepersist после кика/бана). Тесты панели —
+рядом с кодом: `web/src/**/*.test.ts(x)` (Vitest + Testing Library + jsdom).
 
 Все npm-скрипты кроссплатформенные (`cross-env`), поэтому `npm run dev` работает
 и в PowerShell, и в bash.
@@ -481,6 +501,7 @@ Kick/Ban/Moderate Members, Manage Messages) и участники с иммун�
 ## Дальнейшие шаги
 
 - [x] Веб-панель: OAuth2 + API настроек
+- [x] CI и тесты панели
 - [ ] PostgreSQL для мультипроцессного деплоя (когда будет сервер)
 
 ## Веб-панель
@@ -537,9 +558,9 @@ Redirect в Developer Portal: `<WEB_PUBLIC_URL>/auth/callback`.
 cases,members,appeals,settings,actions,notes,warns}`.
 - `web/actions.ts` — действия панели вызывают **тот же** сервис модерации, что и
   слэш-команды (общая история кейсов и одинаковые проверки).
-- `web/` — React 18 + Vite панель; собирается в `web/dist`.
-- `src/web/public/` — legacy SPA, используется только как fallback, если
-  React-сборки ещё нет.
+- `web/` — React 18 + Vite панель: страницы, компоненты и тесты (Vitest +
+  Testing Library); собирается в `web/dist`.
+- Тесты панели запускаются через `npm run test:panel` и входят в `npm run ci`.
 - Вкладка «Настройки» полностью покрывает серверные функции: модерация и
   иммунитет, категории/события логов, антирейд и анти-нак, приветствия и
   прощания, автороли, уровни, временные голосовые каналы и тикеты. Для сообщений
@@ -555,8 +576,9 @@ cases,members,appeals,settings,actions,notes,warns}`.
 проверка `Origin`, rate limit (180 запросов/мин на мутации, 30/мин на логин),
 лимит тела 512 КБ, куки `HttpOnly` + `SameSite=Lax` (+ `Secure` для https).
 
-`npm run build` собирает React-панель (`npm --prefix web run build`) и копирует
-`web/dist` в `dist/web/public` (`npm run copy-assets`). Если `web/dist` нет,
-используется legacy-панель из `src/web/public`. После пересборки перезапустите
-бота. Для разработки с HMR: `npm --prefix web run dev` (Vite на `5173`) и
-направьте Tailscale на этот порт либо периодически пересобирайте панель.
+`npm run build` сначала собирает React-панель (`npm --prefix web run build`),
+затем копирует `web/dist` в `dist/web/public` (`npm run copy-assets`). Сборка
+строгая: без `web/node_modules` или `web/dist` она падает с подсказкой, а не
+подставляет старую панель. После пересборки перезапустите бота. Для разработки
+с HMR: `npm --prefix web run dev` (Vite на `5173`) и направьте Tailscale на этот
+порт либо периодически пересобирайте панель.

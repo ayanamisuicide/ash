@@ -39,10 +39,7 @@ export function LoginPage() {
   const setSession = useAuthStore((state) => state.setSession);
   usePageTitle('Вход');
 
-  const oauthError = useMemo(
-    () => new URLSearchParams(window.location.search).get('error'),
-    [],
-  );
+  const oauthError = useMemo(() => new URLSearchParams(window.location.search).get('error'), []);
   const oauthMessage = oauthError ? OAUTH_ERRORS[oauthError] : null;
   const errorMessage = sessionError ?? oauthMessage;
 
@@ -79,7 +76,10 @@ export function LoginPage() {
 
       <section className="relative z-10 flex flex-1 items-center justify-center px-4 py-8 sm:py-10">
         {/* Тонкие орбиты вокруг карточки — глубина без перегруза */}
-        <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2" aria-hidden>
+        <div
+          className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2"
+          aria-hidden
+        >
           <div className="h-[560px] w-[560px] max-w-[120vw] rounded-full border border-white/[0.035]" />
           <div className="absolute left-1/2 top-1/2 h-[400px] w-[400px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 animate-spin-slow rounded-full border border-dashed border-accent/15" />
         </div>
@@ -92,15 +92,17 @@ export function LoginPage() {
         >
           <motion.div variants={item} className="text-center">
             <div className="relative mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-accent/20 bg-accent/10 shadow-glow-card">
-              <span className="absolute inset-0 -z-10 rounded-2xl bg-accent/30 blur-2xl" aria-hidden />
+              <span
+                className="absolute inset-0 -z-10 rounded-2xl bg-accent/30 blur-2xl"
+                aria-hidden
+              />
               <DiscordIcon className="h-8 w-8 text-[#aab0ff]" />
             </div>
             <h1 className="text-2xl font-bold tracking-[-0.03em] sm:text-[30px]">
               Вход в <span className="text-gradient">NEXUS</span>
             </h1>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              Подключите Discord-аккаунт — покажем только серверы, где у вас есть права
-              модератора.
+              Подключите Discord-аккаунт — покажем только серверы, где у вас есть права модератора.
             </p>
           </motion.div>
 

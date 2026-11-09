@@ -7,7 +7,7 @@ const fieldClasses =
   'hover:border-white/[0.13] focus:border-accent/45 focus:bg-white/[0.06] focus:shadow-[0_0_0_4px_rgba(102,115,255,0.06)] focus:outline-none ' +
   'focus:ring-2 focus:ring-accent/15 disabled:cursor-not-allowed disabled:opacity-55';
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type = 'text', ...props }, ref) => (
@@ -16,7 +16,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 );
 Input.displayName = 'Input';
 
-export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, ...props }, ref) => (

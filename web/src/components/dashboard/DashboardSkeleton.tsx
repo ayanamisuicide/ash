@@ -12,12 +12,7 @@ export function ChartCardSkeleton() {
 /** Shimmer-скелетоны повторяют финальную сетку, чтобы не было layout shift */
 export function DashboardSkeleton() {
   return (
-    <div
-      className="space-y-4"
-      role="status"
-      aria-label="Загрузка обзора сервера"
-      aria-busy="true"
-    >
+    <div className="space-y-4" role="status" aria-label="Загрузка обзора сервера" aria-busy="true">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
         {Array.from({ length: 6 }).map((_, index) => (
           <div key={index} className="glass-card p-4">

@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { fieldClasses } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
 
-export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {}
+export type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement>;
 
 /**
  * Нативный select в стиле дизайн-системы. Нативный элемент выбран осознанно:

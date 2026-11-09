@@ -37,9 +37,6 @@ async function main(): Promise<void> {
   process.on('unhandledRejection', (reason) => {
     console.error('[bot] необработанный rejected промис:', reason);
   });
-  process.on('uncaughtException', (error) => {
-    console.error('[bot] необработанное исключение:', error);
-  });
 
   const login = ui.spinner('Подключаюсь к Discord');
   let client: BotClient;
@@ -104,6 +101,15 @@ async function main(): Promise<void> {
     closeDatabase();
     process.exit(exitCode);
   };
+
+  // Необработанное исключение оставляет процесс в неопределённом состоянии —
+  // корректно останавливаемся, а systemd/Docker перезапустят бота.
+  // Unhandled rejection только логируем: часть библиотек бросает их
+  // не критично для работы, и мгновенный рестарт дал бы цикл падений.
+  process.on('uncaughtException', (error) => {
+    console.error('[bot] необработанное исключение:', error);
+    void shutdown('uncaughtException', 1);
+  });
 
   if (!config.startup.disabled) {
     const checks = ui.spinner('Проверяю окружение, БД и права бота');

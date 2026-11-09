@@ -453,9 +453,7 @@ export function SecuritySettings({ guildId, settings }: SecuritySettingsProps) {
           </div>
 
           {!nukeValid ? (
-            <p className="text-xs text-warning">
-              Порог — от 1 до 100, окно — от 5 до 3600 секунд.
-            </p>
+            <p className="text-xs text-warning">Порог — от 1 до 100, окно — от 5 до 3600 секунд.</p>
           ) : null}
 
           <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3">

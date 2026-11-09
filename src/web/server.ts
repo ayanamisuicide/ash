@@ -291,9 +291,10 @@ export async function startWebPanel(
     server.listen(port, host);
   });
   console.log(`[web] статика панели: ${PANEL_DIR}`);
-  if (!fsSync.existsSync(path.join(PANEL_DIR, 'assets'))) {
+  if (!fsSync.existsSync(path.join(PANEL_DIR, 'index.html'))) {
     console.warn(
-      '[web] React-сборка не найдена — отдаётся legacy-панель. Выполните `npm run build`.',
+      `[web] сборка панели не найдена в ${PANEL_DIR}. ` +
+        'Выполните `npm --prefix web ci && npm run build` (или `npm start` для dev-режима).',
     );
   }
   if (!config.web.publicUrl.startsWith('https://') && host !== '127.0.0.1') {

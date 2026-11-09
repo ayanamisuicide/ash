@@ -5,6 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { config } from '../config.js';
 import type { BotClient } from '../core/client.js';
+import { readPackageVersion } from '../lib/console-ui.js';
 import { handleApi } from './api.js';
 import { buildAuthorizeUrl, exchangeCode, fetchCurrentUser } from './discord.js';
 import { pruneAccessCache } from './auth.js';
@@ -24,6 +25,22 @@ import {
 import { SessionStore } from './sessions.js';
 
 const PANEL_DIR = resolvePanelDir();
+const PANEL_VERSION = readPackageVersion();
+
+/** Идентификатор текущей сборки панели — entry-скрипт из index.html. */
+async function readPanelBuild(): Promise<string> {
+  try {
+    const html = await fs.readFile(path.join(PANEL_DIR, 'index.html'), 'utf8');
+    const moduleScript = html.match(
+      /<script[^>]*\btype=["']module["'][^>]*\bsrc=["']([^"']+)["']/i,
+    );
+    if (moduleScript?.[1]) return moduleScript[1];
+    const anyScript = html.match(/<script[^>]*\bsrc=["']([^"']+\.js)["']/i);
+    return anyScript?.[1] ?? '';
+  } catch {
+    return '';
+  }
+}
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -221,7 +238,13 @@ export async function startWebPanel(
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
           res.setHeader('Cache-Control', 'no-store');
-          res.end(JSON.stringify({ ok: true }));
+          res.end(
+            JSON.stringify({
+              ok: true,
+              version: PANEL_VERSION,
+              build: await readPanelBuild(),
+            }),
+          );
           return;
         }
 

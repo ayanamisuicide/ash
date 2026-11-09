@@ -31,6 +31,19 @@ export function fetchMe(signal?: AbortSignal): Promise<MeResponse> {
   return api.get<MeResponse>('/api/me', { signal });
 }
 
+export interface HealthResponse {
+  ok: boolean;
+  /** Версия бота и панели из package.json */
+  version?: string;
+  /** Entry-скрипт текущей сборки панели — меняется при каждом билде */
+  build?: string;
+}
+
+/** Публичный health-check: используется для автообновления панели. */
+export function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
+  return api.get<HealthResponse>('/health', { signal });
+}
+
 /** Статистика, последние кейсы, безопасность и состояние бота */
 export function getOverview(guildId: string, signal?: AbortSignal): Promise<OverviewResponse> {
   return api.get<OverviewResponse>(`/api/guilds/${encodeURIComponent(guildId)}/overview`, {

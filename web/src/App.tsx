@@ -4,6 +4,7 @@ import { SessionBootstrap } from '@/components/auth/SessionBootstrap';
 import { BackgroundFx } from '@/components/effects/BackgroundFx';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Toaster } from '@/components/ui/Toast';
+import { useAutoUpdate } from '@/hooks/useAutoUpdate';
 import { AppealsPage } from '@/pages/Appeals';
 import { CasesPage } from '@/pages/Cases';
 import { DashboardPage } from '@/pages/Dashboard';
@@ -13,6 +14,8 @@ import { NotFoundPage } from '@/pages/NotFound';
 import { SettingsPage } from '@/pages/Settings';
 
 export default function App() {
+  useAutoUpdate();
+
   return (
     <>
       <BackgroundFx />

@@ -1,6 +1,6 @@
 {
   "name": "probot-style-bot",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "Discord-бот в стиле ProBot: модерация, логирование, веб-панель модератора",
   "type": "module",
   "main": "dist/index.js",
@@ -29,7 +29,8 @@
     "health": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning node scripts/healthcheck.mjs",
     "restore": "node scripts/restore.mjs",
     "tunnel": "node scripts/tailscale.mjs",
-    "deploy": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/deploy-commands.ts"
+    "deploy": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/deploy-commands.ts",
+    "release:github": "node scripts/release-gh.mjs"
   },
   "engines": {
     "node": ">=22.13"

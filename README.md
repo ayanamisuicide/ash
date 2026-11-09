@@ -186,12 +186,12 @@ src/
 ├── storage/sqlite.ts     # SQLite, миграции, бэкапы, runtime security
 └── web/                  # бэкенд панели: server, auth, api, actions, data, settings
 
-web/                      # React 18 + Vite: страницы, компоненты, тесты (Vitest)
-scripts/                  # healthcheck, restore, build-panel, copy-assets
+web/                      # React 18 + Vite 7: страницы, компоненты, тесты (Vitest 5)
+scripts/                  # healthcheck, restore, build-panel, copy-assets, release-gh
 deploy/probot.service     # systemd unit
-tests/                    # 102 теста бота (node:test)
+tests/                    # 143 теста бота (node:test)
 .github/                  # CI (typecheck/lint/tests/build) и Dependabot
-legacy-js/                # архив первой JS-версии, сборкой не используется
+LICENSE                   # MIT
 ```
 
 Тесты лежат в `tests/`: хранилище, миграции и бэкапы, парсер длительностей,

@@ -61,7 +61,11 @@ SemVer одновременно в `package.json`, `package-lock.json`,
 `web/package.json` и `web/src/lib/constants.ts`, запись в `CHANGELOG.md` и
 `web/src/lib/release-notes.ts`, зелёный `npm run ci`, annotated-тег `vX.Y.Z`.
 
+После пуша тега создайте GitHub Release из changelog:
+`npm run release:github -- X.Y.Z` (нужен установленный `gh`).
+
 ## Лицензия
 
-Файл `LICENSE` пока не добавлен: перед публикацией репозитория выберите лицензию
-и согласуйте её с владельцем проекта. До этого код считается внутренним.
+Проект распространяется по лицензии [MIT](LICENSE). Файл `LICENSE` можно
+заменить другой лицензией до публикации форка — согласуйте это с владельцем
+проекта.

@@ -24,7 +24,7 @@ jobs:
       # Тесты бота используют временные файлы и не требуют реальных секретов.
       WEB_ENABLED: 'false'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # jsdom 31 (тесты панели) требует Node ^22.22 или ^24.15, поэтому CI идёт
       # на актуальном LTS 24.x. Минимальный рантайм бота — 22.13 (node:sqlite).

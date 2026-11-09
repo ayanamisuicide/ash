@@ -17,19 +17,10 @@ updates:
         update-types:
           - minor
           - patch
-    # Мажоры требуют миграции и отдельного релиза, иначе красные PR
-    # перекрывают сигнал по обычным обновлениям.
+    # Мажоры обновляются вручную вместе с миграцией: иначе поток красных PR
+    # (vite 8, plugin-react 6, framer-motion 14, ...) перекрывает сигнал CI.
     ignore:
-      - dependency-name: typescript
-        update-types:
-          - version-update:semver-major
-      - dependency-name: cross-env
-        update-types:
-          - version-update:semver-major
-      - dependency-name: dotenv
-        update-types:
-          - version-update:semver-major
-      - dependency-name: '@types/node'
+      - dependency-name: '*'
         update-types:
           - version-update:semver-major
 
@@ -50,22 +41,7 @@ updates:
           - minor
           - patch
     ignore:
-      - dependency-name: typescript
-        update-types:
-          - version-update:semver-major
-      - dependency-name: '@types/node'
-        update-types:
-          - version-update:semver-major
-      - dependency-name: tailwindcss
-        update-types:
-          - version-update:semver-major
-      - dependency-name: tailwind-merge
-        update-types:
-          - version-update:semver-major
-      - dependency-name: recharts
-        update-types:
-          - version-update:semver-major
-      - dependency-name: vitest
+      - dependency-name: '*'
         update-types:
           - version-update:semver-major
 

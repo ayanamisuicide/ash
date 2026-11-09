@@ -46,11 +46,11 @@ push, PR и тег `v*`; красный CI означает, что измене
 ## Зависимости и Dependabot
 
 Dependabot присылает minor/patch одним сгруппированным PR на экосистему.
-Мажоры `typescript`, `cross-env`, `dotenv`, `@types/node` (бот) и
-`tailwindcss`, `tailwind-merge`, `recharts`, `vitest`, `typescript`,
-`@types/node` (панель) намеренно игнорируются: их обновляют отдельным
-коммитом с миграцией и полным `npm run ci`. Если нужен новый мажор — уберите
-строку из `.github/dependabot.yml` в том же коммите, где делаете миграцию.
+Мажоры npm-пакетов намеренно игнорируются: их обновляют вручную
+(`npm install pkg@major`) отдельным коммитом с миграцией и полным
+`npm run ci`. Правило `ignore: dependency-name: '*'` в `.github/dependabot.yml`
+можно убрать на время миграции, если нужен автоматический PR. GitHub Actions
+обновляются как обычно.
 
 ## Коммиты и релизы
 

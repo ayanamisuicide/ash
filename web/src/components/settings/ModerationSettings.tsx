@@ -39,6 +39,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Switch } from '@/components/ui/Switch';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/Tooltip';
 import { WarnActionModal } from '@/components/settings/WarnActionModal';
 import { pluralizeRu } from '@/lib/format';
 import {
@@ -103,7 +104,7 @@ function FieldLabel({
       >
         {children}
       </label>
-      {hint ? <span className="text-[9px] text-muted-foreground/70">{hint}</span> : null}
+      {hint ? <span className="text-[11px] text-muted-foreground/70">{hint}</span> : null}
     </div>
   );
 }
@@ -149,7 +150,7 @@ function AutomodFilterCard({
           </span>
           <span className="min-w-0">
             <span className="block text-xs font-semibold">{label}</span>
-            <span className="mt-0.5 block text-[10px] leading-relaxed text-muted-foreground">
+            <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
               {description}
             </span>
           </span>
@@ -447,7 +448,7 @@ export function ModerationSettings({
           title="Автомодерация"
           description="Фильтры, пороги и наказания за нарушения."
         >
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {settings.automod.enabled ? 'включена' : 'выключена'}
           </span>
           <Switch
@@ -469,7 +470,7 @@ export function ModerationSettings({
               </div>
               <div>
                 <h3 className="text-xs font-semibold">Что делать при нарушении</h3>
-                <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                   Сообщение можно удалить, а к нарушителю — применить наказание.
                 </p>
               </div>
@@ -512,9 +513,9 @@ export function ModerationSettings({
                       onClick={() => setAutomodDuration(preset)}
                       disabled={busy || !automodActionNeedsDuration(automodAction)}
                       className={cn(
-                        'rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:opacity-50',
+                        'focus-ring rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:opacity-50',
                         automodDuration === preset
-                          ? 'border-accent/30 bg-accent/[0.14] text-accent'
+                          ? 'border-accent/30 bg-accent/[0.14] text-accent-soft'
                           : 'border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:border-white/[0.14] hover:text-foreground',
                       )}
                     >
@@ -526,7 +527,7 @@ export function ModerationSettings({
             </div>
 
             {!automodDurationValid || !automodDurationInRange ? (
-              <p className="mt-2 text-[10px] text-warning">
+              <p className="mt-2 text-xs text-warning">
                 {!automodDurationValid
                   ? 'Неверный формат длительности. Пример: 10m, 1h, 7d.'
                   : automodAction === 'timeout'
@@ -562,7 +563,7 @@ export function ModerationSettings({
               <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Фильтры
               </h3>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 проверок включено:{' '}
                 {
                   [
@@ -636,7 +637,7 @@ export function ModerationSettings({
                   </div>
                 </div>
                 {!capsPercentValid || !capsMinLengthValid ? (
-                  <p className="mt-2 text-[10px] text-warning">
+                  <p className="mt-2 text-xs text-warning">
                     Укажите процент от 10 до 100 и длину от 1 до 2000.
                   </p>
                 ) : null}
@@ -698,7 +699,7 @@ export function ModerationSettings({
                   </div>
                 </div>
                 {!spamCountValid || !spamWindowValid || !spamDuplicateValid ? (
-                  <p className="mt-2 text-[10px] text-warning">
+                  <p className="mt-2 text-xs text-warning">
                     Сообщений и повторов — от 2 до 100, окно — от 1 до 300 секунд.
                   </p>
                 ) : null}
@@ -730,13 +731,13 @@ export function ModerationSettings({
                   aria-invalid={!mentionsValid}
                 />
                 {!mentionsValid ? (
-                  <p className="mt-2 text-[10px] text-warning">Введите целое число от 0 до 100.</p>
+                  <p className="mt-2 text-xs text-warning">Введите целое число от 0 до 100.</p>
                 ) : null}
               </AutomodFilterCard>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Пороги CAPS, спама и упоминаний сохраняются вместе.
               </p>
               <Button
@@ -767,7 +768,7 @@ export function ModerationSettings({
               </div>
               <div>
                 <h3 className="text-xs font-semibold">Исключения</h3>
-                <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                   В этих каналах и для участников с этими ролями автомод не срабатывает.
                 </p>
               </div>
@@ -824,7 +825,7 @@ export function ModerationSettings({
                       </span>
                     ))
                   ) : (
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Исключений нет — проверяются все каналы.
                     </p>
                   )}
@@ -881,7 +882,7 @@ export function ModerationSettings({
                       </span>
                     ))
                   ) : (
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Исключений нет — проверяются все участники без прав модератора.
                     </p>
                   )}
@@ -898,7 +899,7 @@ export function ModerationSettings({
           title="Стоп-слова"
           description="Сообщения с этими словами будут удаляться автоматически."
         >
-          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">
+          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
             {settings.automod.words.length}
           </span>
         </SectionHeader>
@@ -974,7 +975,7 @@ export function ModerationSettings({
           {settings.warnActions.length === 0 ? (
             <div className="rounded-xl border border-dashed border-white/[0.08] px-4 py-8 text-center">
               <p className="text-xs font-semibold">Правил пока нет</p>
-              <p className="mt-1 text-[10px] text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Добавьте правило, чтобы бот автоматически наказывал за серию варнов.
               </p>
             </div>
@@ -993,23 +994,27 @@ export function ModerationSettings({
                       {rule.count} {pluralizeRu(rule.count, 'варн', 'варна', 'варнов')} за{' '}
                       {rule.windowDays} {pluralizeRu(rule.windowDays, 'день', 'дня', 'дней')}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       {WARN_ACTION_LABELS[rule.action]}
                       {rule.durationMs ? ` · ${formatDurationMs(rule.durationMs)}` : ''}
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => deleteRuleMutation.mutate(rule.id)}
-                    disabled={busy}
-                    aria-label="Удалить правило"
-                    title="Удалить правило"
-                    className="shrink-0 text-muted-foreground hover:bg-danger/10 hover:text-danger"
-                  >
-                    {deletingRule === rule.id ? <Spinner /> : <Trash2 />}
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => deleteRuleMutation.mutate(rule.id)}
+                        disabled={busy}
+                        aria-label="Удалить правило"
+                        className="shrink-0 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                      >
+                        {deletingRule === rule.id ? <Spinner /> : <Trash2 />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Удалить правило</TooltipContent>
+                  </Tooltip>
                 </div>
               ))}
             </div>
@@ -1119,11 +1124,11 @@ export function ModerationSettings({
                 {savingWarnExpiry ? 'Сохраняем…' : 'Сохранить'}
               </Button>
             </div>
-            <p className="mt-1.5 text-[10px] text-muted-foreground">
+            <p className="mt-1.5 text-xs text-muted-foreground">
               0 — варны не истекают. Максимум 365 дней.
             </p>
             {!warnExpiryValid ? (
-              <p className="mt-1 text-[10px] text-warning">Введите целое число от 0 до 365.</p>
+              <p className="mt-1 text-xs text-warning">Введите целое число от 0 до 365.</p>
             ) : null}
           </form>
         </div>
@@ -1135,7 +1140,7 @@ export function ModerationSettings({
           title="Иммунитет"
           description="Участников с этими ролями нельзя наказать через бота."
         >
-          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">
+          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
             ролей: {settings.immunityRoles.length}
           </span>
         </SectionHeader>
@@ -1190,7 +1195,7 @@ export function ModerationSettings({
                 </span>
               ))
             ) : (
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Иммунитета нет — бот может наказать любого участника ниже своей роли.
               </p>
             )}

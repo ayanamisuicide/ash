@@ -69,7 +69,7 @@ export function FieldLabel({
       >
         {children}
       </label>
-      {hint ? <span className="text-[9px] text-muted-foreground/70">{hint}</span> : null}
+      {hint ? <span className="text-[11px] text-muted-foreground/70">{hint}</span> : null}
     </div>
   );
 }
@@ -138,7 +138,7 @@ export function SwitchRow({
       <div className="min-w-0">
         <p className="truncate text-xs font-medium">{label}</p>
         {description ? (
-          <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">{description}</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{description}</p>
         ) : null}
       </div>
       <Switch

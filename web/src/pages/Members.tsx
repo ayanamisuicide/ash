@@ -226,7 +226,7 @@ export function MembersPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           {isRefreshing && (searchQuery.data || profileQuery.data) ? (
-            <span className="hidden items-center gap-1.5 text-[10px] text-muted-foreground sm:inline-flex">
+            <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
               <Spinner className="h-3 w-3" />
               Обновление…
             </span>
@@ -288,7 +288,7 @@ export function MembersPage() {
                   <h2 className="text-sm font-semibold">Участники</h2>
                 </div>
                 {searchQuery.data ? (
-                  <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">
+                  <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                     {totalMembers}
                   </span>
                 ) : null}
@@ -318,7 +318,7 @@ export function MembersPage() {
                 ) : null}
               </div>
 
-              <p className="mt-2 text-[10px] text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Поиск по имени, нику или ID участника
               </p>
             </div>
@@ -335,7 +335,7 @@ export function MembersPage() {
                   <p className="text-xs font-semibold text-danger">
                     Не удалось загрузить участников
                   </p>
-                  <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     {getErrorMessage(searchQuery.error)}
                   </p>
                   <Button
@@ -350,19 +350,18 @@ export function MembersPage() {
                   </Button>
                 </div>
               ) : searchItems.length === 0 ? (
-                <div className="px-3 py-10 text-center">
-                  <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-muted-foreground">
-                    <UserRoundSearch className="h-4 w-4" />
-                  </div>
-                  <p className="text-xs font-semibold">
-                    {searchTerm ? 'Ничего не найдено' : 'Участники не загрузились'}
-                  </p>
-                  <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                    {searchTerm
+                <EmptyState
+                  icon={UserRoundSearch}
+                  title={searchTerm ? 'Ничего не найдено' : 'Участники не загрузились'}
+                  description={
+                    searchTerm
                       ? 'Попробуйте другой ник или точный ID участника.'
-                      : 'Discord ещё не отдал список. Нажмите «Обновить» или попробуйте позже.'}
-                  </p>
-                </div>
+                      : 'Discord ещё не отдал список. Нажмите «Обновить» или попробуйте позже.'
+                  }
+                  tone="muted"
+                  size="inline"
+                  className="px-3 py-10"
+                />
               ) : (
                 <div className="space-y-1">
                   {searchItems.map((member) => (
@@ -377,7 +376,7 @@ export function MembersPage() {
               )}
 
               {listPartial && !searchQuery.isLoading && searchItems.length > 0 ? (
-                <p className="mx-1 mt-2 rounded-lg border border-warning/20 bg-warning/[0.06] px-3 py-2 text-[10px] leading-relaxed text-warning/90">
+                <p className="mx-1 mt-2 rounded-lg border border-warning/20 bg-warning/[0.06] px-3 py-2 text-xs leading-relaxed text-warning/90">
                   Discord отдал не всех участников — список может быть неполным. Нажмите «Обновить»,
                   чтобы попробовать ещё раз.
                 </p>

@@ -100,7 +100,7 @@ export function CasesPage() {
     return () => window.clearTimeout(timer);
   }, [search, debouncedSearch]);
 
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching, isPlaceholderData } = useQuery({
     queryKey: ['guild', activeGuildId, 'cases', page, debouncedSearch, type, status],
     queryFn: ({ signal }) => {
       const params = {
@@ -124,9 +124,12 @@ export function CasesPage() {
   });
 
   // Бэкенд сам ограничивает страницу последней — синхронизируем состояние.
+  // Пока запрос новой страницы в полёте, data ещё содержит предыдущую
+  // (placeholderData), поэтому ждём реального ответа, иначе page тут же
+  // откатывается на 1 и пагинация «залипает».
   useEffect(() => {
-    if (data && data.page !== page) setPage(data.page);
-  }, [data, page]);
+    if (!isPlaceholderData && data && data.page !== page) setPage(data.page);
+  }, [data, page, isPlaceholderData]);
 
   const caseUserId = editOpen ? (selectedCase?.userId ?? null) : null;
   const { data: profileData, isFetching: profileFetching } = useQuery({
@@ -198,15 +201,15 @@ export function CasesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {access && !canEdit ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/20 bg-warning/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-warning">
+          {access && !canEdit && !isDemo ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/20 bg-warning/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-warning">
               <ShieldAlert className="h-3 w-3" />
               только просмотр
             </span>
           ) : null}
 
           {isFetching && data ? (
-            <span className="hidden items-center gap-1.5 text-[10px] text-muted-foreground sm:inline-flex">
+            <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
               <Spinner className="h-3 w-3" />
               Обновление…
             </span>
@@ -385,6 +388,7 @@ export function CasesPage() {
         profile={profileData?.member ?? null}
         profileLoading={profileFetching}
         onAction={handleCaseAction}
+        demo={isDemo}
       />
 
       <ActionModal

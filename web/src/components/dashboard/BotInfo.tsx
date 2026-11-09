@@ -46,9 +46,9 @@ export function BotInfo({ bot }: BotInfoProps) {
             <p className="truncate text-[13px] font-semibold leading-tight">
               {bot.tag ?? 'Discord bot'}
             </p>
-            <p className="mt-1 text-[10px] text-muted-foreground">{statusText}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{statusText}</p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/20 bg-success/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-success">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/20 bg-success/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-success">
             <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_6px_rgba(61,214,140,0.8)]" />
             онлайн
           </span>
@@ -60,7 +60,7 @@ export function BotInfo({ bot }: BotInfoProps) {
             <p className={cn('mt-1.5 font-mono text-[12px] font-semibold', pingToneClasses[tone])}>
               {bot.ping} ms
             </p>
-            <p className="mt-0.5 text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
+            <p className="mt-0.5 text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
               Пинг
             </p>
           </div>
@@ -70,7 +70,7 @@ export function BotInfo({ bot }: BotInfoProps) {
             <p className="mt-1.5 truncate font-mono text-[12px] font-semibold text-foreground/90">
               {formatUptime(bot.uptime)}
             </p>
-            <p className="mt-0.5 text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
+            <p className="mt-0.5 text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
               Аптайм
             </p>
           </div>
@@ -80,13 +80,13 @@ export function BotInfo({ bot }: BotInfoProps) {
             <p className="mt-1.5 font-mono text-[12px] font-semibold text-foreground/90">
               {formatNumber(bot.guilds)}
             </p>
-            <p className="mt-0.5 text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
+            <p className="mt-0.5 text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
               Серверы
             </p>
           </div>
         </div>
 
-        <p className="mt-3 truncate text-center font-mono text-[9px] text-white/20">
+        <p className="mt-3 truncate text-center font-mono text-[11px] text-white/40">
           ID {bot.id ?? '—'}
         </p>
       </CardContent>

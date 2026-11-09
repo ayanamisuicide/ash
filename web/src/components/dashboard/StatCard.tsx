@@ -112,7 +112,7 @@ export function StatCard({ icon: Icon, label, value, note, tone = 'default' }: S
             {display}
           </motion.p>
           {note ? (
-            <p className="mt-1.5 truncate text-[10px] leading-none text-muted-foreground">{note}</p>
+            <p className="mt-1.5 truncate text-xs leading-none text-muted-foreground">{note}</p>
           ) : null}
         </div>
 

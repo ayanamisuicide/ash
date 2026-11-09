@@ -55,6 +55,8 @@ const config = {
           DEFAULT: '#6673ff',
           foreground: '#ffffff',
         },
+        // Светлее акцента: только для текста на accent/10–accent/20 (AA).
+        'accent-soft': '#9aa3ff',
         success: {
           DEFAULT: '#3dd68c',
           foreground: '#04120b',
@@ -91,17 +93,12 @@ const config = {
       },
       backgroundImage: {
         'panel-gradient': 'linear-gradient(180deg, rgba(21, 26, 38, 0.94), rgba(16, 20, 29, 0.94))',
-        'panel-strong-gradient':
-          'linear-gradient(180deg, rgba(24, 29, 42, 0.98), rgba(16, 20, 29, 0.98))',
         'sidebar-gradient':
           'linear-gradient(180deg, rgba(17, 21, 30, 0.96), rgba(12, 15, 22, 0.98))',
         'modal-gradient': 'linear-gradient(180deg, rgba(22, 27, 39, 0.97), rgba(16, 20, 29, 0.98))',
         'accent-gradient': 'linear-gradient(180deg, #6d78ff 0%, #5865f2 100%)',
-        'accent-gradient-x': 'linear-gradient(90deg, #6673ff 0%, #54b8ff 100%)',
         'text-gradient':
           'linear-gradient(100deg, #ffffff 8%, #dfe3ff 40%, #b9c1ff 70%, #8ee8ff 100%)',
-        'hero-radial':
-          'radial-gradient(1000px 600px at 80% -10%, rgba(102,115,255,0.12), transparent 60%)',
         grid: [
           'linear-gradient(to right, rgba(255,255,255,0.035) 1px, transparent 1px)',
           'linear-gradient(to bottom, rgba(255,255,255,0.035) 1px, transparent 1px)',
@@ -128,19 +125,6 @@ const config = {
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
-        },
-        float: {
-          '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-12px)' },
-        },
-        'pulse-ring': {
-          '0%': { transform: 'scale(0.85)', opacity: '0.7' },
-          '70%': { transform: 'scale(2)', opacity: '0' },
-          '100%': { transform: 'scale(2)', opacity: '0' },
-        },
-        'pulse-glow': {
-          '0%, 100%': { opacity: '0.45', transform: 'scale(1)' },
-          '50%': { opacity: '0.8', transform: 'scale(1.06)' },
         },
         'accordion-down': {
           from: { height: '0' },
@@ -174,6 +158,10 @@ const config = {
           from: { transform: 'translateX(0)' },
           to: { transform: 'translateX(-100%)' },
         },
+        'tab-in': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         shimmer: 'shimmer 1.2s linear infinite',
@@ -183,10 +171,7 @@ const config = {
         'modal-out': 'modal-out 0.2s cubic-bezier(0.4, 0, 1, 1)',
         'drawer-in': 'drawer-in 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
         'drawer-out': 'drawer-out 0.22s cubic-bezier(0.4, 0, 1, 1)',
-        float: 'float 9s ease-in-out infinite',
-        'float-slow': 'float 14s ease-in-out infinite',
-        'pulse-ring': 'pulse-ring 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'pulse-glow': 'pulse-glow 6s ease-in-out infinite',
+        'tab-in': 'tab-in 0.26s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         'spin-slow': 'spin 16s linear infinite',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',

@@ -153,14 +153,14 @@ export function LoginPage() {
                 className="glass-card flex flex-col items-center gap-2 px-2 py-3 text-center"
               >
                 <feature.icon className="h-4 w-4 text-accent" strokeWidth={1.8} />
-                <span className="text-[10px] text-muted-foreground">{feature.label}</span>
+                <span className="text-xs text-muted-foreground">{feature.label}</span>
               </div>
             ))}
           </motion.div>
         </motion.div>
       </section>
 
-      <footer className="relative z-10 flex items-center justify-between gap-3 px-5 py-5 text-[9px] font-medium uppercase tracking-[0.18em] text-white/20 sm:px-8">
+      <footer className="relative z-10 flex items-center justify-between gap-3 px-5 py-5 text-[11px] font-medium uppercase tracking-[0.18em] text-white/40 sm:px-8">
         <span>NEXUS v{APP_VERSION}</span>
         <span className="hidden sm:inline">Moderation suite</span>
         <span>Discord.js 14</span>

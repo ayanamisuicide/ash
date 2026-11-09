@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import type { RecentCase } from '@/api/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { caseTypeBadgeClasses, caseTypeLabel } from '@/lib/cases';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -60,42 +61,38 @@ export function RecentCasesTable({
 
       <CardContent className="p-0">
         {cases.length === 0 ? (
-          <div className="flex flex-col items-center justify-center px-5 py-14 text-center">
-            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-white/[0.07] bg-white/[0.03] text-muted-foreground">
-              <ClipboardList className="h-6 w-6" strokeWidth={1.7} />
-            </div>
-            <p className="text-sm font-semibold">{emptyTitle}</p>
-            <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
-              {emptyDescription}
-            </p>
-            {emptyAction ? (
-              <div className="mt-5 flex flex-wrap justify-center gap-2">{emptyAction}</div>
-            ) : null}
-          </div>
+          <EmptyState
+            icon={ClipboardList}
+            title={emptyTitle}
+            description={emptyDescription}
+            action={emptyAction}
+            tone="muted"
+            size="table"
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px] border-collapse text-left xl:min-w-[600px] 2xl:min-w-[780px]">
               <thead>
                 <tr className="border-y border-white/[0.06] bg-white/[0.015]">
-                  <th className="px-5 py-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <th className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                     Кейс
                   </th>
-                  <th className="px-3 py-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                     Тип
                   </th>
-                  <th className="px-3 py-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                     Участник
                   </th>
-                  <th className="hidden px-3 py-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground 2xl:table-cell">
+                  <th className="hidden px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground 2xl:table-cell">
                     Модератор
                   </th>
-                  <th className="hidden px-3 py-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground 2xl:table-cell">
+                  <th className="hidden px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground 2xl:table-cell">
                     Причина
                   </th>
-                  <th className="hidden px-3 py-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground xl:table-cell">
+                  <th className="hidden px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground xl:table-cell">
                     Когда
                   </th>
-                  <th className="px-5 py-2.5 text-right text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <th className="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                     Статус
                   </th>
                 </tr>
@@ -144,7 +141,7 @@ export function RecentCasesTable({
                         {personLabel(item.userName, item.userId)}
                       </p>
                       <p
-                        className="mt-0.5 text-[9px] text-muted-foreground xl:hidden"
+                        className="mt-0.5 text-[11px] text-muted-foreground xl:hidden"
                         title={formatDateTime(item.createdAt)}
                       >
                         {formatRelativeTime(item.createdAt)}
@@ -176,7 +173,7 @@ export function RecentCasesTable({
                       <div className="flex items-center justify-end gap-2">
                         <span
                           className={cn(
-                            'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em]',
+                            'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.1em]',
                             item.active
                               ? 'border-success/20 bg-success/10 text-success'
                               : 'border-white/[0.07] bg-white/[0.03] text-muted-foreground',

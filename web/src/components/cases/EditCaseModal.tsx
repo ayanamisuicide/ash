@@ -26,6 +26,7 @@ import type {
   UpdateCaseInput,
 } from '@/api/types';
 import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Input';
@@ -45,6 +46,8 @@ interface EditCaseModalProps {
   profile?: MemberProfile | null;
   profileLoading?: boolean;
   onAction?: (action: MemberActionType) => void;
+  /** В демо-режиме форма только для просмотра, но это не ограничение прав. */
+  demo?: boolean;
 }
 
 interface CaseActionButtonProps {
@@ -89,7 +92,7 @@ interface CaseMetaProps {
 function CaseMeta({ label, value, mono = false }: CaseMetaProps) {
   return (
     <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
-      <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
         {label}
       </p>
       <p
@@ -115,6 +118,7 @@ export function EditCaseModal({
   profile = null,
   profileLoading = false,
   onAction,
+  demo = false,
 }: EditCaseModalProps) {
   const queryClient = useQueryClient();
   const [reason, setReason] = useState('');
@@ -205,8 +209,9 @@ export function EditCaseModal({
               <div className="flex items-start gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3">
                 <Eye className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  Только просмотр. Чтобы менять кейсы, нужно право «Заглушать участников» или
-                  «Управление сервером».
+                  {demo
+                    ? 'Демо-режим: изменения отключены, данные сервера ненастоящие.'
+                    : 'Только просмотр. Чтобы менять кейсы, нужно право «Заглушать участников» или «Управление сервером».'}
                 </p>
               </div>
             ) : null}
@@ -223,7 +228,7 @@ export function EditCaseModal({
               </span>
               <span
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em]',
+                  'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.1em]',
                   item.active
                     ? 'border-success/20 bg-success/10 text-success'
                     : 'border-white/[0.07] bg-white/[0.03] text-muted-foreground',
@@ -248,7 +253,7 @@ export function EditCaseModal({
                 >
                   Причина
                 </label>
-                <span className="font-mono text-[10px] text-muted-foreground/70">
+                <span className="font-mono text-xs text-muted-foreground/70">
                   {reason.length}/500
                 </span>
               </div>
@@ -277,12 +282,12 @@ export function EditCaseModal({
                   : 'opacity-70',
               )}
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={active}
                 onChange={(event) => setActive(event.target.checked)}
                 disabled={!canEdit || mutation.isPending}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
+                className="mt-0.5"
+                aria-label="Кейс активен"
               />
               <span>
                 <span className="block text-sm font-medium">Кейс активен</span>
@@ -419,7 +424,7 @@ export function EditCaseModal({
               </div>
 
               {profile && !profile.inGuild ? (
-                <p className="mt-2.5 text-[10px] leading-relaxed text-muted-foreground">
+                <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
                   Участник не на сервере: кик, мут, таймаут, варн и роли недоступны.
                 </p>
               ) : null}

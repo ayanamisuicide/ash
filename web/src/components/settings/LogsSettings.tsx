@@ -147,10 +147,10 @@ export function LogsSettings({ guildId, settings, catalog, channels }: LogsSetti
         description="Куда бот отправляет события модерации, сообщений и безопасности."
         actions={
           <>
-            <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {enabledEvents}/{totalEvents} событий
             </span>
-            <span className="rounded-full border border-accent/20 bg-accent/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-accent">
+            <span className="rounded-full border border-accent/20 bg-accent/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-accent-soft">
               {enabledCategories}/{categoryEntries.length} категорий
             </span>
           </>
@@ -213,7 +213,7 @@ export function LogsSettings({ guildId, settings, catalog, channels }: LogsSetti
           </SettingsNotice>
 
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               «Новое сообщение» по умолчанию выключено, чтобы не засорять канал.
             </p>
             <Button
@@ -262,7 +262,7 @@ export function LogsSettings({ guildId, settings, catalog, channels }: LogsSetti
         title="События"
         description="Точечное управление: оставьте только то, что действительно важно."
         actions={
-          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[9px] font-semibold text-muted-foreground">
+          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
             найдено: {groupedEvents.reduce((sum, [, items]) => sum + items.length, 0)}
           </span>
         }
@@ -296,7 +296,7 @@ export function LogsSettings({ guildId, settings, catalog, channels }: LogsSetti
           {groupedEvents.length === 0 ? (
             <div className="rounded-xl border border-dashed border-white/[0.08] px-4 py-8 text-center">
               <p className="text-xs font-semibold">Ничего не найдено</p>
-              <p className="mt-1 text-[10px] text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Попробуйте другой запрос или сбросьте фильтр категории.
               </p>
             </div>
@@ -316,7 +316,7 @@ export function LogsSettings({ guildId, settings, catalog, channels }: LogsSetti
                     </div>
                     <span
                       className={cn(
-                        'rounded-full border px-2 py-0.5 text-[9px] font-semibold',
+                        'rounded-full border px-2 py-0.5 text-[11px] font-semibold',
                         settings.categories[category]
                           ? 'border-success/20 bg-success/10 text-success'
                           : 'border-white/[0.07] bg-white/[0.03] text-muted-foreground',

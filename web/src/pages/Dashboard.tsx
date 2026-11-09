@@ -97,14 +97,14 @@ function DashboardHeader({
 
       <div className="flex flex-wrap items-center gap-2">
         {isDemo ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/20 bg-warning/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-warning">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/20 bg-warning/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-warning">
             <FlaskConical className="h-3 w-3" />
             демо-данные
           </span>
         ) : null}
 
         {updatedAt > 0 ? (
-          <span className="hidden text-[10px] text-muted-foreground sm:inline">
+          <span className="hidden text-xs text-muted-foreground sm:inline">
             Обновлено в {formatTime(updatedAt)}
           </span>
         ) : null}
@@ -284,7 +284,7 @@ export function DashboardPage() {
         >
           <motion.div
             variants={staggerVariants}
-            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6"
           >
             {stats.map((stat) => (
               <motion.div key={stat.key} variants={itemVariants}>
@@ -299,8 +299,11 @@ export function DashboardPage() {
             ))}
           </motion.div>
 
-          <motion.div variants={staggerVariants} className="grid gap-4 xl:grid-cols-3">
-            <motion.div variants={itemVariants} className="space-y-4 xl:col-span-2">
+          <motion.div
+            variants={staggerVariants}
+            className="grid min-w-0 items-start gap-4 xl:grid-cols-3"
+          >
+            <motion.div variants={itemVariants} className="min-w-0 space-y-4 xl:col-span-2">
               <Suspense fallback={<ChartCardSkeleton />}>
                 <ActivityChart data={data.activeByType} />
               </Suspense>
@@ -313,7 +316,7 @@ export function DashboardPage() {
 
             <motion.div
               variants={itemVariants}
-              className="grid gap-4 md:grid-cols-2 xl:grid-cols-1"
+              className="grid min-w-0 items-start gap-4 self-start md:grid-cols-2 xl:grid-cols-1"
             >
               <SecurityWidget security={data.security} canConfigure={data.access.admin} />
               <BotInfo bot={data.bot} />
@@ -332,6 +335,7 @@ export function DashboardPage() {
         profile={profileData?.member ?? null}
         profileLoading={profileFetching}
         onAction={handleCaseAction}
+        demo={isDemo}
       />
 
       <ActionModal

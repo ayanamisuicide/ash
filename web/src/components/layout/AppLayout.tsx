@@ -36,7 +36,7 @@ export function AppLayout() {
           </div>
         </main>
 
-        <footer className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4 px-4 pb-5 pt-2 text-[9px] uppercase tracking-[0.18em] text-white/20 sm:px-6 lg:px-8">
+        <footer className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4 px-4 pb-5 pt-2 text-[11px] uppercase tracking-[0.18em] text-white/40 sm:px-6 lg:px-8">
           <span>
             {APP_NAME} v{APP_VERSION}
           </span>

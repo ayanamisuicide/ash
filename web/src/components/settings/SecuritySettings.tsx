@@ -174,13 +174,13 @@ export function SecuritySettings({ guildId, settings }: SecuritySettingsProps) {
         title="Антирейд"
         description="Реакция на волну регистраций и подозрительно новые аккаунты."
         badge={
-          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             {enabledCount}/2 включено
           </span>
         }
         actions={
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {raidEnabled ? 'включён' : 'выключен'}
             </span>
             <Switch
@@ -310,13 +310,13 @@ export function SecuritySettings({ guildId, settings }: SecuritySettingsProps) {
           </label>
 
           {!raidValid ? (
-            <p className="text-[10px] text-warning">
+            <p className="text-xs text-warning">
               Проверьте диапазоны: входы 1–1000, окно 5–3600, возраст 0–365, длительность 30–86400.
             </p>
           ) : null}
 
           <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {raidDirty ? 'Есть несохранённые изменения' : 'Все изменения сохранены'}
             </span>
             <Button
@@ -338,7 +338,7 @@ export function SecuritySettings({ guildId, settings }: SecuritySettingsProps) {
         description="Обнаружение массовых опасных действий одного участника."
         actions={
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {nukeEnabled ? 'включён' : 'выключен'}
             </span>
             <Switch
@@ -434,32 +434,32 @@ export function SecuritySettings({ guildId, settings }: SecuritySettingsProps) {
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
               <Gauge className="h-4 w-4 text-accent" />
               <p className="mt-2 text-[11px] font-semibold">Порог</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {nukeThreshold || '—'} действий за {nukeWindow || '—'} с
               </p>
             </div>
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
               <Zap className="h-4 w-4 text-warning" />
               <p className="mt-2 text-[11px] font-semibold">Реакция</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {NUKE_ACTION_LABELS[nukeAction]}
               </p>
             </div>
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
               <Clock3 className="h-4 w-4 text-info" />
               <p className="mt-2 text-[11px] font-semibold">Уведомление</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">в канал логов</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">в канал логов</p>
             </div>
           </div>
 
           {!nukeValid ? (
-            <p className="text-[10px] text-warning">
+            <p className="text-xs text-warning">
               Порог — от 1 до 100, окно — от 5 до 3600 секунд.
             </p>
           ) : null}
 
           <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {nukeDirty ? 'Есть несохранённые изменения' : 'Все изменения сохранены'}
             </span>
             <Button
@@ -475,7 +475,7 @@ export function SecuritySettings({ guildId, settings }: SecuritySettingsProps) {
         </form>
       </SettingsSection>
 
-      <div className="flex items-center justify-center gap-2 pb-2 text-[9px] uppercase tracking-[0.16em] text-white/20">
+      <div className="flex items-center justify-center gap-2 pb-2 text-[11px] uppercase tracking-[0.16em] text-white/40">
         <Shield className="h-3 w-3" />
         защита применяется сразу после сохранения
       </div>

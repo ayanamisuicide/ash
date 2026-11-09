@@ -46,8 +46,6 @@
     --border: 224 20% 17%;
     --input: 224 20% 17%;
     --ring: 235 100% 70%;
-
-    --radius: 0.9rem;
   }
 
   * {
@@ -168,18 +166,6 @@
     mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, black 15%, transparent 75%);
   }
 
-  .mask-fade-b {
-    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
-    mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
-  }
-
-  .safe-top {
-    padding-top: env(safe-area-inset-top);
-  }
-
-  .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -44,7 +44,7 @@ export function Logo({ className, markOnly = false, size = 'default' }: LogoProp
           <p className="text-[15px] font-extrabold leading-none tracking-[0.18em] text-foreground">
             {APP_NAME}
           </p>
-          <p className="mt-1 text-[9px] font-medium uppercase leading-none tracking-[0.2em] text-muted-foreground">
+          <p className="mt-1 text-[11px] font-medium uppercase leading-none tracking-[0.2em] text-muted-foreground">
             {APP_SUBTITLE}
           </p>
         </div>

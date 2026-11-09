@@ -69,7 +69,7 @@ function SecurityBlock({
 
         <span
           className={cn(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em]',
+            'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.1em]',
             enabled
               ? 'border-success/20 bg-success/10 text-success'
               : 'border-white/[0.07] bg-white/[0.03] text-muted-foreground',
@@ -85,19 +85,19 @@ function SecurityBlock({
         </span>
       </div>
 
-      <p className="mt-2 text-[10px] leading-snug text-muted-foreground">{description}</p>
+      <p className="mt-2 text-xs leading-snug text-muted-foreground">{description}</p>
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
-        <span className="rounded-md border border-white/[0.06] bg-white/[0.03] px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
+        <span className="rounded-md border border-white/[0.06] bg-white/[0.03] px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
           {threshold}
         </span>
-        <span className="rounded-md border border-white/[0.06] bg-white/[0.03] px-1.5 py-0.5 text-[9px] text-muted-foreground">
+        <span className="rounded-md border border-white/[0.06] bg-white/[0.03] px-1.5 py-0.5 text-[11px] text-muted-foreground">
           Действие: {action}
         </span>
         {details.map((detail) => (
           <span
             key={detail}
-            className="rounded-md border border-white/[0.06] bg-white/[0.03] px-1.5 py-0.5 text-[9px] text-muted-foreground"
+            className="rounded-md border border-white/[0.06] bg-white/[0.03] px-1.5 py-0.5 text-[11px] text-muted-foreground"
           >
             {detail}
           </span>
@@ -121,7 +121,7 @@ export function SecurityWidget({ security, canConfigure }: SecurityWidgetProps) 
           </div>
           <span
             className={cn(
-              'rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em]',
+              'rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]',
               enabledCount > 0
                 ? 'border-success/20 bg-success/10 text-success'
                 : 'border-white/[0.08] bg-white/[0.03] text-muted-foreground',

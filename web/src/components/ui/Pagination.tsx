@@ -57,7 +57,7 @@ export function Pagination({
         Страница <span className="font-semibold text-foreground/90">{safePage}</span> из {safePages}
         {typeof total === 'number' ? (
           <>
-            <span className="mx-1.5 text-white/20">·</span>
+            <span className="mx-1.5 text-white/40">·</span>
             {formatNumber(total)} {pluralizeRu(total, 'кейс', 'кейса', 'кейсов')}
           </>
         ) : null}
@@ -92,7 +92,7 @@ export function Pagination({
                   className={cn(
                     'grid h-8 min-w-8 place-items-center rounded-lg border px-2 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50',
                     item === safePage
-                      ? 'border-accent/30 bg-accent/[0.16] text-accent shadow-[0_0_18px_rgba(102,115,255,0.18)]'
+                      ? 'border-accent/30 bg-accent/[0.16] text-accent-soft shadow-[0_0_18px_rgba(102,115,255,0.18)]'
                       : 'border-transparent text-muted-foreground hover:border-white/[0.08] hover:bg-white/[0.05] hover:text-foreground',
                   )}
                 >

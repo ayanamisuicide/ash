@@ -15,7 +15,7 @@ function MiniBadge({ children, tone }: { children: ReactNode; tone: 'warning' | 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold leading-none',
+        'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-semibold leading-none',
         tone === 'warning'
           ? 'border-warning/20 bg-warning/10 text-warning'
           : 'border-info/20 bg-info/10 text-info',
@@ -70,7 +70,7 @@ export function MemberListItem({ member, selected, onSelect }: MemberListItemPro
               </MiniBadge>
             ) : null}
             {member.highestRole ? (
-              <span className="truncate text-[9px] text-muted-foreground/80">
+              <span className="truncate text-[11px] text-muted-foreground/80">
                 {member.highestRole}
               </span>
             ) : null}

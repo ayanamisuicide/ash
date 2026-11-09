@@ -78,13 +78,13 @@ function DiscordPreview({
     <div className="rounded-xl border border-white/[0.08] bg-[#14151d] p-3 shadow-inner-top">
       <div className="border-l-[3px] pl-3" style={{ borderLeftColor: TONE_COLORS[tone] }}>
         <p className="text-[11px] font-semibold text-foreground">{title}</p>
-        <p className="mt-1 whitespace-pre-wrap text-[10px] leading-relaxed text-muted-foreground">
+        <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
           {plainText(description) || 'Текст не задан — бот использует стандартный.'}
         </p>
         {fields.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
             {fields.map((field) => (
-              <p key={field.label} className="text-[9px] text-muted-foreground">
+              <p key={field.label} className="text-[11px] text-muted-foreground">
                 <span className="font-semibold text-foreground/80">{field.label}:</span>{' '}
                 {field.value}
               </p>
@@ -256,7 +256,7 @@ export function CommunitySettings({
         title="Приветствия и прощания"
         description="Тёплые сообщения при входе и выходе участников."
         actions={
-          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[9px] font-semibold text-muted-foreground">
+          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
             {welcomeChannelId ? 'вход включён' : 'вход выключен'} ·{' '}
             {goodbyeChannelId ? 'выход включён' : 'выход выключен'}
           </span>
@@ -274,12 +274,12 @@ export function CommunitySettings({
                 </div>
                 <div>
                   <h3 className="text-xs font-semibold">Приветствие</h3>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Отправляется в выбранный канал при входе.
                   </p>
                 </div>
               </div>
-              <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] text-muted-foreground">
+              <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[11px] text-muted-foreground">
                 {welcomeChannelId ? 'вкл' : 'выкл'}
               </span>
             </div>
@@ -346,12 +346,12 @@ export function CommunitySettings({
                 </div>
                 <div>
                   <h3 className="text-xs font-semibold">Прощание</h3>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Отправляется при выходе участника.
                   </p>
                 </div>
               </div>
-              <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] text-muted-foreground">
+              <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[11px] text-muted-foreground">
                 {goodbyeChannelId ? 'вкл' : 'выкл'}
               </span>
             </div>
@@ -414,12 +414,12 @@ export function CommunitySettings({
         title="Автороли и уровни"
         description="Роли при входе и прогресс активности участников."
         actions={
-          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[9px] font-semibold text-muted-foreground">
+          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
             автороли: {autoroles.length}
           </span>
         }
       >
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid items-start gap-4 xl:grid-cols-2">
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
             <div className="flex items-start gap-2.5">
               <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-accent/20 bg-accent/10 text-accent">
@@ -427,7 +427,7 @@ export function CommunitySettings({
               </div>
               <div>
                 <h3 className="text-xs font-semibold">Автороли</h3>
-                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Выдаются автоматически при входе на сервер.
                 </p>
               </div>
@@ -475,7 +475,7 @@ export function CommunitySettings({
                   </SettingsChip>
                 ))
               ) : (
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Авторолей нет — новые участники не получают роли автоматически.
                 </p>
               )}
@@ -493,7 +493,7 @@ export function CommunitySettings({
                 </div>
                 <div>
                   <h3 className="text-xs font-semibold">Уровни</h3>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Оповещения о повышении уровня и XP.
                   </p>
                 </div>
@@ -595,7 +595,7 @@ export function CommunitySettings({
         title="Тикеты"
         description="Категория каналов, роль поддержки и журнал обращений."
         actions={
-          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[9px] font-semibold text-muted-foreground">
+          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
             {ticketCategoryId ? 'настроены' : 'не настроены'}
           </span>
         }
@@ -666,7 +666,7 @@ export function CommunitySettings({
           </SettingsNotice>
 
           <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Категория: {channelNames.get(ticketCategoryId) ?? 'не выбрана'}
             </p>
             <Button type="submit" variant="secondary" disabled={busy} className="gap-2">
@@ -677,7 +677,7 @@ export function CommunitySettings({
         </form>
       </SettingsSection>
 
-      <div className="flex items-center justify-center gap-2 pb-2 text-[9px] uppercase tracking-[0.16em] text-white/20">
+      <div className="flex items-center justify-center gap-2 pb-2 text-[11px] uppercase tracking-[0.16em] text-white/40">
         <MessageSquare className="h-3 w-3" />
         сообщество и тикеты
       </div>

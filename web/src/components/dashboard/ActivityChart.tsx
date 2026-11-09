@@ -18,7 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/Card';
-import { caseTypeColor, caseTypeLabel } from '@/lib/cases';
+import { CASE_CHART_TEXT, CASE_TONE_COLORS, caseTypeColor, caseTypeLabel } from '@/lib/cases';
 import { formatNumber } from '@/lib/format';
 
 interface ActivityChartProps {
@@ -52,7 +52,7 @@ function ActivityTick({ x = 0, y = 0, payload, data }: ActivityTickProps) {
 
   return (
     <g transform={`translate(${x},${y})`}>
-      <text x={-8} y={0} dy={4} textAnchor="end" fill="#aeb3cc" fontSize={10}>
+      <text x={-8} y={0} dy={4} textAnchor="end" fill={CASE_CHART_TEXT} fontSize={10}>
         {value}
         {datum ? (
           <tspan dx={6} fill={datum.color} fontSize={10} fontWeight={700}>
@@ -109,7 +109,7 @@ export function ActivityChart({ data }: ActivityChartProps) {
         type: 'other',
         label: 'Другие',
         count: restCount,
-        color: '#565c78',
+        color: CASE_TONE_COLORS.muted,
       });
     }
 

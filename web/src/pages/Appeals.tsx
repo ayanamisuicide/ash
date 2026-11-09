@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { useGuildAccess } from '@/hooks/useGuildAccess';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { caseTypeLabel } from '@/lib/cases';
@@ -214,14 +215,14 @@ export function AppealsPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           {access && !canReviewAny ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/20 bg-warning/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-warning">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/20 bg-warning/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-warning">
               <ShieldAlert className="h-3 w-3" />
               только просмотр
             </span>
           ) : null}
 
           {isFetching && data ? (
-            <span className="hidden items-center gap-1.5 text-[10px] text-muted-foreground sm:inline-flex">
+            <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
               <Spinner className="h-3 w-3" />
               Обновление…
             </span>
@@ -241,99 +242,87 @@ export function AppealsPage() {
         </div>
       </motion.header>
 
-      <motion.div
-        variants={itemVariants}
-        className="flex w-fit gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1"
-        role="tablist"
-        aria-label="Фильтр апелляций"
-      >
-        {TABS.map((item) => {
-          const Icon = item.icon;
-          const active = tab === item.key;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(item.key)}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                active
-                  ? 'bg-accent/[0.14] text-accent'
-                  : 'text-muted-foreground hover:bg-white/[0.04] hover:text-foreground',
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {item.label}
-            </button>
-          );
-        })}
+      <motion.div variants={itemVariants} className="w-fit">
+        <Tabs value={tab} onValueChange={(value) => setTab(value as AppealTab)}>
+          <TabsList aria-label="Фильтр апелляций">
+            {TABS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <TabsTrigger key={item.key} value={item.key}>
+                  <Icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
       </motion.div>
 
-      {!activeGuildId ? (
-        <EmptyState
-          icon={ServerOff}
-          title="Сервер не выбран"
-          description="Выберите сервер в меню слева. Если список пуст, добавьте бота на сервер и убедитесь, что у вас есть права модератора."
-          tone="muted"
-        />
-      ) : isLoading ? (
-        <AppealsSkeleton />
-      ) : isError && !data ? (
-        <EmptyState
-          icon={WifiOff}
-          title="Не удалось загрузить апелляции"
-          description={getErrorMessage(error)}
-          tone="danger"
-          action={
-            <Button type="button" onClick={() => void refetch()}>
-              <RefreshCw />
-              Повторить
-            </Button>
-          }
-        />
-      ) : appeals.length === 0 ? (
-        <EmptyState
-          icon={Inbox}
-          title={tab === 'pending' ? 'Ожидающих апелляций нет' : 'Апелляций пока нет'}
-          description={
-            tab === 'pending'
-              ? 'Как только пользователь подаст апелляцию, она появится здесь.'
-              : 'История обращений на этом сервере будет собираться здесь.'
-          }
-          tone="muted"
-        />
-      ) : (
-        <motion.div variants={itemVariants} className="space-y-3">
-          {isError ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-danger/20 bg-danger/[0.07] px-4 py-2.5 text-xs text-danger">
-              <span>Не удалось обновить список: {getErrorMessage(error)}</span>
-              <button
-                type="button"
-                onClick={() => void refetch()}
-                className="font-semibold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              >
+      <div key={tab} className="animate-tab-in">
+        {!activeGuildId ? (
+          <EmptyState
+            icon={ServerOff}
+            title="Сервер не выбран"
+            description="Выберите сервер в меню слева. Если список пуст, добавьте бота на сервер и убедитесь, что у вас есть права модератора."
+            tone="muted"
+          />
+        ) : isLoading ? (
+          <AppealsSkeleton />
+        ) : isError && !data ? (
+          <EmptyState
+            icon={WifiOff}
+            title="Не удалось загрузить апелляции"
+            description={getErrorMessage(error)}
+            tone="danger"
+            action={
+              <Button type="button" onClick={() => void refetch()}>
+                <RefreshCw />
                 Повторить
-              </button>
-            </div>
-          ) : null}
+              </Button>
+            }
+          />
+        ) : appeals.length === 0 ? (
+          <EmptyState
+            icon={Inbox}
+            title={tab === 'pending' ? 'Ожидающих апелляций нет' : 'Апелляций пока нет'}
+            description={
+              tab === 'pending'
+                ? 'Как только пользователь подаст апелляцию, она появится здесь.'
+                : 'История обращений на этом сервере будет собираться здесь.'
+            }
+            tone="muted"
+          />
+        ) : (
+          <motion.div variants={itemVariants} className="space-y-3">
+            {isError ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-danger/20 bg-danger/[0.07] px-4 py-2.5 text-xs text-danger">
+                <span>Не удалось обновить список: {getErrorMessage(error)}</span>
+                <button
+                  type="button"
+                  onClick={() => void refetch()}
+                  className="font-semibold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                >
+                  Повторить
+                </button>
+              </div>
+            ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {appeals.map((appeal) => (
-              <motion.div key={appeal.id} variants={itemVariants} className="h-full">
-                <AppealCard
-                  appeal={appeal}
-                  canReview={!isDemo && canReviewAppeal(appeal)}
-                  disabled={reviewMutation.isPending}
-                  demo={isDemo}
-                  onReview={requestReview}
-                />
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {appeals.map((appeal) => (
+                <motion.div key={appeal.id} variants={itemVariants} className="h-full">
+                  <AppealCard
+                    appeal={appeal}
+                    canReview={!isDemo && canReviewAppeal(appeal)}
+                    disabled={reviewMutation.isPending}
+                    demo={isDemo}
+                    onReview={requestReview}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </div>
 
       <Modal
         open={Boolean(confirm)}
@@ -435,7 +424,7 @@ export function AppealsPage() {
                   {confirm.appeal.caseType ? ` · ${caseTypeLabel(confirm.appeal.caseType)}` : ''}
                 </span>
                 {confirm.appeal.caseReason ? (
-                  <span className="w-full text-[10px] text-muted-foreground/80">
+                  <span className="w-full text-xs text-muted-foreground/80">
                     Причина наказания: {confirm.appeal.caseReason}
                   </span>
                 ) : null}
@@ -443,13 +432,13 @@ export function AppealsPage() {
             ) : null}
 
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-3">
-              <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Причина обращения
               </p>
               <p className="mt-1.5 whitespace-pre-line text-[12px] leading-relaxed text-foreground/90">
                 {confirm.appeal.reason}
               </p>
-              <p className="mt-2 text-[9px] text-muted-foreground">
+              <p className="mt-2 text-[11px] text-muted-foreground">
                 Подана {formatDateTime(confirm.appeal.createdAt)}
               </p>
             </div>

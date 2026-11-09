@@ -147,7 +147,7 @@ function FieldLabel({ htmlFor, children, hint }: FieldLabelProps) {
       >
         {children}
       </label>
-      {hint ? <span className="text-[10px] text-muted-foreground/70">{hint}</span> : null}
+      {hint ? <span className="text-xs text-muted-foreground/70">{hint}</span> : null}
     </div>
   );
 }
@@ -335,7 +335,7 @@ export function ActionModal({
             </Avatar>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{member.displayName}</p>
-              <p className="truncate text-[10px] text-muted-foreground">
+              <p className="truncate text-xs text-muted-foreground">
                 @{member.username} · {member.id}
               </p>
             </div>
@@ -415,9 +415,9 @@ export function ActionModal({
                       onClick={() => setDuration(preset)}
                       disabled={mutation.isPending}
                       className={cn(
-                        'rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:opacity-50',
+                        'focus-ring rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:opacity-50',
                         duration === preset
-                          ? 'border-accent/30 bg-accent/[0.14] text-accent'
+                          ? 'border-accent/30 bg-accent/[0.14] text-accent-soft'
                           : 'border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:border-white/[0.14] hover:text-foreground',
                       )}
                     >
@@ -456,7 +456,7 @@ export function ActionModal({
                 >
                   Текст заметки
                 </label>
-                <span className="font-mono text-[10px] text-muted-foreground/70">
+                <span className="font-mono text-xs text-muted-foreground/70">
                   {noteText.length}/500
                 </span>
               </div>
@@ -480,7 +480,7 @@ export function ActionModal({
                 >
                   Причина
                 </label>
-                <span className="font-mono text-[10px] text-muted-foreground/70">
+                <span className="font-mono text-xs text-muted-foreground/70">
                   {reason.length}/500
                 </span>
               </div>

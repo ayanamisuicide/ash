@@ -33,7 +33,10 @@ import type {
 } from '@/api/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Spinner } from '@/components/ui/Spinner';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/Tooltip';
 import { RoleChip } from '@/components/members/RoleChip';
 import { caseTypeBadgeClasses, caseTypeLabel } from '@/lib/cases';
 import { formatDateTime, formatRelativeTime, getInitials, pluralizeRu } from '@/lib/format';
@@ -54,7 +57,7 @@ type TabKey = 'warns' | 'notes' | 'cases';
 type BadgeTone = 'accent' | 'success' | 'warning' | 'danger' | 'muted';
 
 const BADGE_CLASSES: Record<BadgeTone, string> = {
-  accent: 'border-accent/20 bg-accent/10 text-accent',
+  accent: 'border-accent/20 bg-accent/10 text-accent-soft',
   success: 'border-success/20 bg-success/10 text-success',
   warning: 'border-warning/20 bg-warning/10 text-warning',
   danger: 'border-danger/25 bg-danger/10 text-danger',
@@ -73,7 +76,7 @@ function ProfileBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em]',
+        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.1em]',
         BADGE_CLASSES[tone],
       )}
     >
@@ -98,14 +101,14 @@ function Detail({
     <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <Icon className="h-3 w-3 shrink-0" />
-        <span className="truncate text-[9px] font-semibold uppercase tracking-[0.14em]">
+        <span className="truncate text-[11px] font-semibold uppercase tracking-[0.14em]">
           {label}
         </span>
       </div>
       <p className="mt-1.5 truncate text-[12px] font-medium" title={value}>
         {value}
       </p>
-      {hint ? <p className="mt-0.5 truncate text-[9px] text-muted-foreground">{hint}</p> : null}
+      {hint ? <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }
@@ -138,28 +141,6 @@ function ActionButton({
       <Icon className="h-3.5 w-3.5" />
       {label}
     </Button>
-  );
-}
-
-function TabEmpty({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex flex-col items-center px-4 py-9 text-center">
-      <div className="mb-3 grid h-11 w-11 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-muted-foreground">
-        <Icon className="h-4 w-4" />
-      </div>
-      <p className="text-xs font-semibold">{title}</p>
-      <p className="mt-1 max-w-xs text-[10px] leading-relaxed text-muted-foreground">
-        {description}
-      </p>
-    </div>
   );
 }
 
@@ -284,15 +265,19 @@ export function MemberProfile({
               <code className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 font-mono text-[10px] text-muted-foreground">
                 {profile.id}
               </code>
-              <button
-                type="button"
-                onClick={() => void copyId()}
-                className="rounded-md border border-white/[0.08] bg-white/[0.03] p-1.5 text-muted-foreground transition-colors hover:border-accent/25 hover:bg-accent/10 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                aria-label="Скопировать ID"
-                title="Скопировать ID"
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => void copyId()}
+                    className="rounded-md border border-white/[0.08] bg-white/[0.03] p-1.5 text-muted-foreground transition-colors hover:border-accent/25 hover:bg-accent/10 hover:text-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    aria-label="Скопировать ID"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Скопировать ID</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </div>
@@ -335,7 +320,7 @@ export function MemberProfile({
           <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Роли
           </h3>
-          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">
+          <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
             {profile.roles.length}
           </span>
         </div>
@@ -468,39 +453,28 @@ export function MemberProfile({
       ) : null}
 
       <section className="rounded-xl border border-white/[0.07] bg-white/[0.02]">
-        <div
-          className="flex gap-1 overflow-x-auto border-b border-white/[0.06] p-1.5 no-scrollbar"
-          role="tablist"
-          aria-label="Данные участника"
-        >
-          {tabs.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              role="tab"
-              aria-selected={tab === item.key}
-              onClick={() => setTab(item.key)}
-              className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                tab === item.key
-                  ? 'bg-accent/[0.14] text-accent'
-                  : 'text-muted-foreground hover:bg-white/[0.04] hover:text-foreground',
-              )}
-            >
-              {item.label}
-              <span
-                className={cn(
-                  'rounded-full px-1.5 py-0.5 text-[9px] leading-none',
-                  tab === item.key
-                    ? 'bg-accent/20 text-accent'
-                    : 'bg-white/[0.05] text-muted-foreground',
-                )}
-              >
-                {item.count}
-              </span>
-            </button>
-          ))}
-        </div>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)}>
+          <TabsList
+            className="w-full overflow-x-auto rounded-none border-0 border-b border-white/[0.06] bg-transparent p-1.5 no-scrollbar"
+            aria-label="Данные участника"
+          >
+            {tabs.map((item) => (
+              <TabsTrigger key={item.key} value={item.key}>
+                {item.label}
+                <span
+                  className={cn(
+                    'rounded-full px-1.5 py-0.5 text-[11px] leading-none',
+                    tab === item.key
+                      ? 'bg-accent/20 text-accent-soft'
+                      : 'bg-white/[0.05] text-muted-foreground',
+                  )}
+                >
+                  {item.count}
+                </span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         <div className="p-4">
           <AnimatePresence mode="wait" initial={false}>
@@ -514,10 +488,13 @@ export function MemberProfile({
             >
               {tab === 'warns' ? (
                 profile.warnings.length === 0 ? (
-                  <TabEmpty
+                  <EmptyState
                     icon={TriangleAlert}
                     title="Варнов нет"
                     description="Предупреждения появятся здесь после первого варна."
+                    tone="muted"
+                    size="inline"
+                    className="px-0"
                   />
                 ) : (
                   <ul className="divide-y divide-white/[0.05]">
@@ -533,30 +510,34 @@ export function MemberProfile({
                           <p className="whitespace-pre-line text-[12px] leading-relaxed text-foreground/90">
                             {warn.reason}
                           </p>
-                          <p className="mt-1 text-[9px] text-muted-foreground">
+                          <p className="mt-1 text-[11px] text-muted-foreground">
                             #{warn.id} · модератор{' '}
                             <span className="font-mono">{warn.moderatorId}</span> ·{' '}
                             {formatDateTime(warn.createdAt)}
                           </p>
                         </div>
                         {canModerate ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => deleteWarnMutation.mutate(warn.id)}
-                            disabled={deleteWarnMutation.isPending}
-                            aria-label={`Удалить варн ${warn.id}`}
-                            title="Удалить варн"
-                            className="shrink-0 text-muted-foreground hover:bg-danger/10 hover:text-danger"
-                          >
-                            {deleteWarnMutation.isPending &&
-                            deleteWarnMutation.variables === warn.id ? (
-                              <Spinner />
-                            ) : (
-                              <Trash2 />
-                            )}
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => deleteWarnMutation.mutate(warn.id)}
+                                disabled={deleteWarnMutation.isPending}
+                                aria-label={`Удалить варн ${warn.id}`}
+                                className="shrink-0 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                              >
+                                {deleteWarnMutation.isPending &&
+                                deleteWarnMutation.variables === warn.id ? (
+                                  <Spinner />
+                                ) : (
+                                  <Trash2 />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Удалить варн</TooltipContent>
+                          </Tooltip>
                         ) : null}
                       </li>
                     ))}
@@ -566,10 +547,13 @@ export function MemberProfile({
 
               {tab === 'notes' ? (
                 profile.notes.length === 0 ? (
-                  <TabEmpty
+                  <EmptyState
                     icon={StickyNote}
                     title="Заметок нет"
                     description="Добавьте заметку, чтобы сохранить контекст для других модераторов."
+                    tone="muted"
+                    size="inline"
+                    className="px-0"
                   />
                 ) : (
                   <ul className="divide-y divide-white/[0.05]">
@@ -585,29 +569,33 @@ export function MemberProfile({
                           <p className="whitespace-pre-line text-[12px] leading-relaxed text-foreground/90">
                             {note.text}
                           </p>
-                          <p className="mt-1 text-[9px] text-muted-foreground">
+                          <p className="mt-1 text-[11px] text-muted-foreground">
                             #{note.id} · автор <span className="font-mono">{note.authorId}</span> ·{' '}
                             {formatDateTime(note.createdAt)}
                           </p>
                         </div>
                         {canModerate ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => deleteNoteMutation.mutate(note.id)}
-                            disabled={deleteNoteMutation.isPending}
-                            aria-label={`Удалить заметку ${note.id}`}
-                            title="Удалить заметку"
-                            className="shrink-0 text-muted-foreground hover:bg-danger/10 hover:text-danger"
-                          >
-                            {deleteNoteMutation.isPending &&
-                            deleteNoteMutation.variables === note.id ? (
-                              <Spinner />
-                            ) : (
-                              <Trash2 />
-                            )}
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => deleteNoteMutation.mutate(note.id)}
+                                disabled={deleteNoteMutation.isPending}
+                                aria-label={`Удалить заметку ${note.id}`}
+                                className="shrink-0 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                              >
+                                {deleteNoteMutation.isPending &&
+                                deleteNoteMutation.variables === note.id ? (
+                                  <Spinner />
+                                ) : (
+                                  <Trash2 />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Удалить заметку</TooltipContent>
+                          </Tooltip>
                         ) : null}
                       </li>
                     ))}
@@ -617,10 +605,13 @@ export function MemberProfile({
 
               {tab === 'cases' ? (
                 profile.cases.length === 0 ? (
-                  <TabEmpty
+                  <EmptyState
                     icon={ShieldAlert}
                     title="Кейсов нет"
                     description="История наказаний участника будет собираться здесь."
+                    tone="muted"
+                    size="inline"
+                    className="px-0"
                   />
                 ) : (
                   <ul className="divide-y divide-white/[0.05]">
@@ -631,7 +622,7 @@ export function MemberProfile({
                       >
                         <span
                           className={cn(
-                            'mt-0.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-0.5 text-[9px] font-semibold',
+                            'mt-0.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-0.5 text-[11px] font-semibold',
                             caseTypeBadgeClasses(item.type),
                           )}
                         >
@@ -657,7 +648,7 @@ export function MemberProfile({
                           <p className="mt-1 whitespace-pre-line text-[12px] leading-relaxed text-foreground/90">
                             {item.reason || 'Без причины'}
                           </p>
-                          <p className="mt-1 text-[9px] text-muted-foreground">
+                          <p className="mt-1 text-[11px] text-muted-foreground">
                             {formatDateTime(item.createdAt)} · модератор{' '}
                             {item.moderatorName ?? item.moderatorId}
                           </p>

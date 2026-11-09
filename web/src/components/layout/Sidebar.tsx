@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import * as Dialog from '@radix-ui/react-dialog';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -57,7 +57,7 @@ function GuildSwitcher({ onNavigate }: { onNavigate?: () => void }) {
       <DropdownMenuTrigger asChild disabled={guilds.length === 0}>
         <button
           type="button"
-          className="group flex w-full items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.035] p-2.5 text-left transition-colors duration-150 hover:border-accent/25 hover:bg-white/[0.055] disabled:cursor-default disabled:opacity-60"
+          className="focus-ring group flex w-full items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.035] p-2.5 text-left transition-colors duration-150 hover:border-accent/25 hover:bg-white/[0.055] disabled:cursor-default disabled:opacity-60"
         >
           {activeGuild ? <GuildAvatar guild={activeGuild} size="lg" /> : <div className="h-10 w-10 rounded-xl bg-white/[0.05]" />}
           <div className="min-w-0 flex-1">
@@ -83,7 +83,7 @@ function GuildSwitcher({ onNavigate }: { onNavigate?: () => void }) {
             <GuildAvatar guild={guild} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium">{guild.name}</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {formatMembers(guild.memberCount)}
               </p>
             </div>
@@ -106,6 +106,10 @@ function Navigation({ instance, onNavigate }: SidebarContentProps) {
   const activeGuild = useAuthStore(selectActiveGuild);
   const canAdmin = activeGuild?.level === 'admin';
   const items = NAV_ITEMS.filter((item) => !item.adminOnly || canAdmin);
+  const reduceMotion = useReducedMotion();
+  const pillTransition = reduceMotion
+    ? { duration: 0 }
+    : { type: 'spring' as const, stiffness: 420, damping: 34 };
 
   return (
     <nav className="flex-1 overflow-y-auto px-3 pb-4 no-scrollbar" aria-label="Основная навигация">
@@ -117,34 +121,36 @@ function Navigation({ instance, onNavigate }: SidebarContentProps) {
             to={item.href}
             end
             onClick={onNavigate}
-            className="group relative flex h-10 items-center gap-3 rounded-xl px-3 text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:bg-white/[0.045] hover:text-foreground"
+            className="focus-ring group relative flex h-10 items-center gap-3 rounded-xl px-3 text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:bg-white/[0.045] hover:text-foreground"
           >
             {({ isActive }) => (
               <>
                 {isActive ? (
                   <motion.span
                     layoutId={`sidebar-pill-${instance}`}
-                    className="absolute inset-0 rounded-xl border border-accent/20 bg-accent/[0.14]"
-                    transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                    className="absolute inset-0 rounded-xl bg-gradient-to-r from-accent/[0.18] via-accent/[0.12] to-accent/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                    transition={pillTransition}
                   />
                 ) : null}
                 {isActive ? (
                   <motion.span
                     layoutId={`sidebar-line-${instance}`}
-                    className="absolute -left-3 top-1/2 h-6 w-[2px] -translate-y-1/2 rounded-full bg-accent shadow-[0_0_12px_rgba(102,115,255,0.9)]"
-                    transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                    className="absolute left-0.5 top-2.5 h-5 w-[2px] rounded-full bg-accent-soft"
+                    transition={pillTransition}
                   />
                 ) : null}
                 <item.icon
                   className={cn(
                     'relative z-10 h-[18px] w-[18px] shrink-0 transition-colors duration-150',
                     isActive
-                      ? 'text-accent drop-shadow-[0_0_8px_rgba(102,115,255,0.55)]'
+                      ? 'text-accent-soft drop-shadow-[0_0_6px_rgba(102,115,255,0.35)]'
                       : 'text-muted-foreground group-hover:text-foreground',
                   )}
                   strokeWidth={isActive ? 2.2 : 1.8}
                 />
-                <span className="relative z-10">{item.label}</span>
+                <span className={cn('relative z-10', isActive && 'text-accent-soft')}>
+                  {item.label}
+                </span>
               </>
             )}
           </NavLink>
@@ -178,7 +184,7 @@ function SystemStatus() {
   return (
     <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
       <div className="flex items-center justify-between">
-        <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Система
         </span>
         <span className={cn('flex items-center gap-1.5 text-[10px] font-semibold', toneText)}>
@@ -210,7 +216,7 @@ function UserCard() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="group flex w-full items-center gap-2.5 rounded-xl border border-transparent p-1.5 text-left transition-colors duration-150 hover:border-white/[0.07] hover:bg-white/[0.04]"
+          className="focus-ring group flex w-full items-center gap-2.5 rounded-xl border border-transparent p-1.5 text-left transition-colors duration-150 hover:border-white/[0.07] hover:bg-white/[0.04]"
         >
           <Avatar className="h-9 w-9 rounded-xl" aria-hidden="true">
             {user?.avatarUrl ? <AvatarImage src={user.avatarUrl} alt="" /> : null}
@@ -271,7 +277,7 @@ function SidebarContent({ instance, onNavigate }: SidebarContentProps) {
       <div className="shrink-0 space-y-3 border-t border-white/[0.06] p-3">
         <SystemStatus />
         <UserCard />
-        <p className="text-center text-[9px] font-medium uppercase tracking-[0.2em] text-white/20">
+        <p className="text-center text-[11px] font-medium uppercase tracking-[0.2em] text-white/40">
           NEXUS v{APP_VERSION}
         </p>
       </div>

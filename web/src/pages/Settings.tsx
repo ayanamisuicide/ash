@@ -19,6 +19,7 @@ import { getSettings } from '@/api/endpoints';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Spinner } from '@/components/ui/Spinner';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { CommunitySettings } from '@/components/settings/CommunitySettings';
 import { LogsSettings } from '@/components/settings/LogsSettings';
 import { ModerationSettings } from '@/components/settings/ModerationSettings';
@@ -151,7 +152,7 @@ export function SettingsPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           {isRefreshing && (meta || settingsQuery.data) ? (
-            <span className="hidden items-center gap-1.5 text-[10px] text-muted-foreground sm:inline-flex">
+            <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
               <Spinner className="h-3 w-3" />
               Обновление…
             </span>
@@ -230,33 +231,19 @@ export function SettingsPage() {
             </div>
           ) : null}
 
-          <div
-            className="flex gap-1 overflow-x-auto rounded-xl border border-white/[0.06] bg-white/[0.02] p-1 no-scrollbar"
-            role="tablist"
-            aria-label="Разделы настроек"
-          >
-            {TABS.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === item.key}
-                  onClick={() => setTab(item.key)}
-                  className={cn(
-                    'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                    tab === item.key
-                      ? 'bg-accent/[0.14] text-accent'
-                      : 'text-muted-foreground hover:bg-white/[0.04] hover:text-foreground',
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
+          <Tabs value={tab} onValueChange={(value) => setTab(value as SettingsTab)}>
+            <TabsList className="w-full" aria-label="Разделы настроек">
+              {TABS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <TabsTrigger key={item.key} value={item.key}>
+                    <Icon className="h-3.5 w-3.5" />
+                    {item.label}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
 
           {isDemo ? (
             <div className="flex items-start gap-2.5 rounded-xl border border-warning/20 bg-warning/[0.06] px-4 py-3 text-xs leading-relaxed text-warning/90">
@@ -269,7 +256,8 @@ export function SettingsPage() {
           ) : null}
 
           <fieldset disabled={isDemo} className="m-0 min-w-0 space-y-4 border-0 p-0">
-            {tab === 'moderation' ? (
+            {/* Все панели остаются смонтированными: смена вкладки не теряет черновик. */}
+            <div className={tab === 'moderation' ? 'animate-tab-in' : 'hidden'}>
               <ModerationSettings
                 key={`${activeGuildId}:moderation`}
                 guildId={activeGuildId}
@@ -277,7 +265,8 @@ export function SettingsPage() {
                 channels={meta?.channels ?? []}
                 roles={meta?.roles ?? []}
               />
-            ) : tab === 'logs' ? (
+            </div>
+            <div className={tab === 'logs' ? 'animate-tab-in' : 'hidden'}>
               <LogsSettings
                 key={`${activeGuildId}:logs`}
                 guildId={activeGuildId}
@@ -285,13 +274,15 @@ export function SettingsPage() {
                 catalog={settingsQuery.data.catalog}
                 channels={meta?.channels ?? []}
               />
-            ) : tab === 'security' ? (
+            </div>
+            <div className={tab === 'security' ? 'animate-tab-in' : 'hidden'}>
               <SecuritySettings
                 key={`${activeGuildId}:security`}
                 guildId={activeGuildId}
                 settings={settingsQuery.data.security}
               />
-            ) : (
+            </div>
+            <div className={tab === 'community' ? 'animate-tab-in' : 'hidden'}>
               <CommunitySettings
                 key={`${activeGuildId}:community`}
                 guildId={activeGuildId}
@@ -300,10 +291,10 @@ export function SettingsPage() {
                 channels={meta?.channels ?? []}
                 roles={meta?.roles ?? []}
               />
-            )}
+            </div>
           </fieldset>
 
-          <div className="flex items-center justify-center gap-2 pb-2 text-[9px] uppercase tracking-[0.16em] text-white/20">
+          <div className="flex items-center justify-center gap-2 pb-2 text-[11px] uppercase tracking-[0.16em] text-white/40">
             <Settings2 className="h-3 w-3" />
             изменения применяются после сохранения
           </div>

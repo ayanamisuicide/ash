@@ -69,12 +69,12 @@ export function Topbar() {
                 {pageMeta.title}
               </p>
               {activeGuild ? (
-                <span className="hidden rounded-md border border-white/[0.07] bg-white/[0.035] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:inline">
+                <span className="hidden rounded-md border border-white/[0.07] bg-white/[0.035] px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:inline">
                   {activeGuild.level === 'admin' ? 'Админ' : 'Мод'}
                 </span>
               ) : null}
               {isDemo ? (
-                <span className="hidden rounded-md border border-warning/25 bg-warning/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-warning sm:inline">
+                <span className="hidden rounded-md border border-warning/25 bg-warning/10 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-warning sm:inline">
                   Демо
                 </span>
               ) : null}
@@ -84,8 +84,9 @@ export function Topbar() {
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <div
-              className="hidden h-9 cursor-default items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 sm:flex"
+            <button
+              type="button"
+              className="focus-ring hidden h-9 cursor-default items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 sm:flex"
               aria-label={bot ? `Пинг бота ${bot.ping} миллисекунд` : 'Пинг бота неизвестен'}
             >
               <Activity
@@ -100,7 +101,7 @@ export function Topbar() {
                   bot ? toneClasses.dot : 'bg-muted-foreground',
                 )}
               />
-            </div>
+            </button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-[240px]">
             {bot ? (
@@ -122,7 +123,7 @@ export function Topbar() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="group flex items-center gap-2 rounded-xl border border-transparent p-1 pr-1.5 text-left transition-colors duration-150 hover:border-white/[0.08] hover:bg-white/[0.04] sm:gap-2.5 sm:pr-2.5"
+              className="focus-ring group flex items-center gap-2 rounded-xl border border-transparent p-1 pr-1.5 text-left transition-colors duration-150 hover:border-white/[0.08] hover:bg-white/[0.04] sm:gap-2.5 sm:pr-2.5"
             >
               <Avatar className="h-8 w-8 rounded-lg" aria-hidden="true">
                 {user?.avatarUrl ? <AvatarImage src={user.avatarUrl} alt="" /> : null}
@@ -151,7 +152,7 @@ export function Topbar() {
                 <p className="truncate text-[11px] text-muted-foreground">@{user.username}</p>
               ) : null}
               {activeGuild ? (
-                <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                <p className="mt-1 truncate text-xs text-muted-foreground">
                   {activeGuild.name}
                 </p>
               ) : null}

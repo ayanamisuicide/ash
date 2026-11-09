@@ -58,7 +58,7 @@ export function AppealCard({
 
         <span
           className={cn(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em]',
+            'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.1em]',
             status.className,
           )}
         >
@@ -67,7 +67,7 @@ export function AppealCard({
         </span>
       </div>
 
-      <div className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+      <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Clock3 className="h-3 w-3 shrink-0" />
         <span title={formatDateTime(appeal.createdAt)}>
           {formatDateTime(appeal.createdAt)} · {formatRelativeTime(appeal.createdAt)}
@@ -76,7 +76,7 @@ export function AppealCard({
 
       {appeal.caseId ? (
         <div
-          className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground"
+          className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"
           title={appeal.caseReason ?? undefined}
         >
           <Gavel className="h-3 w-3 shrink-0" />
@@ -84,7 +84,7 @@ export function AppealCard({
           {appeal.caseType ? (
             <span
               className={cn(
-                'rounded-md border px-1.5 py-0.5 text-[9px] font-semibold',
+                'rounded-md border px-1.5 py-0.5 text-[11px] font-semibold',
                 caseTypeBadgeClasses(appeal.caseType),
               )}
             >
@@ -95,7 +95,7 @@ export function AppealCard({
       ) : null}
 
       <div className="mt-3 flex-1 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Причина
         </p>
         <p className="mt-1.5 whitespace-pre-line text-[12px] leading-relaxed text-foreground/90">
@@ -129,7 +129,7 @@ export function AppealCard({
           </Button>
         </div>
       ) : appeal.status === 'pending' ? (
-        <p className="mt-3 text-[10px] text-muted-foreground">
+        <p className="mt-3 text-xs text-muted-foreground">
           {demo
             ? 'Демо-режим: решения по апелляциям отключены.'
             : requiresBan
@@ -137,11 +137,11 @@ export function AppealCard({
               : 'Для решения нужно право «Заглушать участников» или «Управление сервером».'}
         </p>
       ) : (
-        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] text-muted-foreground">
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
           <span>Рассмотрел: {appeal.reviewedBy ?? '—'}</span>
           {appeal.reviewedAt ? (
             <>
-              <span className="text-white/20">·</span>
+              <span className="text-white/40">·</span>
               <span title={formatDateTime(appeal.reviewedAt)}>
                 {formatRelativeTime(appeal.reviewedAt)}
               </span>

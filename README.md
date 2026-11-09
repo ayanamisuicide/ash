@@ -101,7 +101,8 @@ npm start
 ```bash
 npm run typecheck    # бот + tests/ (tsconfig.tests.json)
 npm run lint         # src + tests + scripts + web/src (react-hooks)
-npm test             # тесты бота (node:test)
+npm test             # быстрые тесты бота (node:test)
+npm run test:coverage # тесты бота + порог покрытия (как в CI)
 npm run test:panel   # тесты панели (Vitest + Testing Library)
 npm run ci           # всё вышеперечисленное + format:check + строгая сборка
 ```

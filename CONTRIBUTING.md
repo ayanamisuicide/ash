@@ -23,7 +23,8 @@ cp .env.example .env    # DISCORD_TOKEN, DISCORD_CLIENT_ID
 npm run typecheck    # бот + tests/ (tsconfig.tests.json)
 npm run lint         # src + tests + scripts + web/src
 npm run format       # Prettier, включая web/src
-npm test             # тесты бота (node:test)
+npm test             # быстрые тесты бота (node:test)
+npm run test:coverage # тесты бота + порог покрытия (то же, что в CI)
 npm run test:panel   # тесты панели (Vitest + Testing Library)
 npm run build        # строгая сборка: tsc + panel + copy-assets
 ```

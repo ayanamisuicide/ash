@@ -1,6 +1,6 @@
 {
   "name": "probot-style-bot",
-  "version": "3.0.3",
+  "version": "3.1.0",
   "description": "Discord-бот в стиле ProBot: модерация, логирование, веб-панель модератора",
   "type": "module",
   "main": "dist/index.js",
@@ -22,8 +22,9 @@
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"web/src/**/*.{ts,tsx,css}\" \"*.{json,md,yml}\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"web/src/**/*.{ts,tsx,css}\" \"*.{json,md,yml}\"",
     "test": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx --test tests/*.test.ts",
+    "test:coverage": "node --experimental-test-coverage --test-coverage-lines=57 --test-coverage-branches=77 --test-coverage-functions=73 --import=tsx --test \"tests/*.test.ts\"",
     "test:panel": "npm --prefix web run test",
-    "ci": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run test:panel && npm run build",
+    "ci": "npm run typecheck && npm run lint && npm run format:check && npm run test:coverage && npm run test:panel && npm run build",
     "health": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning node scripts/healthcheck.mjs",
     "restore": "node scripts/restore.mjs",
     "tunnel": "node scripts/tailscale.mjs",

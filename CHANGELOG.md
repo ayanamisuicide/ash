@@ -4,6 +4,29 @@
 [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии следуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [3.1.0] - 2026-11-10
+
+### Добавлено
+
+- **Порог покрытия в CI:** новый `npm run test:coverage` (встроенный coverage
+  Node) требует не ниже **57% строк / 77% ветвей / 73% функций**; `npm run ci`
+  гоняет именно его. Быстрый `npm test` остался для локальной работы.
+- **Тесты модерации:** `tests/moderation-actions.test.ts` — бан, временный бан,
+  софтбан, массбан, кик, разбан, таймаут и мут на фейковых Discord-объектах:
+  проверки иерархии и прав, валидация длительностей, создание кейсов и роли
+  `Muted`, повторный мут.
+- **Тесты апелляций и bulk delete:** `tests/appeal-resolution.test.ts`
+  (legacy-апелляция, отсутствующий кейс, ban/mute/timeout/warn/temprole/kick) и
+  `tests/bulk-delete-reason.test.ts` (одноразовая причина, TTL, лимит очереди).
+
+### Изменено
+
+- **Toolchain панели:** Vite 5 → 7, Vitest 3 → 5, `@vitejs/plugin-react` 4 → 5.
+  `npm audit` панели — 0 уязвимостей, включая dev-зависимости: ушли critical
+  в `tinypool` и moderate в `esbuild`, которые не закрывались в старых версиях.
+- **CI:** тесты бота выполняются с порогом покрытия, тесты панели — на Vitest 5.
+- **README/CONTRIBUTING:** добавлен `npm run test:coverage`.
+
 ## [3.0.3] - 2026-11-10
 
 ### Изменено

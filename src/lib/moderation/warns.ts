@@ -1,12 +1,22 @@
 import type { Guild } from 'discord.js';
 import { closeCase, closeWarnCases, createCase, findCaseByWarnId } from '../cases.js';
-import { COLORS } from '../embeds.js';
+import { COLORS, dmEmbed } from '../embeds.js';
 import { logCard } from '../logCard.js';
+import { undoActionButton } from '../responses.js';
 import { sendLog } from '../logger.js';
 import { truncate } from '../logging.js';
 import { addWarn, clearWarns, getWarns, removeWarn } from '../warns.js';
 import { getModerationSettings, type WarnAction } from '../modSettings.js';
-import { checkTarget, dm, fail, fetchMember, fetchUser, ok, type ActionResult } from './helpers.js';
+import {
+  checkTarget,
+  dm,
+  fail,
+  fetchMember,
+  fetchUser,
+  ok,
+  userAvatar,
+  type ActionResult,
+} from './helpers.js';
 import { banUser, kickUser } from './bans.js';
 import { muteUser, timeoutUser } from './timeouts.js';
 
@@ -35,7 +45,12 @@ export async function warnUser(
 
   await dm(
     member.user,
-    `⚠️ Тебе выдано предупреждение на сервере **${guild.name}** (всего: ${total}).\n🧾 Причина: ${reason}`,
+    dmEmbed('warn', guild, {
+      reason,
+      caseId: modCase.id,
+      thumbnail: userAvatar(member.user),
+      fields: [{ label: 'Всего предупреждений', value: String(total), block: false }],
+    }),
   );
 
   await sendLog(
@@ -45,7 +60,7 @@ export async function warnUser(
       color: COLORS.warn,
       actor: {
         name: member.user.tag,
-        iconURL: member.user.displayAvatarURL(),
+        iconURL: userAvatar(member.user),
       },
       fields: [
         { name: 'Кому', value: `${member} (${member.user.tag})`, inline: true },
@@ -55,6 +70,7 @@ export async function warnUser(
         { name: 'Причина', value: reason },
       ],
       footer: `ID: ${member.id}`,
+      buttons: [undoActionButton(modCase.id)],
     }),
     'warnAdd',
   );
@@ -133,11 +149,15 @@ async function applyWarnActions(guild: Guild, userId: string): Promise<string[]>
     await sendLog(
       guild,
       logCard(guild, {
-        title: '⚡ Автонаказание по варнам',
+        title: '⚙️ Автонаказание по варнам',
         color: COLORS.danger,
         description: applied.join('\n'),
-        fields: [{ name: 'Участник', value: `<@${userId}>`, inline: true }],
+        fields: [
+          { name: 'Участник', value: `<@${userId}>`, inline: true },
+          { name: 'Причина', value: reason },
+        ],
         footer: `ID: ${userId}`,
+        buttons: result?.caseId ? [undoActionButton(result.caseId)] : undefined,
       }),
       'warnEscalation',
     );
@@ -151,6 +171,7 @@ export async function clearWarnsAction(
   moderatorId: string,
   userId: string,
   warnId?: string | null,
+  reason = 'Снятие предупреждений',
 ): Promise<ActionResult> {
   const removed = warnId
     ? [removeWarn(guild.id, userId, warnId)].flatMap((warn) => (warn ? [warn] : []))
@@ -175,7 +196,7 @@ export async function clearWarnsAction(
     type: 'warnRemove',
     userId,
     moderatorId,
-    reason: warnId ? `Снят варн ${warnId}` : `Снято варнов: ${removed.length}`,
+    reason,
     active: false,
     extra: { warnIds: removed.map((warn) => warn.id) },
   });
@@ -198,6 +219,7 @@ export async function clearWarnsAction(
     },
     { name: 'Снято', value: String(removed.length), inline: true },
     { name: 'Кейс', value: `#${removalCase.id}`, inline: true },
+    { name: 'Причина', value: reason, inline: false },
   ];
 
   const single = removed[0];
@@ -214,12 +236,24 @@ export async function clearWarnsAction(
     });
   }
 
+  if (target) {
+    await dm(
+      target,
+      dmEmbed('warnRemove', guild, {
+        reason,
+        caseId: removalCase.id,
+        thumbnail: userAvatar(target),
+        fields: [{ label: 'Снято', value: String(removed.length), block: false }],
+      }),
+    );
+  }
+
   await sendLog(
     guild,
     logCard(guild, {
       title: warnId ? '🧽 Предупреждение снято' : '🧽 Предупреждения сняты',
       color: COLORS.success,
-      actor: target ? { name: target.tag, iconURL: target.displayAvatarURL() } : undefined,
+      actor: target ? { name: target.tag, iconURL: userAvatar(target) } : undefined,
       fields,
       footer: `ID: ${userId}`,
     }),

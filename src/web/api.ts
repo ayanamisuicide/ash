@@ -1,18 +1,22 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { BotClient } from '../core/client.js';
 import { caseTypeLabel, getCase, isCaseType, searchCases, type ModCase } from '../lib/cases.js';
-import { listAppeals, type AppealStatus } from '../lib/appeals.js';
+import { getAppeal, listAppeals, type Appeal, type AppealStatus } from '../lib/appeals.js';
 import { ChannelType, type Guild } from 'discord.js';
 import {
   banFromPanel,
+  clearWarnsFromPanel,
   editCaseFromPanel,
   kickFromPanel,
+  muteFromPanel,
   noteFromPanel,
   removeNoteFromPanel,
   removeWarnFromPanel,
   reviewAppeal,
+  roleFromPanel,
   timeoutFromPanel,
   unbanFromPanel,
+  unmuteFromPanel,
   untimeoutFromPanel,
   warnFromPanel,
 } from './actions.js';
@@ -85,6 +89,25 @@ function requireBan(access: GuildAccess): void {
   }
 }
 
+/** Баны — BanMembers, остальные наказания — ModerateMembers. */
+function requireAppealReview(access: GuildAccess, guildId: string, appealId: number): void {
+  const appeal = getAppeal(guildId, appealId);
+  if (!appeal) throw new HttpError(404, 'Апелляция не найдена.');
+
+  const modCase = appeal.caseId ? getCase(guildId, appeal.caseId) : null;
+  const requiresBan =
+    !modCase || modCase.type === 'ban' || modCase.type === 'tempban' || modCase.type === 'softban';
+
+  if (requiresBan) requireBan(access);
+  else requireModerate(access);
+}
+
+function requireRoles(access: GuildAccess): void {
+  if (!access.admin && !access.manageRoles) {
+    throw new HttpError(403, 'Нужно право «Управлять ролями».');
+  }
+}
+
 function caseDto(guild: Guild, item: ModCase) {
   const user = item.userId ? guild.members.cache.get(item.userId)?.user : null;
   const moderator = guild.members.cache.get(item.moderatorId)?.user ?? null;
@@ -99,6 +122,15 @@ function caseDto(guild: Guild, item: ModCase) {
 
 function caseListDto(guild: Guild, items: ModCase[]) {
   return items.map((item) => caseDto(guild, item));
+}
+
+function appealDto(guildId: string, item: Appeal) {
+  const punished = item.caseId ? getCase(guildId, item.caseId) : null;
+  return {
+    ...item,
+    caseType: punished?.type ?? null,
+    caseReason: punished?.reason ?? null,
+  };
 }
 
 function parsePositiveInt(value: string | null, fallback: number): number {
@@ -143,6 +175,7 @@ async function handleGuildRoute(
         kick: access.kick,
         ban: access.ban,
         manageMessages: access.manageMessages,
+        manageRoles: access.manageRoles,
       },
       ...overview,
       recentCases: caseListDto(guild, overview.recentCases),
@@ -167,6 +200,7 @@ async function handleGuildRoute(
         kick: access.kick,
         ban: access.ban,
         manageMessages: access.manageMessages,
+        manageRoles: access.manageRoles,
       },
       // Ветки лежат в channels.cache, но у них нет position — для выбора каналов
       // в настройках они не нужны.
@@ -264,8 +298,10 @@ async function handleGuildRoute(
     if (segments.length === 1) {
       requireModerate(access);
       const query = ctx.url.searchParams.get('q') ?? '';
-      const items = await searchMembers(guild, query);
-      sendJson(ctx.res, 200, { ok: true, items });
+      const page = Number(ctx.url.searchParams.get('page') ?? 1);
+      const pageSize = Number(ctx.url.searchParams.get('pageSize') ?? 50);
+      const result = await searchMembers(guild, query, { page, pageSize });
+      sendJson(ctx.res, 200, { ok: true, ...result });
       return;
     }
 
@@ -289,17 +325,17 @@ async function handleGuildRoute(
   if (section === 'appeals') {
     if (segments.length === 1 && ctx.req.method === 'GET') {
       const status = parseStatus(ctx.url.searchParams.get('status'));
-      const items = listAppeals(guild.id, status);
+      const items = listAppeals(guild.id, status).map((item) => appealDto(guild.id, item));
       sendJson(ctx.res, 200, { ok: true, items });
       return;
     }
 
     if (segments.length === 3 && segments[2] === 'review' && ctx.req.method === 'POST') {
-      requireBan(access);
       const appealId = Number(segments[1]);
       if (!Number.isInteger(appealId) || appealId <= 0) {
         throw new HttpError(400, 'Неверный номер апелляции.');
       }
+      requireAppealReview(access, guild.id, appealId);
       const body = await readJson(ctx.req);
       if (typeof body.approve !== 'boolean') {
         throw new HttpError(400, 'Поле approve должно быть boolean.');
@@ -428,6 +464,21 @@ async function handleGuildRoute(
       sendJson(ctx.res, 200, await untimeoutFromPanel(guild, session.user.id, body));
       return;
     }
+    if (action === 'mute') {
+      requireModerate(access);
+      sendJson(ctx.res, 200, await muteFromPanel(guild, session.user.id, body));
+      return;
+    }
+    if (action === 'unmute') {
+      requireModerate(access);
+      sendJson(ctx.res, 200, await unmuteFromPanel(guild, session.user.id, body));
+      return;
+    }
+    if (action === 'clearwarns') {
+      requireModerate(access);
+      sendJson(ctx.res, 200, await clearWarnsFromPanel(guild, session.user.id, body));
+      return;
+    }
     if (action === 'note') {
       requireModerate(access);
       sendJson(ctx.res, 200, await noteFromPanel(guild, session.user.id, body));
@@ -446,6 +497,11 @@ async function handleGuildRoute(
     if (action === 'unban') {
       requireBan(access);
       sendJson(ctx.res, 200, await unbanFromPanel(guild, session.user.id, body));
+      return;
+    }
+    if (action === 'role') {
+      requireRoles(access);
+      sendJson(ctx.res, 200, await roleFromPanel(guild, session.user.id, body));
       return;
     }
 

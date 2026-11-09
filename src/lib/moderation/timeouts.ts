@@ -1,6 +1,6 @@
 import { PermissionFlagsBits, type Guild, type Role } from 'discord.js';
 import { closeActiveCases, createCase } from '../cases.js';
-import { COLORS } from '../embeds.js';
+import { COLORS, dmEmbed } from '../embeds.js';
 import { humanDuration } from '../format.js';
 import { getModerationSettings, setMuteRoleId } from '../modSettings.js';
 import {
@@ -12,6 +12,7 @@ import {
   fail,
   fetchMember,
   ok,
+  userAvatar,
   type ActionResult,
 } from './helpers.js';
 
@@ -42,7 +43,12 @@ export async function timeoutUser(
 
   await dm(
     member.user,
-    `🔇 Тебе выдан таймаут на **${humanDuration(durationMs)}** на сервере **${guild.name}**.\n🧾 Причина: ${reason}`,
+    dmEmbed('timeout', guild, {
+      reason,
+      duration: humanDuration(durationMs),
+      expiresAt: Date.now() + durationMs,
+      thumbnail: userAvatar(member.user),
+    }),
   );
 
   closeActiveCases(guild.id, userId, ['timeout'], `Новый таймаут: ${reason}`);
@@ -83,7 +89,10 @@ export async function untimeoutUser(
 
   await dm(
     member.user,
-    `🔊 С тебя снят таймаут на сервере **${guild.name}**.\n🧾 Причина: ${reason}`,
+    dmEmbed('untimeout', guild, {
+      reason,
+      thumbnail: userAvatar(member.user),
+    }),
   );
 
   closeActiveCases(guild.id, userId, ['timeout'], `Снятие таймаута: ${reason}`);
@@ -99,7 +108,7 @@ export async function untimeoutUser(
   return ok(`🔊 С ${member} снят таймаут.`, modCase.id);
 }
 
-async function findMuteRole(guild: Guild): Promise<Role | null> {
+export async function findMuteRole(guild: Guild): Promise<Role | null> {
   const settings = getModerationSettings(guild.id);
   if (settings.muteRoleId) {
     const existing = guild.roles.cache.get(settings.muteRoleId);
@@ -144,7 +153,7 @@ async function ensureMuteRole(guild: Guild): Promise<Role | null> {
   try {
     const role = await guild.roles.create({
       name: 'Muted',
-      color: COLORS.gray,
+      color: COLORS.neutral,
       permissions: [],
       reason: 'Создание роли для мута',
     });
@@ -199,7 +208,12 @@ export async function muteUser(
 
   await dm(
     member.user,
-    `🔇 Тебе выдан мут${durationMs ? ` на **${humanDuration(durationMs)}**` : ''} на сервере **${guild.name}**.\n🧾 Причина: ${reason}`,
+    dmEmbed('mute', guild, {
+      reason,
+      duration: durationMs ? humanDuration(durationMs) : null,
+      expiresAt: durationMs ? Date.now() + durationMs : null,
+      thumbnail: userAvatar(member.user),
+    }),
   );
 
   closeActiveCases(guild.id, userId, ['mute'], `Новый мут: ${reason}`);
@@ -241,7 +255,13 @@ export async function unmuteUser(
     return fail('Discord отклонил снятие мута.');
   }
 
-  await dm(member.user, `🔊 С тебя снят мут на сервере **${guild.name}**.\n🧾 Причина: ${reason}`);
+  await dm(
+    member.user,
+    dmEmbed('unmute', guild, {
+      reason,
+      thumbnail: userAvatar(member.user),
+    }),
+  );
 
   closeActiveCases(guild.id, userId, ['mute'], `Снятие мута: ${reason}`);
 

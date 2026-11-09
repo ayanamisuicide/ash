@@ -3,11 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const source = path.join(root, 'src', 'web', 'public');
+const legacy = path.join(root, 'src', 'web', 'public');
+const reactPanel = path.join(root, 'web', 'dist');
+const source = fs.existsSync(path.join(reactPanel, 'index.html')) ? reactPanel : legacy;
 const target = path.join(root, 'dist', 'web', 'public');
 
-if (!fs.existsSync(source)) {
-  console.error(`copy-assets: не найдена папка ${source}`);
+if (!fs.existsSync(path.join(source, 'index.html'))) {
+  console.error(`copy-assets: не найден index.html в ${source}`);
   process.exit(1);
 }
 

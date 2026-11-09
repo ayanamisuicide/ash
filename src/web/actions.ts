@@ -1,8 +1,9 @@
 import { MessageFlags, type Guild } from 'discord.js';
 import { getAppeal, updateAppeal } from '../lib/appeals.js';
+import { resolveAppealPunishment } from '../lib/appealResolution.js';
 import { card } from '../lib/card.js';
-import { getCase, updateCase, type ModCase } from '../lib/cases.js';
-import { COLORS } from '../lib/embeds.js';
+import { caseTypeLabel, getCase, updateCase, type ModCase } from '../lib/cases.js';
+import { COLORS, dmEmbed } from '../lib/embeds.js';
 import { logCard } from '../lib/logCard.js';
 import { sendLog } from '../lib/logger.js';
 import {
@@ -10,8 +11,10 @@ import {
   clearWarnsAction,
   durationToMs,
   kickUser,
+  muteUser,
   noteAddAction,
   noteRemoveAction,
+  roleAction,
   timeoutUser,
   unbanUser,
   unmuteUser,
@@ -93,6 +96,33 @@ export async function untimeoutFromPanel(
   );
 }
 
+export async function muteFromPanel(
+  guild: Guild,
+  moderatorId: string,
+  body: Record<string, unknown>,
+): Promise<ActionResult> {
+  return muteUser(
+    guild,
+    moderatorId,
+    requireUserId(body.userId),
+    optionalDuration(body.duration),
+    requireReason(body.reason),
+  );
+}
+
+export async function unmuteFromPanel(
+  guild: Guild,
+  moderatorId: string,
+  body: Record<string, unknown>,
+): Promise<ActionResult> {
+  return unmuteUser(
+    guild,
+    moderatorId,
+    requireUserId(body.userId),
+    requireReason(body.reason ?? 'Снятие мута через веб-панель'),
+  );
+}
+
 export async function kickFromPanel(
   guild: Guild,
   moderatorId: string,
@@ -125,6 +155,29 @@ export async function unbanFromPanel(
   return unbanUser(guild, moderatorId, requireUserId(body.userId), requireReason(body.reason));
 }
 
+export async function roleFromPanel(
+  guild: Guild,
+  moderatorId: string,
+  body: Record<string, unknown>,
+): Promise<ActionResult> {
+  const action = body.action;
+  if (action !== 'add' && action !== 'remove') {
+    throw new HttpError(400, 'Неверное действие с ролью.');
+  }
+  if (typeof body.roleId !== 'string' || !/^\d{17,20}$/.test(body.roleId.trim())) {
+    throw new HttpError(400, 'Укажите корректный ID роли.');
+  }
+
+  return roleAction(
+    guild,
+    moderatorId,
+    requireUserId(body.userId),
+    body.roleId.trim(),
+    action,
+    requireReason(body.reason),
+  );
+}
+
 export async function noteFromPanel(
   guild: Guild,
   moderatorId: string,
@@ -141,6 +194,14 @@ export async function removeNoteFromPanel(
   noteId: string,
 ): Promise<ActionResult> {
   return noteRemoveAction(guild, moderatorId, requireUserId(userId), noteId);
+}
+
+export async function clearWarnsFromPanel(
+  guild: Guild,
+  moderatorId: string,
+  body: Record<string, unknown>,
+): Promise<ActionResult> {
+  return clearWarnsAction(guild, moderatorId, requireUserId(body.userId));
 }
 
 export async function removeWarnFromPanel(
@@ -200,27 +261,8 @@ export async function reviewAppeal(
   }
 
   if (approve) {
-    let banned = null;
-    try {
-      banned = await guild.bans.fetch(appeal.userId);
-    } catch (error) {
-      const code = (error as { code?: number }).code;
-      if (code !== 10026) {
-        throw new HttpError(502, 'Не удалось проверить бан. Проверьте права бота.');
-      }
-    }
-
-    if (banned) {
-      await guild.bans
-        .remove(appeal.userId, `Апелляция #${appeal.id} одобрена (${moderator.tag})`)
-        .catch(() => {
-          throw new HttpError(502, 'Не удалось снять бан. Проверьте права бота.');
-        });
-    }
-
-    await unmuteUser(guild, moderator.id, appeal.userId, `Апелляция #${appeal.id} одобрена`).catch(
-      () => null,
-    );
+    const resolution = await resolveAppealPunishment(guild, moderator.id, appeal);
+    if (!resolution.ok) throw new HttpError(502, resolution.message);
   }
 
   const reviewedAt = Date.now();
@@ -230,14 +272,26 @@ export async function reviewAppeal(
     reviewedAt,
   });
 
+  const punishedCase = appeal.caseId ? getCase(guild.id, appeal.caseId) : null;
+  const punishment = punishedCase
+    ? `#${punishedCase.id} · ${caseTypeLabel(punishedCase.type)}`
+    : null;
+
   const user = await guild.client.users.fetch(appeal.userId).catch(() => null);
-  await user
-    ?.send(
-      approve
-        ? `✅ Твоя апелляция на сервере **${guild.name}** одобрена.`
-        : `❌ Твоя апелляция на сервере **${guild.name}** отклонена.`,
-    )
-    .catch(() => {});
+  if (user) {
+    await user
+      .send({
+        components: [
+          dmEmbed(approve ? 'appealApproved' : 'appealRejected', guild, {
+            reason: appeal.reason,
+            caseId: punishedCase?.id ?? null,
+            thumbnail: user.displayAvatarURL(),
+          }),
+        ],
+        flags: MessageFlags.IsComponentsV2,
+      })
+      .catch(() => {});
+  }
 
   await updateAppealMessage(guild, appeal.channelId, appeal.messageId, {
     approve,
@@ -246,6 +300,7 @@ export async function reviewAppeal(
     reason: appeal.reason,
     appealId: appeal.id,
     reviewedAt,
+    punishment,
   });
 
   await sendLog(
@@ -257,6 +312,7 @@ export async function reviewAppeal(
         { name: 'Апелляция', value: `#${appeal.id}`, inline: true },
         { name: 'Пользователь', value: `<@${appeal.userId}>`, inline: true },
         { name: 'Рассмотрел', value: `<@${moderator.id}> (веб-панель)`, inline: true },
+        ...(punishment ? [{ name: 'Наказание', value: punishment, inline: true }] : []),
         { name: 'Причина', value: appeal.reason },
       ],
       footer: `ID: ${appeal.userId}`,
@@ -281,6 +337,7 @@ async function updateAppealMessage(
     reason: string;
     appealId: number;
     reviewedAt: number;
+    punishment: string | null;
   },
 ): Promise<void> {
   if (!channelId || !messageId) return;
@@ -291,6 +348,11 @@ async function updateAppealMessage(
   const message = await channel.messages.fetch(messageId).catch(() => null);
   if (!message) return;
 
+  const fields = [{ label: 'Причина апелляции', value: data.reason, block: true }];
+  if (data.punishment) {
+    fields.unshift({ label: 'Наказание', value: data.punishment, block: false });
+  }
+
   await message
     .edit({
       components: [
@@ -298,7 +360,7 @@ async function updateAppealMessage(
           tone: data.approve ? 'success' : 'danger',
           title: data.approve ? '✅ Апелляция одобрена' : '❌ Апелляция отклонена',
           description: `Пользователь: <@${data.userId}>\nРассмотрел: ${data.moderatorTag} (веб-панель)`,
-          fields: [{ label: 'Причина', value: data.reason, block: true }],
+          fields,
           footer: `Апелляция #${data.appealId}`,
           timestamp: data.reviewedAt,
         }),

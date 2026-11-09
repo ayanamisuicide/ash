@@ -1,4 +1,5 @@
 import type { GuildTextBasedChannel, Message } from 'discord.js';
+import { markBulkDeleteReason } from '../bulkDeleteReason.js';
 import { createCase } from '../cases.js';
 import { FOURTEEN_DAYS_MS, MAX_PURGE, fail, ok, type ActionResult } from './helpers.js';
 
@@ -95,6 +96,15 @@ export async function purgeMessages(
   let deleted = 0;
   for (let index = 0; index < filtered.length; index += 100) {
     const chunk = filtered.slice(index, index + 100);
+
+    // Bulk delete не поддерживает audit reason — передаём причину событию лога.
+    if (options.moderatorId) {
+      markBulkDeleteReason(channel.id, {
+        reason: options.reason ?? 'Массовая очистка сообщений',
+        moderatorId: options.moderatorId,
+      });
+    }
+
     const result = await channel.bulkDelete(chunk, true).catch(() => null);
     if (!result) break;
     deleted += result.size;

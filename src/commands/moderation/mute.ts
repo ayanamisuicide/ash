@@ -33,7 +33,10 @@ export default {
     );
 
     await replyActionResult(interaction, result, {
-      title: '🔇 Мут',
+      action: 'mute',
+      target: user,
+      moderator: interaction.user,
+      reason,
       thumbnail: user.displayAvatarURL(),
     });
   },

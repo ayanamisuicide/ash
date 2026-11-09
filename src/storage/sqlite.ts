@@ -262,6 +262,37 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 7,
+    up: () => {
+      const columns = db.prepare('PRAGMA table_info(appeals)').all() as unknown as Array<{
+        name: string;
+      }>;
+      if (!columns.some((column) => column.name === 'case_id')) {
+        db.exec('ALTER TABLE appeals ADD COLUMN case_id INTEGER;');
+      }
+    },
+  },
+  {
+    version: 8,
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS web_sessions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          username TEXT NOT NULL,
+          global_name TEXT,
+          avatar TEXT,
+          csrf TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          expires_at INTEGER NOT NULL,
+          last_seen_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_web_sessions_expires
+          ON web_sessions(expires_at);
+      `);
+    },
+  },
 ];
 
 function currentSchemaVersion(): number {
@@ -497,8 +528,8 @@ function importLegacy(data: Record<string, unknown>): void {
   `);
   const insertAppeal = db.prepare(`
     INSERT OR IGNORE INTO appeals
-      (guild_id, id, user_id, reason, status, created_at, channel_id, message_id, reviewed_by, reviewed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (guild_id, id, user_id, reason, status, created_at, case_id, channel_id, message_id, reviewed_by, reviewed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const upsertAppealCounter = db.prepare(`
     INSERT INTO appeal_counters (guild_id, next_id) VALUES (?, ?)
@@ -617,6 +648,7 @@ function importLegacy(data: Record<string, unknown>): void {
         asString(item.reason) || '',
         asString(item.status) || 'pending',
         asNumber(item.createdAt, Date.now()),
+        typeof item.caseId === 'number' ? item.caseId : null,
         typeof item.channelId === 'string' ? item.channelId : null,
         typeof item.messageId === 'string' ? item.messageId : null,
         typeof item.reviewedBy === 'string' ? item.reviewedBy : null,

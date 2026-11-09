@@ -7,6 +7,7 @@ import {
   fmtRelative,
   fmtUser,
   isLogEventEnabled,
+  reasonValue,
   sendLog,
   verificationLabel,
 } from '../../lib/logging.js';
@@ -39,13 +40,14 @@ const events: AnyBotEvent[] = [
 
       if (changes.length === 0) return;
 
-      const { executor } = await auditInfo(newGuild, AuditLogEvent.GuildUpdate);
+      const { executor, reason } = await auditInfo(newGuild, AuditLogEvent.GuildUpdate);
 
       const embed = logCard(newGuild, {
         title: '🏠 Сервер изменён',
         color: COLORS.warn,
         actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
         description: changes.join('\n'),
+        fields: [{ name: 'Причина', value: reasonValue(reason), inline: false }],
       });
 
       await sendLog(newGuild, embed, 'guildUpdate');
@@ -96,13 +98,18 @@ const events: AnyBotEvent[] = [
       if (!guild) return;
       if (!isLogEventEnabled(guild.id, 'inviteDelete')) return;
 
-      const { executor } = await auditInfo(guild, AuditLogEvent.InviteDelete, invite.channelId);
+      const { executor, reason } = await auditInfo(
+        guild,
+        AuditLogEvent.InviteDelete,
+        invite.channelId,
+      );
 
       const fields = [
         { name: 'Код', value: `\`${invite.code}\``, inline: true },
         { name: 'Канал', value: invite.channelId ? `<#${invite.channelId}>` : '—', inline: true },
       ];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(guild, {
         title: '🔗 Приглашение удалено',

@@ -27,7 +27,7 @@ after(() => {
 
 test('commands: unique names and descriptions', () => {
   assert.equal(byName.size, commands.length);
-  assert.equal(commands.length, 56);
+  assert.equal(commands.length, 54);
   for (const command of commands) {
     assert.ok(command.data.name.length > 0);
     assert.ok(command.data.description.length > 0);
@@ -63,9 +63,6 @@ test('commands: expected set is registered', () => {
     'voice',
     'setnick',
     'role',
-    'addrole',
-    'removerole',
-    'setrole',
     'modstats',
     'report',
     'appeal',
@@ -91,6 +88,7 @@ test('commands: expected set is registered', () => {
     'logs',
     'help',
     'ping',
+    'status',
     'menu',
   ]) {
     assert.ok(byName.has(name), `missing command /${name}`);
@@ -124,9 +122,6 @@ test('commands: default permissions match expectations', () => {
     slowmode: '16',
     setnick: '134217728',
     role: '268435456',
-    addrole: '268435456',
-    removerole: '268435456',
-    setrole: '268435456',
     modstats: '1099511627776',
     automod: '32',
     warnconfig: '32',
@@ -173,7 +168,7 @@ test('commands: role and voice commands have expected subcommands', () => {
   };
   assert.deepEqual(
     (role.options ?? []).map((option) => option.name),
-    ['add', 'remove', 'temp'],
+    ['add', 'remove', 'clear', 'set', 'temp', 'list'],
   );
 
   const voice = byName.get('voice')?.data.toJSON() as {

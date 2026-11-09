@@ -1,22 +1,11 @@
-import {
-  MessageFlags,
-  PermissionFlagsBits,
-  type ButtonInteraction,
-  type GuildBan,
-} from 'discord.js';
-import { COLORS } from '../lib/embeds.js';
+import { MessageFlags, PermissionFlagsBits, type ButtonInteraction } from 'discord.js';
+import { COLORS, dmEmbed } from '../lib/embeds.js';
 import { V2, card, errorCard } from '../lib/card.js';
 import { logCard } from '../lib/logCard.js';
 import { sendLog } from '../lib/logger.js';
 import { getAppeal, updateAppeal } from '../lib/appeals.js';
-import { unmuteUser } from '../lib/moderation.js';
-
-function allowed(interaction: ButtonInteraction<'cached'>): boolean {
-  return Boolean(
-    interaction.memberPermissions?.has(PermissionFlagsBits.BanMembers) ||
-    interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild),
-  );
-}
+import { resolveAppealPunishment } from '../lib/appealResolution.js';
+import { caseTypeLabel, getCase } from '../lib/cases.js';
 
 export async function handleAppealButton(interaction: ButtonInteraction<'cached'>): Promise<void> {
   const [scope, action, guildId, rawId] = interaction.customId.split(':');
@@ -24,16 +13,6 @@ export async function handleAppealButton(interaction: ButtonInteraction<'cached'
     await interaction
       .reply({
         components: [errorCard('Эта кнопка относится к другому серверу.')],
-        flags: V2 | MessageFlags.Ephemeral,
-      })
-      .catch(() => {});
-    return;
-  }
-
-  if (!allowed(interaction)) {
-    await interaction
-      .reply({
-        components: [errorCard('Нужно право «Банить участников» или «Управление сервером».')],
         flags: V2 | MessageFlags.Ephemeral,
       })
       .catch(() => {});
@@ -70,55 +49,54 @@ export async function handleAppealButton(interaction: ButtonInteraction<'cached'
     return;
   }
 
+  const punishedCase = appeal.caseId ? getCase(interaction.guild.id, appeal.caseId) : null;
+  const requiresBan =
+    !punishedCase ||
+    punishedCase.type === 'ban' ||
+    punishedCase.type === 'tempban' ||
+    punishedCase.type === 'softban';
+  const permissions = interaction.memberPermissions;
+  const canReview = Boolean(
+    permissions?.has(PermissionFlagsBits.ManageGuild) ||
+    (requiresBan
+      ? permissions?.has(PermissionFlagsBits.BanMembers)
+      : permissions?.has(PermissionFlagsBits.ModerateMembers)),
+  );
+
+  if (!canReview) {
+    await interaction
+      .reply({
+        components: [
+          errorCard(
+            requiresBan
+              ? 'Нужно право «Банить участников» или «Управление сервером».'
+              : 'Нужно право «Заглушать участников» или «Управление сервером».',
+          ),
+        ],
+        flags: V2 | MessageFlags.Ephemeral,
+      })
+      .catch(() => {});
+    return;
+  }
+
   const approve = action === 'approve';
   const reviewedAt = Date.now();
 
   if (approve) {
-    let banned: GuildBan | null = null;
-    try {
-      banned = await interaction.guild.bans.fetch(appeal.userId);
-    } catch (error) {
-      const code = (error as { code?: number }).code;
-      if (code !== 10026) {
-        console.error('[appeal] не удалось проверить бан:', error);
-        await interaction
-          .reply({
-            components: [
-              errorCard('Не удалось проверить бан. Проверьте право бота «Банить участников».'),
-            ],
-            flags: V2 | MessageFlags.Ephemeral,
-          })
-          .catch(() => {});
-        return;
-      }
-    }
-
-    if (banned) {
-      try {
-        await interaction.guild.bans.remove(
-          appeal.userId,
-          `Апелляция #${appeal.id} одобрена (${interaction.user.tag})`,
-        );
-      } catch (error) {
-        console.error('[appeal] не удалось снять бан:', error);
-        await interaction
-          .reply({
-            components: [
-              errorCard('Не удалось снять бан. Проверьте право бота «Банить участников».'),
-            ],
-            flags: V2 | MessageFlags.Ephemeral,
-          })
-          .catch(() => {});
-        return;
-      }
-    }
-
-    await unmuteUser(
+    const resolution = await resolveAppealPunishment(
       interaction.guild,
       interaction.user.id,
-      appeal.userId,
-      `Апелляция #${appeal.id} одобрена`,
-    ).catch(() => null);
+      appeal,
+    );
+    if (!resolution.ok) {
+      await interaction
+        .reply({
+          components: [errorCard(resolution.message)],
+          flags: V2 | MessageFlags.Ephemeral,
+        })
+        .catch(() => {});
+      return;
+    }
   }
 
   updateAppeal(interaction.guild.id, appeal.id, {
@@ -130,13 +108,29 @@ export async function handleAppealButton(interaction: ButtonInteraction<'cached'
   });
 
   const user = await interaction.client.users.fetch(appeal.userId).catch(() => null);
-  await user
-    ?.send(
-      approve
-        ? `✅ Твоя апелляция на сервере **${interaction.guild.name}** одобрена.`
-        : `❌ Твоя апелляция на сервере **${interaction.guild.name}** отклонена.`,
-    )
-    .catch(() => {});
+  if (user) {
+    await user
+      .send({
+        components: [
+          dmEmbed(approve ? 'appealApproved' : 'appealRejected', interaction.guild, {
+            reason: appeal.reason,
+            caseId: punishedCase?.id ?? null,
+            thumbnail: user.displayAvatarURL(),
+          }),
+        ],
+        flags: V2,
+      })
+      .catch(() => {});
+  }
+
+  const cardFields = [{ label: 'Причина апелляции', value: appeal.reason, block: true }];
+  if (punishedCase) {
+    cardFields.unshift({
+      label: 'Наказание',
+      value: `#${punishedCase.id} · ${caseTypeLabel(punishedCase.type)}`,
+      block: false,
+    });
+  }
 
   await interaction
     .update({
@@ -145,7 +139,7 @@ export async function handleAppealButton(interaction: ButtonInteraction<'cached'
           tone: approve ? 'success' : 'danger',
           title: approve ? '✅ Апелляция одобрена' : '❌ Апелляция отклонена',
           description: `Пользователь: <@${appeal.userId}>\nРассмотрел: ${interaction.user}`,
-          fields: [{ label: 'Причина', value: appeal.reason, block: true }],
+          fields: cardFields,
           footer: `Апелляция #${appeal.id}`,
           timestamp: reviewedAt,
         }),
@@ -163,6 +157,15 @@ export async function handleAppealButton(interaction: ButtonInteraction<'cached'
         { name: 'Апелляция', value: `#${appeal.id}`, inline: true },
         { name: 'Пользователь', value: `<@${appeal.userId}>`, inline: true },
         { name: 'Рассмотрел', value: `${interaction.user}`, inline: true },
+        ...(punishedCase
+          ? [
+              {
+                name: 'Наказание',
+                value: `#${punishedCase.id} · ${caseTypeLabel(punishedCase.type)}`,
+                inline: true,
+              },
+            ]
+          : []),
         { name: 'Причина', value: appeal.reason },
       ],
       footer: `ID: ${appeal.userId}`,

@@ -65,6 +65,17 @@ textarea {
   color: inherit;
 }
 
+/* Нативный список select: без явных цветов опции белый текст
+   оказывается на светлой системной подложке. */
+select option {
+  background: var(--panel);
+  color: var(--text);
+}
+
+select option:disabled {
+  color: var(--muted);
+}
+
 a {
   color: var(--accent-2);
   text-decoration: none;

@@ -7,23 +7,8 @@ import { V2, card } from '../../lib/card.js';
 import { humanDuration } from '../../lib/format.js';
 import { getLogChannel } from '../../lib/logger.js';
 import { isSchedulerRunning } from '../../lib/scheduler.js';
+import { REQUIRED_BOT_PERMISSIONS, findMissingPermissions } from '../../lib/startup.js';
 import { BACKUP_DIR, DB_FILE, db } from '../../storage/sqlite.js';
-
-const REQUIRED_PERMISSIONS: Array<[bigint, string]> = [
-  [PermissionFlagsBits.ViewChannel, 'View Channels'],
-  [PermissionFlagsBits.SendMessages, 'Send Messages'],
-  [PermissionFlagsBits.EmbedLinks, 'Embed Links'],
-  [PermissionFlagsBits.ReadMessageHistory, 'Read Message History'],
-  [PermissionFlagsBits.ViewAuditLog, 'View Audit Log'],
-  [PermissionFlagsBits.ManageMessages, 'Manage Messages'],
-  [PermissionFlagsBits.ManageRoles, 'Manage Roles'],
-  [PermissionFlagsBits.ManageChannels, 'Manage Channels'],
-  [PermissionFlagsBits.ManageNicknames, 'Manage Nicknames'],
-  [PermissionFlagsBits.KickMembers, 'Kick Members'],
-  [PermissionFlagsBits.BanMembers, 'Ban Members'],
-  [PermissionFlagsBits.ModerateMembers, 'Moderate Members'],
-  [PermissionFlagsBits.ManageWebhooks, 'Manage Webhooks'],
-];
 
 function tableCount(table: string): number {
   try {
@@ -55,8 +40,8 @@ export default {
 
     const me = interaction.guild.members.me;
     const missing = me
-      ? REQUIRED_PERMISSIONS.filter(([permission]) => !me.permissions.has(permission))
-      : REQUIRED_PERMISSIONS;
+      ? findMissingPermissions((bit) => me.permissions.has(bit))
+      : REQUIRED_BOT_PERMISSIONS;
     const permissionsOk = missing.length === 0;
 
     let auditOk = false;
@@ -92,7 +77,7 @@ export default {
         label: 'Права бота',
         value: permissionsOk
           ? '✅ все необходимые права есть'
-          : `❌ не хватает: ${missing.map(([, label]) => label).join(', ')}`,
+          : `❌ не хватает: ${missing.map((item) => item.label).join(', ')}`,
         block: true,
       },
       {

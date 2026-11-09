@@ -138,9 +138,10 @@ export function buildRolesView(): PanelView {
     button('menu:action:role-add', 'Выдать роль', '➕', ButtonStyle.Success),
     button('menu:action:role-remove', 'Снять роль', '➖', ButtonStyle.Secondary),
     button('menu:action:role-temp', 'Временная роль', '⏱️', ButtonStyle.Primary),
-    button('menu:action:setrole', 'Setrole', '🎭', ButtonStyle.Danger),
-    button('menu:action:setnick', 'Ник', '✏️', ButtonStyle.Secondary),
+    button('menu:action:role-clear', 'Снять все', '🧹', ButtonStyle.Danger),
+    button('menu:action:setrole', 'Заменить все', '🎭', ButtonStyle.Danger),
   );
+  const moreRow = row(button('menu:action:setnick', 'Изменить ник', '✏️', ButtonStyle.Secondary));
 
   return {
     components: [
@@ -150,10 +151,11 @@ export function buildRolesView(): PanelView {
         description: [
           '**Выдать / снять роль** — одна роль участнику.',
           '**Временная роль** — снимется сама по истечении срока.',
-          '**Setrole** — заменить все управляемые роли одной (опасно, требует подтверждения).',
+          '**Снять все** — убрать все управляемые роли (с подтверждением).',
+          '**Заменить все** — оставить одну роль вместо остальных (с подтверждением).',
           '**Ник** — изменить или сбросить.',
         ].join('\n'),
-        rows: [actionsRow, navRow()],
+        rows: [actionsRow, moreRow, navRow()],
         timestamp: false,
       }),
     ],

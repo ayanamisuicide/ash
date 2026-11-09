@@ -1,13 +1,14 @@
 import crypto from 'node:crypto';
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { config } from '../config.js';
 import type { BotClient } from '../core/client.js';
 import { handleApi } from './api.js';
 import { buildAuthorizeUrl, exchangeCode, fetchCurrentUser } from './discord.js';
 import { pruneAccessCache } from './auth.js';
+import { resolvePanelDir } from './panelDir.js';
 import {
   HttpError,
   RateLimiter,
@@ -22,14 +23,26 @@ import {
 } from './http.js';
 import { SessionStore } from './sessions.js';
 
-const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
+const PANEL_DIR = resolvePanelDir();
 
-const STATIC_FILES: Record<string, { file: string; type: string }> = {
-  '/': { file: 'index.html', type: 'text/html; charset=utf-8' },
-  '/index.html': { file: 'index.html', type: 'text/html; charset=utf-8' },
-  '/app.js': { file: 'app.js', type: 'text/javascript; charset=utf-8' },
-  '/styles.css': { file: 'styles.css', type: 'text/css; charset=utf-8' },
-  '/favicon.svg': { file: 'favicon.svg', type: 'image/svg+xml' },
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.txt': 'text/plain; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
 };
 
 const SESSION_COOKIE = 'pp_sid';
@@ -47,19 +60,39 @@ async function serveStatic(
   res: http.ServerResponse,
   pathname: string,
 ): Promise<boolean> {
-  const entry = STATIC_FILES[pathname];
-  if (!entry) return false;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return false;
+  }
+  if (decoded.includes('\0')) return false;
+
+  const relative = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '');
+  const filePath = path.resolve(PANEL_DIR, relative);
+
+  // Защита от path traversal: отдаём только файлы внутри каталога панели.
+  if (filePath !== PANEL_DIR && !filePath.startsWith(PANEL_DIR + path.sep)) return false;
 
   try {
-    const content = await fs.readFile(path.join(PUBLIC_DIR, entry.file));
+    const stat = await fs.stat(filePath);
+    if (!stat.isFile()) return false;
+
+    const content = await fs.readFile(filePath);
+    const extension = path.extname(filePath).toLowerCase();
+    const immutable = relative.startsWith('assets/');
+
     res.statusCode = 200;
-    res.setHeader('Content-Type', entry.type);
+    res.setHeader('Content-Type', MIME_TYPES[extension] ?? 'application/octet-stream');
     res.setHeader('Content-Length', content.length);
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'no-cache');
     res.end(req.method === 'HEAD' ? undefined : content);
     return true;
   } catch (error) {
-    console.error(`[web] не удалось прочитать ${entry.file}:`, error);
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR' || code === 'EISDIR') return false;
+
+    console.error(`[web] не удалось прочитать ${relative}:`, error);
     sendError(res, 500, 'Файл панели не найден.');
     return true;
   }
@@ -184,10 +217,6 @@ export async function startWebPanel(
           return;
         }
 
-        if (method === 'GET' || method === 'HEAD') {
-          if (await serveStatic(req, res, url.pathname)) return;
-        }
-
         if (url.pathname === '/health') {
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -196,9 +225,18 @@ export async function startWebPanel(
           return;
         }
 
-        if (method === 'GET') {
-          redirect(res, '/');
-          return;
+        if (method === 'GET' || method === 'HEAD') {
+          if (await serveStatic(req, res, url.pathname)) return;
+
+          // SPA-fallback только для путей без расширения. Отсутствующий
+          // /assets/*.js должен вернуть 404, а не HTML с MIME-ошибкой.
+          if (
+            method === 'GET' &&
+            !url.pathname.startsWith('/assets/') &&
+            !path.extname(url.pathname)
+          ) {
+            if (await serveStatic(req, res, '/')) return;
+          }
         }
 
         sendError(res, 404, 'Не найдено.');
@@ -216,12 +254,33 @@ export async function startWebPanel(
 
   server.on('close', () => clearInterval(pruneTimer));
 
-  await new Promise<void>((resolve) => server.listen(port, host, resolve));
-  const address = server.address();
-  const actualPort = typeof address === 'object' && address ? address.port : port;
-  console.log(`[web] панель модератора: ${config.web.publicUrl} (слушает ${host}:${actualPort})`);
+  await new Promise<void>((resolve, reject) => {
+    const onError = (error: Error): void => {
+      server.off('listening', onListening);
+      reject(error);
+    };
+    const onListening = (): void => {
+      server.off('error', onError);
+      resolve();
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(port, host);
+  });
+  console.log(`[web] статика панели: ${PANEL_DIR}`);
+  if (!fsSync.existsSync(path.join(PANEL_DIR, 'assets'))) {
+    console.warn(
+      '[web] React-сборка не найдена — отдаётся legacy-панель. Выполните `npm run build`.',
+    );
+  }
   if (!config.web.publicUrl.startsWith('https://') && host !== '127.0.0.1') {
     console.warn('[web] панель доступна по HTTP. Для публичного доступа настройте HTTPS-прокси.');
   }
   return server;
+}
+
+/** Фактический порт, который слушает панель (может отличаться при port: 0) */
+export function listeningPort(server: http.Server, fallback: number): number {
+  const address = server.address();
+  return typeof address === 'object' && address ? address.port : fallback;
 }

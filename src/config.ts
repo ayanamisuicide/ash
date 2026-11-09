@@ -39,6 +39,16 @@ export const config = {
         : 168,
     secureCookies: webSecureCookies,
     trustProxy: process.env.WEB_TRUST_PROXY === 'true',
+    /** Каталог собранной панели; по умолчанию web/dist или dist/web/public */
+    panelDir: process.env.WEB_PANEL_DIR?.trim() || null,
+  },
+
+  /** Проверки при старте: окружение, БД, панель, права бота */
+  startup: {
+    /** STARTUP_CHECKS=false полностью отключает отчёт */
+    disabled: process.env.STARTUP_CHECKS === 'false',
+    /** STARTUP_STRICT=true завершает процесс, если проверки нашли ошибки */
+    strict: process.env.STARTUP_STRICT === 'true',
   },
 } as const;
 

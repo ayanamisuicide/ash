@@ -1,5 +1,6 @@
 import type { Guild, GuildMember, PartialGuildMember, Role } from 'discord.js';
 import { getModerationSettings } from './modSettings.js';
+import { activePunishmentRoleIds } from './cases.js';
 import { db, ensureGuild, transaction } from '../storage/sqlite.js';
 
 interface RoleRow {
@@ -86,11 +87,13 @@ function manageableRoles(guild: Guild, member: GuildMember | PartialGuildMember)
   const me = guild.members.me;
   if (!me) return [];
   const muteRoleId = getModerationSettings(guild.id).muteRoleId;
+  const punishmentRoles = new Set(activePunishmentRoleIds(guild.id, member.id));
 
   return [...member.roles.cache.values()].filter(
     (role) =>
       role.id !== guild.id &&
       role.id !== muteRoleId &&
+      !punishmentRoles.has(role.id) &&
       !role.managed &&
       role.position < me.roles.highest.position,
   );

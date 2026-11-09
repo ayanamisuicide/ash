@@ -4,6 +4,9 @@ import type { BotEvent } from '../core/types.js';
 import { V2, errorCard, v2Flags } from '../lib/card.js';
 import { handleMenuInteraction, type MenuInteraction } from '../features/menu/handler.js';
 import { handleAppealButton } from '../features/appeals.js';
+import { handleUserAppealModal, handleUserAppealSelect } from '../features/appealsFlow.js';
+import { handleDmAppealButton, handleDmAppealModal } from '../features/dmAppeals.js';
+import { handleCaseButton, handleUndoCaseButton } from '../features/caseView.js';
 import { handleConfirmationButton } from '../features/confirmations.js';
 import { handleTicketButton } from '../features/tickets.js';
 
@@ -48,11 +51,35 @@ export default {
     }
 
     if (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
-      if (!interaction.inCachedGuild()) return;
-
       try {
+        // Апелляции из DM забаненного: гильдии в interaction нет, поэтому
+        // обрабатываем их до проверки inCachedGuild().
+        if (interaction.isButton() && interaction.customId.startsWith('appeal:dm:start:')) {
+          await handleDmAppealButton(interaction);
+          return;
+        }
+        if (interaction.isModalSubmit() && interaction.customId.startsWith('appeal:dm:submit:')) {
+          await handleDmAppealModal(interaction);
+          return;
+        }
+
+        if (!interaction.inCachedGuild()) return;
+
+        if (interaction.isStringSelectMenu() && interaction.customId === 'appeal:user:select') {
+          await handleUserAppealSelect(interaction);
+          return;
+        }
+        if (interaction.isModalSubmit() && interaction.customId.startsWith('appeal:user:submit:')) {
+          await handleUserAppealModal(interaction);
+          return;
+        }
+
         if (interaction.isButton() && interaction.customId.startsWith('confirm:')) {
           await handleConfirmationButton(interaction);
+        } else if (interaction.isButton() && interaction.customId.startsWith('case:view:')) {
+          await handleCaseButton(interaction);
+        } else if (interaction.isButton() && interaction.customId.startsWith('case:undo:')) {
+          await handleUndoCaseButton(interaction);
         } else if (interaction.isButton() && interaction.customId.startsWith('ticket:')) {
           await handleTicketButton(interaction);
         } else if (interaction.isButton() && interaction.customId.startsWith('appeal:')) {

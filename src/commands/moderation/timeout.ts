@@ -36,7 +36,10 @@ export default {
     );
 
     await replyActionResult(interaction, result, {
-      title: '🔇 Таймаут',
+      action: 'timeout',
+      target: user,
+      moderator: interaction.user,
+      reason,
       thumbnail: user.displayAvatarURL(),
     });
   },

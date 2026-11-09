@@ -1,7 +1,16 @@
 import type { Guild } from 'discord.js';
-import { createCase } from '../cases.js';
+import { closeActiveCases, createCase } from '../cases.js';
+import { dmEmbed } from '../embeds.js';
 import { humanDuration } from '../format.js';
-import { checkTarget, fail, fetchMember, ok, type ActionResult } from './helpers.js';
+import {
+  checkTarget,
+  dm,
+  fail,
+  fetchMember,
+  ok,
+  userAvatar,
+  type ActionResult,
+} from './helpers.js';
 
 export async function setNickname(
   guild: Guild,
@@ -22,6 +31,19 @@ export async function setNickname(
     console.error('[moderation] не удалось изменить ник:', error);
     return fail('Не удалось изменить ник. Проверьте право «Управление никами».');
   }
+
+  await dm(
+    member.user,
+    dmEmbed('info', guild, {
+      title: nickname ? 'Ник изменён' : 'Ник сброшен',
+      emoji: '✏️',
+      reason,
+      description: nickname
+        ? `Ваш ник на сервере **${guild.name}** изменён на **${nickname}**.`
+        : `Ваш ник на сервере **${guild.name}** сброшен.`,
+      thumbnail: userAvatar(member.user),
+    }),
+  );
 
   const modCase = createCase({
     guildId: guild.id,
@@ -81,6 +103,21 @@ export async function roleAction(
     return fail('Discord отклонил изменение роли.');
   }
 
+  await dm(
+    member.user,
+    dmEmbed('info', guild, {
+      title: action === 'add' ? 'Роль выдана' : 'Роль снята',
+      emoji: '🎭',
+      tone: action === 'add' ? 'info' : 'neutral',
+      reason,
+      description:
+        action === 'add'
+          ? `Вам выдана роль **${role.name}** на сервере **${guild.name}**.`
+          : `С вас снята роль **${role.name}** на сервере **${guild.name}**.`,
+      thumbnail: userAvatar(member.user),
+    }),
+  );
+
   const modCase = createCase({
     guildId: guild.id,
     type: 'role',
@@ -139,6 +176,17 @@ export async function setRole(
     return fail('Discord отклонил изменение ролей.');
   }
 
+  await dm(
+    member.user,
+    dmEmbed('info', guild, {
+      title: 'Роли обновлены',
+      emoji: '🎭',
+      reason,
+      description: `Ваши управляемые роли заменены на **${role.name}** на сервере **${guild.name}**.`,
+      thumbnail: userAvatar(member.user),
+    }),
+  );
+
   const modCase = createCase({
     guildId: guild.id,
     type: 'role',
@@ -150,6 +198,56 @@ export async function setRole(
   });
 
   return ok(`Роли ${member} заменены на ${role} (снято: **${toRemove.size}**).`, modCase.id);
+}
+
+/** Снимает все управляемые роли участника */
+export async function clearRoles(
+  guild: Guild,
+  moderatorId: string,
+  userId: string,
+  reason: string,
+): Promise<ActionResult> {
+  const member = await fetchMember(guild, userId);
+  if (!member) return fail('Участник не найден на сервере.');
+
+  const problem = checkTarget(guild, member, moderatorId);
+  if (problem) return fail(problem);
+
+  const toRemove = member.roles.cache.filter((role) => role.id !== guild.id && !role.managed);
+  if (toRemove.size === 0) return fail('У участника нет управляемых ролей.');
+
+  try {
+    await member.roles.remove(toRemove, `Модератор ${moderatorId}: снятие всех ролей (${reason})`);
+  } catch (error) {
+    console.error('[moderation] не удалось снять роли:', error);
+    return fail('Discord отклонил изменение ролей.');
+  }
+
+  await dm(
+    member.user,
+    dmEmbed('info', guild, {
+      title: 'Роли сняты',
+      emoji: '🧹',
+      tone: 'neutral',
+      reason,
+      description: `С вас сняты все управляемые роли на сервере **${guild.name}**.`,
+      thumbnail: userAvatar(member.user),
+    }),
+  );
+
+  closeActiveCases(guild.id, userId, ['mute', 'temprole'], `Снятие всех ролей: ${reason}`);
+
+  const modCase = createCase({
+    guildId: guild.id,
+    type: 'role',
+    userId,
+    moderatorId,
+    reason,
+    active: false,
+    extra: { action: 'clear', removed: toRemove.size },
+  });
+
+  return ok(`С ${member} снято ролей: **${toRemove.size}**.`, modCase.id);
 }
 
 export async function tempRole(
@@ -189,6 +287,19 @@ export async function tempRole(
     console.error('[moderation] не удалось выдать временную роль:', error);
     return fail('Discord отклонил выдачу роли.');
   }
+
+  await dm(
+    member.user,
+    dmEmbed('info', guild, {
+      title: 'Временная роль',
+      emoji: '🎭',
+      reason,
+      duration: humanDuration(durationMs),
+      expiresAt: Date.now() + durationMs,
+      description: `Вам выдана роль **${role.name}** на сервере **${guild.name}**.`,
+      thumbnail: userAvatar(member.user),
+    }),
+  );
 
   const modCase = createCase({
     guildId: guild.id,

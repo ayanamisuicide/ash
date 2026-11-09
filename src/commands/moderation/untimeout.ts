@@ -23,7 +23,10 @@ export default {
     const result = await untimeoutUser(interaction.guild, interaction.user.id, user.id, reason);
 
     await replyActionResult(interaction, result, {
-      title: '🔊 Снятие таймаута',
+      action: 'untimeout',
+      target: user,
+      moderator: interaction.user,
+      reason,
       thumbnail: user.displayAvatarURL(),
     });
   },

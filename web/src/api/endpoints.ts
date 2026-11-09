@@ -1,0 +1,261 @@
+import { api } from './client';
+import type {
+  ActionResult,
+  AddWarnActionInput,
+  AppealListResponse,
+  AppealReviewResult,
+  CaseListResponse,
+  CaseResponse,
+  CaseType,
+  CommunitySettingsResponse,
+  CommunitySettingsUpdate,
+  GuildMetaResponse,
+  LogSettingsResponse,
+  LogSettingsUpdate,
+  MemberActionBody,
+  MemberActionType,
+  MemberProfileResponse,
+  MemberSearchResponse,
+  MeResponse,
+  ModerationSettingsResponse,
+  ModerationSettingsUpdate,
+  OverviewResponse,
+  SecuritySettingsResponse,
+  SecuritySettingsUpdate,
+  SettingsBundleResponse,
+  UpdateCaseInput,
+} from './types';
+
+/** Текущая сессия, список доступных серверов и CSRF-токен */
+export function fetchMe(signal?: AbortSignal): Promise<MeResponse> {
+  return api.get<MeResponse>('/api/me', { signal });
+}
+
+/** Статистика, последние кейсы, безопасность и состояние бота */
+export function getOverview(guildId: string, signal?: AbortSignal): Promise<OverviewResponse> {
+  return api.get<OverviewResponse>(`/api/guilds/${encodeURIComponent(guildId)}/overview`, {
+    signal,
+  });
+}
+
+/** Права, каналы и роли активного сервера — источник данных для форм */
+export function getGuildMeta(guildId: string, signal?: AbortSignal): Promise<GuildMetaResponse> {
+  return api.get<GuildMetaResponse>(`/api/guilds/${encodeURIComponent(guildId)}/meta`, { signal });
+}
+
+export interface CaseListParams {
+  page?: number;
+  pageSize?: number;
+  type?: CaseType;
+  active?: boolean;
+  /** Поиск по причине, ID участника или модератора */
+  q?: string;
+}
+
+/** История кейсов с фильтрами и пагинацией */
+export function getCases(
+  guildId: string,
+  params: CaseListParams = {},
+  signal?: AbortSignal,
+): Promise<CaseListResponse> {
+  return api.get<CaseListResponse>(`/api/guilds/${encodeURIComponent(guildId)}/cases`, {
+    query: {
+      page: params.page,
+      pageSize: params.pageSize,
+      type: params.type,
+      active: params.active,
+      q: params.q,
+    },
+    signal,
+  });
+}
+
+/** Изменение причины или статуса кейса. Требует права moderate/admin. */
+export function updateCase(
+  guildId: string,
+  caseId: number,
+  input: UpdateCaseInput,
+  signal?: AbortSignal,
+): Promise<CaseResponse> {
+  return api.patch<CaseResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/cases/${caseId}`,
+    input,
+    { signal },
+  );
+}
+
+/** Поиск участников по нику или ID с пагинацией. Пустой q — весь список. */
+export function searchGuildMembers(
+  guildId: string,
+  query: string,
+  page = 1,
+  pageSize = 50,
+  signal?: AbortSignal,
+): Promise<MemberSearchResponse> {
+  return api.get<MemberSearchResponse>(`/api/guilds/${encodeURIComponent(guildId)}/members`, {
+    query: { q: query, page, pageSize },
+    signal,
+  });
+}
+
+/** Полный профиль участника: роли, варны, заметки и кейсы */
+export function getMemberProfile(
+  guildId: string,
+  userId: string,
+  signal?: AbortSignal,
+): Promise<MemberProfileResponse> {
+  return api.get<MemberProfileResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/members/${encodeURIComponent(userId)}`,
+    { signal },
+  );
+}
+
+/**
+ * Универсальный вызов действия модерации.
+ * Бэкенд возвращает HTTP 200 даже при ok:false — это проверяет вызывающая сторона.
+ */
+export function performMemberAction(
+  guildId: string,
+  action: MemberActionType,
+  body: MemberActionBody,
+): Promise<ActionResult> {
+  return api.post<ActionResult>(
+    `/api/guilds/${encodeURIComponent(guildId)}/actions/${encodeURIComponent(action)}`,
+    body,
+  );
+}
+
+export function deleteMemberWarn(
+  guildId: string,
+  userId: string,
+  warnId: string,
+): Promise<ActionResult> {
+  return api.delete<ActionResult>(
+    `/api/guilds/${encodeURIComponent(guildId)}/warns/${encodeURIComponent(userId)}/${encodeURIComponent(warnId)}`,
+  );
+}
+
+export function deleteMemberNote(
+  guildId: string,
+  userId: string,
+  noteId: string,
+): Promise<ActionResult> {
+  return api.delete<ActionResult>(
+    `/api/guilds/${encodeURIComponent(guildId)}/notes/${encodeURIComponent(userId)}/${encodeURIComponent(noteId)}`,
+  );
+}
+
+/** Очередь апелляций. status=pending — только ожидающие, all — вся история. */
+export function getAppeals(
+  guildId: string,
+  status: 'pending' | 'all',
+  signal?: AbortSignal,
+): Promise<AppealListResponse> {
+  return api.get<AppealListResponse>(`/api/guilds/${encodeURIComponent(guildId)}/appeals`, {
+    query: { status },
+    signal,
+  });
+}
+
+/** Одобрение или отклонение апелляции. Требует права ban/admin. */
+export function reviewAppeal(
+  guildId: string,
+  appealId: number,
+  approve: boolean,
+): Promise<AppealReviewResult> {
+  return api.post<AppealReviewResult>(
+    `/api/guilds/${encodeURIComponent(guildId)}/appeals/${appealId}/review`,
+    { approve },
+  );
+}
+
+/** Полный бандл настроек сервера. Доступен только администраторам. */
+export function getSettings(
+  guildId: string,
+  signal?: AbortSignal,
+): Promise<SettingsBundleResponse> {
+  return api.get<SettingsBundleResponse>(`/api/guilds/${encodeURIComponent(guildId)}/settings`, {
+    signal,
+  });
+}
+
+/** Частичное обновление настроек модерации (PATCH /settings/moderation) */
+export function updateModerationSettings(
+  guildId: string,
+  input: ModerationSettingsUpdate,
+): Promise<ModerationSettingsResponse> {
+  return api.patch<ModerationSettingsResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/settings/moderation`,
+    input,
+  );
+}
+
+/** Канал, категории и отдельные события логов. */
+export function updateLogSettings(
+  guildId: string,
+  input: LogSettingsUpdate,
+): Promise<LogSettingsResponse> {
+  return api.patch<LogSettingsResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/settings/logs`,
+    input,
+  );
+}
+
+/** Антирейд и анти-нак. */
+export function updateSecuritySettings(
+  guildId: string,
+  input: SecuritySettingsUpdate,
+): Promise<SecuritySettingsResponse> {
+  return api.patch<SecuritySettingsResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/settings/security`,
+    input,
+  );
+}
+
+/** Приветствия, автороли, уровни, временные голосовые и тикеты. */
+export function updateCommunitySettings(
+  guildId: string,
+  input: CommunitySettingsUpdate,
+): Promise<CommunitySettingsResponse> {
+  return api.patch<CommunitySettingsResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/settings/community`,
+    input,
+  );
+}
+
+export function addAutomodWord(guildId: string, word: string): Promise<ModerationSettingsResponse> {
+  return api.post<ModerationSettingsResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/settings/moderation/words`,
+    { word },
+  );
+}
+
+export function removeAutomodWord(
+  guildId: string,
+  word: string,
+): Promise<ModerationSettingsResponse> {
+  return api.delete<ModerationSettingsResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/settings/moderation/words/${encodeURIComponent(word)}`,
+  );
+}
+
+export function addWarnAction(
+  guildId: string,
+  input: AddWarnActionInput,
+): Promise<ModerationSettingsResponse> {
+  return api.post<ModerationSettingsResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/settings/moderation/warn-actions`,
+    input,
+  );
+}
+
+export function deleteWarnAction(guildId: string, id: string): Promise<ModerationSettingsResponse> {
+  return api.delete<ModerationSettingsResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/settings/moderation/warn-actions/${encodeURIComponent(id)}`,
+  );
+}
+
+/** Завершает серверную сессию. CSRF подставляется клиентом автоматически. */
+export function logout(): Promise<{ ok: true }> {
+  return api.post<{ ok: true }>('/api/logout');
+}

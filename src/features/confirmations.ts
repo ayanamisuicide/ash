@@ -2,6 +2,7 @@ import type { ButtonInteraction } from 'discord.js';
 import { V2, card, errorCard } from '../lib/card.js';
 import { takeConfirmation } from '../lib/confirmations.js';
 import {
+  clearRoles,
   lockdownGuild,
   massbanUsers,
   setRole,
@@ -75,6 +76,15 @@ export async function handleConfirmationButton(
         interaction.user.id,
         payloadString(pending.payload, 'userId'),
         payloadString(pending.payload, 'roleId'),
+        payloadString(pending.payload, 'reason'),
+      );
+      break;
+
+    case 'roleclear':
+      result = await clearRoles(
+        interaction.guild,
+        interaction.user.id,
+        payloadString(pending.payload, 'userId'),
         payloadString(pending.payload, 'reason'),
       );
       break;

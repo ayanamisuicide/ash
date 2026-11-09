@@ -43,7 +43,10 @@ export default {
     );
 
     await replyActionResult(interaction, result, {
-      title: '🔨 Бан выдан',
+      action: 'ban',
+      target: user,
+      moderator: interaction.user,
+      reason,
       thumbnail: user.displayAvatarURL(),
     });
   },

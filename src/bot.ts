@@ -7,7 +7,47 @@ import { loadCommands, loadEvents } from './core/loader.js';
  * Загружает команды и события, подключается к Discord.
  * Возвращает готовый клиент (используется веб-панелью).
  */
-export async function startBot(): Promise<BotClient> {
+export interface BotStartHooks {
+  /** Вызывается после загрузки команд и событий, до входа в Discord */
+  onLoaded?: (info: { commands: number; events: number }) => void;
+  /** Вызывается перед повтором входа после сетевой ошибки */
+  onRetry?: (info: { attempt: number; delayMs: number; error: string }) => void;
+}
+
+const LOGIN_RETRY_DELAYS_MS = [2_000, 4_000, 8_000, 15_000, 30_000];
+
+function isFatalLoginError(error: unknown): boolean {
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return (
+    message.includes('invalid token') ||
+    message.includes('tokeninvalid') ||
+    message.includes('disallowed intents') ||
+    message.includes('used disallowed intents')
+  );
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Вход с повторами: 522/502 и обрывы сети не должны оставлять бота выключенным */
+async function loginWithRetry(client: BotClient, hooks: BotStartHooks): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await client.login(config.token);
+      return;
+    } catch (error) {
+      const delay = LOGIN_RETRY_DELAYS_MS[attempt - 1];
+      if (isFatalLoginError(error) || delay === undefined) throw error;
+
+      hooks.onRetry?.({ attempt, delayMs: delay, error: describeError(error) });
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+export async function startBot(hooks: BotStartHooks = {}): Promise<BotClient> {
   const client = new BotClient();
 
   // Без этих обработчиков сбой websocket либо молча роняет процесс,
@@ -30,10 +70,9 @@ export async function startBot(): Promise<BotClient> {
   for (const command of await loadCommands()) {
     client.commands.set(command.data.name, command);
   }
-  console.log(`[bot] загружено команд: ${client.commands.size}`);
-  console.log(`[bot] команды: ${[...client.commands.keys()].sort().join(', ')}`);
 
-  for (const event of await loadEvents()) {
+  const events = await loadEvents();
+  for (const event of events) {
     const handler = (...args: unknown[]): void => {
       try {
         const result = (event.execute as (...params: unknown[]) => Promise<void> | void)(...args);
@@ -51,8 +90,9 @@ export async function startBot(): Promise<BotClient> {
       client.on(event.name as keyof ClientEvents, handler as never);
     }
   }
-  console.log('[bot] события загружены');
 
-  await client.login(config.token);
+  hooks.onLoaded?.({ commands: client.commands.size, events: events.length });
+
+  await loginWithRetry(client, hooks);
   return client;
 }

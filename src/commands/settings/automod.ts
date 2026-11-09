@@ -1,11 +1,13 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
 import { V2, card, errorCard, successCard } from '../../lib/card.js';
+import { humanDuration, parseDuration } from '../../lib/format.js';
 import {
   addAutomodWord,
   getModerationSettings,
   removeAutomodWord,
   updateAutomod,
+  type AutomodAction,
   type AutomodConfig,
 } from '../../lib/modSettings.js';
 
@@ -74,6 +76,28 @@ export default {
             .setMinValue(0)
             .setMaxValue(100)
             .setRequired(true),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName('action')
+        .setDescription('Что делать с нарушителем')
+        .addStringOption((option) =>
+          option
+            .setName('action')
+            .setDescription('Действие')
+            .setRequired(true)
+            .addChoices(
+              { name: 'Только удалить сообщение', value: 'delete' },
+              { name: 'Выдать варн', value: 'warn' },
+              { name: 'Таймаут', value: 'timeout' },
+              { name: 'Мут', value: 'mute' },
+              { name: 'Кик', value: 'kick' },
+              { name: 'Бан', value: 'ban' },
+            ),
+        )
+        .addStringOption((option) =>
+          option.setName('duration').setDescription('Длительность для таймаута/мута: 10m, 1h, 7d'),
         ),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
@@ -191,7 +215,58 @@ export default {
       return;
     }
 
+    if (sub === 'action') {
+      const action = interaction.options.getString('action', true) as AutomodAction;
+      const rawDuration = interaction.options.getString('duration');
+      let durationMs: number | null = null;
+
+      if (rawDuration) {
+        durationMs = parseDuration(rawDuration);
+        if (!durationMs) {
+          await interaction.editReply({
+            components: [errorCard('Неверный формат длительности. Пример: `10m`, `1h`, `7d`.')],
+            flags: V2,
+          });
+          return;
+        }
+        if (action === 'timeout' && durationMs > 28 * 86_400_000) {
+          await interaction.editReply({
+            components: [errorCard('Максимальный таймаут — 28 дней.')],
+            flags: V2,
+          });
+          return;
+        }
+        if (durationMs > 365 * 86_400_000) {
+          await interaction.editReply({
+            components: [errorCard('Максимальная длительность — 365 дней.')],
+            flags: V2,
+          });
+          return;
+        }
+      }
+
+      updateAutomod(interaction.guild.id, { action, durationMs });
+      await interaction.editReply({
+        components: [
+          successCard(
+            '🛡️ Автомодерация',
+            `Действие при нарушении: **${action}**${durationMs ? `, длительность: **${rawDuration}**` : ''}.`,
+          ),
+        ],
+        flags: V2,
+      });
+      return;
+    }
+
     const config = getModerationSettings(interaction.guild.id).automod;
+    const actionLabels: Record<AutomodAction, string> = {
+      delete: 'удалить сообщение',
+      warn: 'варн',
+      timeout: 'таймаут',
+      mute: 'мут',
+      kick: 'кик',
+      ban: 'бан',
+    };
     await interaction.editReply({
       components: [
         card({
@@ -209,6 +284,36 @@ export default {
               block: false,
             },
             { label: 'Запрещённые слова', value: String(config.words.length), block: false },
+            {
+              label: 'Действие',
+              value: actionLabels[config.action],
+              block: false,
+            },
+            {
+              label: 'Длительность',
+              value: config.durationMs ? humanDuration(config.durationMs) : 'по умолчанию',
+              block: false,
+            },
+            {
+              label: 'Удалять сообщения',
+              value: config.deleteMessage ? '✅' : '❌',
+              block: false,
+            },
+            {
+              label: 'CAPS',
+              value: `${config.capsPercent}% от ${config.capsMinLength} символов`,
+              block: false,
+            },
+            {
+              label: 'Спам',
+              value: `${config.spamCount} сообщений / ${config.spamWindowSec} с, повторов: ${config.spamDuplicateCount}`,
+              block: false,
+            },
+            {
+              label: 'Исключения',
+              value: `каналов: ${config.ignoredChannels.length}, ролей: ${config.ignoredRoles.length}`,
+              block: false,
+            },
           ],
           timestamp: false,
         }),

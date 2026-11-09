@@ -23,7 +23,10 @@ export default {
     const result = await kickUser(interaction.guild, interaction.user.id, user.id, reason);
 
     await replyActionResult(interaction, result, {
-      title: '👢 Кик',
+      action: 'kick',
+      target: user,
+      moderator: interaction.user,
+      reason,
       thumbnail: user.displayAvatarURL(),
     });
   },

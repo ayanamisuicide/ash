@@ -3,14 +3,14 @@ import type { AnyBotEvent } from '../../core/types.js';
 import { auditInfo } from '../../lib/audit.js';
 import { COLORS } from '../../lib/embeds.js';
 import { logCard } from '../../lib/logCard.js';
-import { fmtUser, isLogEventEnabled, sendLog, truncate } from '../../lib/logging.js';
+import { fmtUser, isLogEventEnabled, reasonValue, sendLog, truncate } from '../../lib/logging.js';
 
 const events: AnyBotEvent[] = [
   {
     name: Events.GuildRoleCreate,
     async execute(role: Role) {
       if (!isLogEventEnabled(role.guild.id, 'roleCreate')) return;
-      const { executor } = await auditInfo(role.guild, AuditLogEvent.RoleCreate, role.id);
+      const { executor, reason } = await auditInfo(role.guild, AuditLogEvent.RoleCreate, role.id);
 
       const fields = [
         { name: 'Роль', value: `<@&${role.id}>`, inline: true },
@@ -18,6 +18,7 @@ const events: AnyBotEvent[] = [
         { name: 'Позиция', value: String(role.position), inline: true },
       ];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(role.guild, {
         title: '🎭 Роль создана',
@@ -42,7 +43,7 @@ const events: AnyBotEvent[] = [
         { name: 'Цвет', value: `\`${role.hexColor}\``, inline: true },
       ];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
-      if (reason) fields.push({ name: 'Причина', value: reason, inline: false });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(role.guild, {
         title: '🎭 Роль удалена',
@@ -94,10 +95,15 @@ const events: AnyBotEvent[] = [
 
       if (changes.length === 0) return;
 
-      const { executor } = await auditInfo(newRole.guild, AuditLogEvent.RoleUpdate, newRole.id);
+      const { executor, reason } = await auditInfo(
+        newRole.guild,
+        AuditLogEvent.RoleUpdate,
+        newRole.id,
+      );
 
       const fields = [{ name: 'Роль', value: `<@&${newRole.id}>`, inline: true }];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(newRole.guild, {
         title: '✏️ Роль изменена',

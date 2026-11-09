@@ -1,7 +1,8 @@
 import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
-import { V2, card } from '../../lib/card.js';
+import { V2 } from '../../lib/card.js';
 import { getLeaderboard } from '../../lib/community.js';
+import { buildEmbed } from '../../lib/embeds.js';
 
 const PAGE_SIZE = 10;
 
@@ -19,20 +20,22 @@ export default {
     const safePage = Math.min(Math.max(page, 1), totalPages);
     const slice = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
+    const medals = ['🥇', '🥈', '🥉'];
     const fields = slice.map((row, index) => ({
-      label: `#${(safePage - 1) * PAGE_SIZE + index + 1}`,
-      value: `<@${row.userId}> · уровень **${row.level}** · **${row.xp}** XP`,
+      label: `${medals[index] ?? `#${(safePage - 1) * PAGE_SIZE + index + 1}`} <@${row.userId}>`,
+      value: `Уровень **${row.level}** · **${row.xp}** XP`,
       block: true,
     }));
 
     await interaction.editReply({
       components: [
-        card({
-          tone: 'info',
-          title: '🏆 Топ по XP',
+        buildEmbed({
+          tone: 'premium',
+          title: 'Топ по XP',
+          emoji: '🏆',
           description: rows.length === 0 ? 'Пока нет данных.' : `Участников: **${rows.length}**`,
           fields,
-          footer: `Страница ${safePage} из ${totalPages}`,
+          footer: `🔖 Страница ${safePage} из ${totalPages}`,
           timestamp: false,
         }),
       ],

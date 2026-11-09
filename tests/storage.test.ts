@@ -183,6 +183,14 @@ test('appeals: create, update, pending lookup', () => {
   assert.equal(updated?.status, 'approved');
   assert.equal(updated?.reviewedBy, moderatorId);
   assert.equal(appeals.findPendingAppeal(guildId, userId), null);
+
+  const second = appeals.createAppeal(guildId, 'another-user', 'second appeal', 42);
+  assert.equal(second.caseId, 42);
+  assert.equal(appeals.findPendingAppealForCase(guildId, 42)?.id, second.id);
+  assert.equal(appeals.deleteAppeal(guildId, second.id), true);
+  assert.equal(appeals.getAppeal(guildId, second.id), null);
+  assert.equal(appeals.findPendingAppealForCase(guildId, 42), null);
+  assert.equal(appeals.deleteAppeal(guildId, second.id), false);
 });
 
 test('moderation settings: immunity, warn actions, automod', () => {

@@ -1,5 +1,6 @@
 import type { Guild, GuildMember, User } from 'discord.js';
 import { searchCases, type ModCase, type CaseType } from '../lib/cases.js';
+import { findMuteRole } from '../lib/moderation.js';
 import { getNotes } from '../lib/notes.js';
 import { getSecuritySettings } from '../lib/modSettings.js';
 import { getWarns } from '../lib/warns.js';
@@ -107,6 +108,8 @@ export interface MemberSummary {
   joinedAt: number | null;
   createdAt: number | null;
   timeoutUntil: number | null;
+  /** На участнике сейчас роль мута */
+  muted: boolean;
   highestRole: string | null;
 }
 
@@ -119,7 +122,10 @@ function userToDiscordUser(user: User) {
   };
 }
 
-export function serializeMember(member: GuildMember): MemberSummary {
+export function serializeMember(
+  member: GuildMember,
+  muteRoleId: string | null = null,
+): MemberSummary {
   return {
     id: member.id,
     username: member.user.username,
@@ -129,29 +135,136 @@ export function serializeMember(member: GuildMember): MemberSummary {
     joinedAt: member.joinedTimestamp,
     createdAt: member.user.createdTimestamp,
     timeoutUntil: member.communicationDisabledUntilTimestamp ?? null,
+    muted: muteRoleId ? member.roles.cache.has(muteRoleId) : false,
     highestRole: member.roles.highest.name,
   };
 }
 
-export async function searchMembers(guild: Guild, rawQuery: string): Promise<MemberSummary[]> {
+export interface MemberListOptions {
+  page?: number;
+  pageSize?: number;
+}
+
+export interface MemberListPage {
+  items: MemberSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pages: number;
+  /** true — в кэше бота не все участники, список может быть неполным */
+  partial: boolean;
+}
+
+const MEMBER_FETCH_COOLDOWN_MS = 120_000;
+const memberFetchAt = new Map<string, number>();
+
+/**
+ * Подтягивает участников в кэш, если Discord ещё не отдал их при подключении.
+ * Повторные запросы в пределах кулдауна не дёргают gateway.
+ */
+async function ensureMembersCached(guild: Guild): Promise<void> {
+  if (guild.members.cache.size >= guild.memberCount) return;
+
+  const last = memberFetchAt.get(guild.id) ?? 0;
+  if (Date.now() - last < MEMBER_FETCH_COOLDOWN_MS) return;
+  memberFetchAt.set(guild.id, Date.now());
+
+  await guild.members.fetch({ time: 10_000 }).catch(() => null);
+}
+
+function memberMatches(member: GuildMember, needle: string): boolean {
+  return (
+    member.id === needle ||
+    member.user.username.toLowerCase().includes(needle) ||
+    (member.user.globalName?.toLowerCase().includes(needle) ?? false) ||
+    member.displayName.toLowerCase().includes(needle) ||
+    (member.nickname?.toLowerCase().includes(needle) ?? false)
+  );
+}
+
+function compareMembers(a: GuildMember, b: GuildMember): number {
+  if (a.user.bot !== b.user.bot) return a.user.bot ? 1 : -1;
+  return (
+    a.displayName.localeCompare(b.displayName, 'ru', { sensitivity: 'base' }) ||
+    a.id.localeCompare(b.id)
+  );
+}
+
+/**
+ * Список участников для панели: сначала локальный кэш (мгновенно), при
+ * необходимости — запрос в gateway. Поддерживает поиск и пагинацию.
+ */
+export async function searchMembers(
+  guild: Guild,
+  rawQuery: string,
+  options: MemberListOptions = {},
+): Promise<MemberListPage> {
   const query = rawQuery.trim();
-  if (!query) return [];
+  const needle = query.toLowerCase();
+  const rawPageSize = Number(options.pageSize ?? 50);
+  const pageSize = Number.isFinite(rawPageSize)
+    ? Math.min(100, Math.max(1, Math.floor(rawPageSize)))
+    : 50;
+  const rawPage = Number(options.page ?? 1);
+  const requestedPage = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+
+  // Роль мута нужна и в результатах поиска, чтобы показать бейдж без открытия профиля.
+  const muteRoleId = (await findMuteRole(guild))?.id ?? null;
 
   if (/^\d{17,20}$/.test(query)) {
-    const member = await guild.members.fetch(query).catch(() => null);
-    return member ? [serializeMember(member)] : [];
+    const member =
+      guild.members.cache.get(query) ?? (await guild.members.fetch(query).catch(() => null));
+    const items = member ? [serializeMember(member, muteRoleId)] : [];
+    return {
+      items,
+      total: items.length,
+      page: 1,
+      pageSize,
+      pages: 1,
+      partial: false,
+    };
   }
 
-  if (query.length < 2) return [];
+  await ensureMembersCached(guild);
+  let members = [...guild.members.cache.values()];
 
-  const found = await guild.members.fetch({ query, limit: 25, time: 5_000 }).catch(() => null);
-  if (!found) return [];
-  return [...found.values()].map(serializeMember);
+  // Если кэш неполный, пробуем найти совпадения через gateway.
+  if (query && members.length < guild.memberCount) {
+    const found = await guild.members.fetch({ query, limit: 100, time: 10_000 }).catch(() => null);
+    if (found && found.size > 0) {
+      const merged = new Map(members.map((member) => [member.id, member]));
+      for (const member of found.values()) merged.set(member.id, member);
+      members = [...merged.values()];
+    }
+  }
+
+  const filtered = (
+    query ? members.filter((member) => memberMatches(member, needle)) : members
+  ).sort(compareMembers);
+
+  const total = filtered.length;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(requestedPage, pages);
+  const start = (page - 1) * pageSize;
+  const items = filtered
+    .slice(start, start + pageSize)
+    .map((member) => serializeMember(member, muteRoleId));
+
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    pages,
+    partial: members.length < guild.memberCount,
+  };
 }
 
 export interface MemberProfile extends MemberSummary {
   inGuild: boolean;
   banned: boolean;
+  /** На участнике сейчас роль мута */
+  muted: boolean;
   roles: Array<{ id: string; name: string; color: number; position: number; managed: boolean }>;
   kickable: boolean;
   bannable: boolean;
@@ -179,11 +292,13 @@ export async function getMemberProfile(guild: Guild, userId: string): Promise<Me
     .then(() => true)
     .catch(() => false);
 
+  const muteRole = member ? await findMuteRole(guild) : null;
+
   const cases = searchCases(guild.id, { userId, pageSize: 100 }).items;
 
   return {
     ...(member
-      ? serializeMember(member)
+      ? serializeMember(member, muteRole?.id ?? null)
       : {
           id: user.id,
           username: user.username,
@@ -193,10 +308,12 @@ export async function getMemberProfile(guild: Guild, userId: string): Promise<Me
           joinedAt: null,
           createdAt: user.createdTimestamp,
           timeoutUntil: null,
+          muted: false,
           highestRole: null,
         }),
     inGuild: Boolean(member),
     banned,
+    muted: Boolean(member && muteRole && member.roles.cache.has(muteRole.id)),
     roles: member
       ? member.roles.cache
           .filter((role) => role.id !== guild.id)

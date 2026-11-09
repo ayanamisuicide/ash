@@ -42,7 +42,10 @@ export default {
     );
 
     await replyActionResult(interaction, result, {
-      title: '🧹 Софтбан',
+      action: 'softban',
+      target: user,
+      moderator: interaction.user,
+      reason,
       thumbnail: user.displayAvatarURL(),
     });
   },

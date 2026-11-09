@@ -13,6 +13,8 @@ export interface WarnAction {
   durationMs: number | null;
 }
 
+export type AutomodAction = 'delete' | 'warn' | 'timeout' | 'mute' | 'kick' | 'ban';
+
 export interface AutomodConfig {
   enabled: boolean;
   invites: boolean;
@@ -22,6 +24,26 @@ export interface AutomodConfig {
   words: string[];
   /** 0 — проверка упоминаний выключена */
   mentions: number;
+  /** Что делать с нарушителем: только удалить, варн, таймаут, мут, кик или бан */
+  action: AutomodAction;
+  /** Длительность таймаута/мута; null — 10 минут по умолчанию */
+  durationMs: number | null;
+  /** Удалять сообщение, в котором найдено нарушение */
+  deleteMessage: boolean;
+  /** CAPS: минимальная длина сообщения для проверки */
+  capsMinLength: number;
+  /** CAPS: доля заглавных букв в процентах */
+  capsPercent: number;
+  /** Спам: сколько сообщений за окно считать флудом */
+  spamCount: number;
+  /** Спам: окно в секундах */
+  spamWindowSec: number;
+  /** Спам: сколько повторов одного текста за окно считать спамом */
+  spamDuplicateCount: number;
+  /** Каналы, в которых автомод не работает */
+  ignoredChannels: string[];
+  /** Роли, участникам которых автомод не страшен */
+  ignoredRoles: string[];
 }
 
 export interface ModerationSettings {
@@ -42,6 +64,16 @@ export const DEFAULT_AUTOMOD: AutomodConfig = {
   spam: true,
   words: [],
   mentions: 0,
+  action: 'warn',
+  durationMs: null,
+  deleteMessage: true,
+  capsMinLength: 10,
+  capsPercent: 70,
+  spamCount: 8,
+  spamWindowSec: 10,
+  spamDuplicateCount: 5,
+  ignoredChannels: [],
+  ignoredRoles: [],
 };
 
 export type RaidAction = 'alert' | 'kick' | 'ban';
@@ -216,6 +248,65 @@ function normalizeNuke(value: unknown): NukeConfig {
   };
 }
 
+const AUTOMOD_ACTIONS: AutomodAction[] = ['delete', 'warn', 'timeout', 'mute', 'kick', 'ban'];
+const DAY_MS = 86_400_000;
+
+function stringIds(value: unknown, limit = 100): string[] {
+  if (!Array.isArray(value)) return [];
+  const ids: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const id = item.trim();
+    if (!id || ids.includes(id)) continue;
+    ids.push(id);
+    if (ids.length >= limit) break;
+  }
+  return ids;
+}
+
+function normalizeAutomod(value: unknown): AutomodConfig {
+  const raw = isObject(value) ? value : {};
+  const action =
+    typeof raw.action === 'string' && AUTOMOD_ACTIONS.includes(raw.action as AutomodAction)
+      ? (raw.action as AutomodAction)
+      : DEFAULT_AUTOMOD.action;
+
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_AUTOMOD.enabled,
+    invites: typeof raw.invites === 'boolean' ? raw.invites : DEFAULT_AUTOMOD.invites,
+    links: typeof raw.links === 'boolean' ? raw.links : DEFAULT_AUTOMOD.links,
+    caps: typeof raw.caps === 'boolean' ? raw.caps : DEFAULT_AUTOMOD.caps,
+    spam: typeof raw.spam === 'boolean' ? raw.spam : DEFAULT_AUTOMOD.spam,
+    words: Array.isArray(raw.words)
+      ? raw.words
+          .filter((word): word is string => typeof word === 'string')
+          .map((word) => word.trim())
+          .filter(Boolean)
+          .slice(0, 200)
+      : [],
+    mentions: clampInt(raw.mentions, DEFAULT_AUTOMOD.mentions, 0, 100),
+    action,
+    durationMs:
+      typeof raw.durationMs === 'number' && Number.isFinite(raw.durationMs) && raw.durationMs > 0
+        ? Math.min(Math.floor(raw.durationMs), 365 * DAY_MS)
+        : null,
+    deleteMessage:
+      typeof raw.deleteMessage === 'boolean' ? raw.deleteMessage : DEFAULT_AUTOMOD.deleteMessage,
+    capsMinLength: clampInt(raw.capsMinLength, DEFAULT_AUTOMOD.capsMinLength, 1, 2_000),
+    capsPercent: clampInt(raw.capsPercent, DEFAULT_AUTOMOD.capsPercent, 10, 100),
+    spamCount: clampInt(raw.spamCount, DEFAULT_AUTOMOD.spamCount, 2, 100),
+    spamWindowSec: clampInt(raw.spamWindowSec, DEFAULT_AUTOMOD.spamWindowSec, 1, 300),
+    spamDuplicateCount: clampInt(
+      raw.spamDuplicateCount,
+      DEFAULT_AUTOMOD.spamDuplicateCount,
+      2,
+      100,
+    ),
+    ignoredChannels: stringIds(raw.ignoredChannels),
+    ignoredRoles: stringIds(raw.ignoredRoles),
+  };
+}
+
 function ensureSecurityRow(guildId: string): void {
   ensureGuild(guildId);
   db.prepare('INSERT OR IGNORE INTO security_settings (guild_id) VALUES (?)').run(guildId);
@@ -273,23 +364,6 @@ export function getModerationSettings(guildId: string): ModerationSettings {
     : [];
 
   const automodRaw = row ? parseJson<unknown>(row.automod, {}) : {};
-  const storedAutomod = isObject(automodRaw) ? automodRaw : {};
-  const automod: AutomodConfig = {
-    enabled:
-      typeof storedAutomod.enabled === 'boolean' ? storedAutomod.enabled : DEFAULT_AUTOMOD.enabled,
-    invites:
-      typeof storedAutomod.invites === 'boolean' ? storedAutomod.invites : DEFAULT_AUTOMOD.invites,
-    links: typeof storedAutomod.links === 'boolean' ? storedAutomod.links : DEFAULT_AUTOMOD.links,
-    caps: typeof storedAutomod.caps === 'boolean' ? storedAutomod.caps : DEFAULT_AUTOMOD.caps,
-    spam: typeof storedAutomod.spam === 'boolean' ? storedAutomod.spam : DEFAULT_AUTOMOD.spam,
-    words: Array.isArray(storedAutomod.words)
-      ? storedAutomod.words.filter((word): word is string => typeof word === 'string')
-      : [],
-    mentions:
-      typeof storedAutomod.mentions === 'number' && storedAutomod.mentions >= 0
-        ? Math.floor(storedAutomod.mentions)
-        : 0,
-  };
 
   return cacheSet(moderationCache, guildId, {
     immunityRoles: roles,
@@ -298,7 +372,7 @@ export function getModerationSettings(guildId: string): ModerationSettings {
     muteRoleId: row?.mute_role_id ?? null,
     warnExpiryDays: Number(row?.warn_expiry_days ?? 0),
     warnActions,
-    automod,
+    automod: normalizeAutomod(automodRaw),
   });
 }
 
@@ -370,7 +444,7 @@ export function clearWarnActions(guildId: string): void {
 
 export function updateAutomod(guildId: string, patch: Partial<AutomodConfig>): AutomodConfig {
   const current = getModerationSettings(guildId).automod;
-  const next: AutomodConfig = { ...current, ...patch };
+  const next = normalizeAutomod({ ...current, ...patch });
   updateColumn(guildId, 'automod', toJson(next));
   return next;
 }

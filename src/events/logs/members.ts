@@ -9,7 +9,14 @@ import type { AnyBotEvent } from '../../core/types.js';
 import { auditInfo } from '../../lib/audit.js';
 import { COLORS } from '../../lib/embeds.js';
 import { logCard } from '../../lib/logCard.js';
-import { fmtRelative, fmtUser, isLogEventEnabled, sendLog, truncate } from '../../lib/logging.js';
+import {
+  fmtRelative,
+  fmtUser,
+  isLogEventEnabled,
+  reasonValue,
+  sendLog,
+  truncate,
+} from '../../lib/logging.js';
 
 const events: AnyBotEvent[] = [
   {
@@ -64,7 +71,7 @@ const events: AnyBotEvent[] = [
       ];
 
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
-      if (reason) fields.push({ name: 'Причина', value: reason, inline: false });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(guild, {
         title: executor ? '👢 Участник кикнут' : '📤 Участник вышел',
@@ -87,11 +94,14 @@ const events: AnyBotEvent[] = [
     async execute(oldMember: GuildMember | PartialGuildMember, newMember: GuildMember) {
       if (!isLogEventEnabled(newMember.guild.id, 'memberUpdate')) return;
       const changes: string[] = [];
+      let rolesChanged = false;
+      let profileChanged = false;
 
       const oldNick = oldMember.nickname ?? null;
       const newNick = newMember.nickname ?? null;
       if (oldNick !== newNick) {
         changes.push(`**Ник:** ${oldNick ?? '*нет*'} → ${newNick ?? '*нет*'}`);
+        profileChanged = true;
       }
 
       const oldRoles = oldMember.partial ? null : oldMember.roles.cache.map((role) => role.id);
@@ -101,9 +111,11 @@ const events: AnyBotEvent[] = [
         const removed = oldRoles.filter((id) => !newRoles.includes(id));
         if (added.length > 0) {
           changes.push(`**Выданы роли:** ${added.map((id) => `<@&${id}>`).join(', ')}`);
+          rolesChanged = true;
         }
         if (removed.length > 0) {
           changes.push(`**Сняты роли:** ${removed.map((id) => `<@&${id}>`).join(', ')}`);
+          rolesChanged = true;
         }
       }
 
@@ -113,20 +125,30 @@ const events: AnyBotEvent[] = [
         changes.push(
           newTimeout ? `**Таймаут до:** ${fmtRelative(newTimeout)}` : '**Таймаут снят**',
         );
+        profileChanged = true;
       }
 
       if (changes.length === 0) return;
 
-      const { executor } = await auditInfo(
-        newMember.guild,
-        AuditLogEvent.MemberUpdate,
-        newMember.id,
-      );
+      // Роли изменяются записью MemberRoleUpdate, ник/таймаут — MemberUpdate.
+      // Раньше запрашивался только MemberUpdate, поэтому причина ролей терялась.
+      const [roleAudit, memberAudit] = await Promise.all([
+        rolesChanged
+          ? auditInfo(newMember.guild, AuditLogEvent.MemberRoleUpdate, newMember.id)
+          : null,
+        profileChanged
+          ? auditInfo(newMember.guild, AuditLogEvent.MemberUpdate, newMember.id)
+          : null,
+      ]);
+      const audit = rolesChanged ? (roleAudit ?? memberAudit) : memberAudit;
+      const executor = audit?.executor ?? null;
+      const reason = audit?.reason ?? null;
 
       const fields = [{ name: 'Кто', value: `${newMember}`, inline: true }];
       if (executor && executor.id !== newMember.id) {
         fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
       }
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(newMember.guild, {
         title: '👤 Профиль участника изменён',
@@ -156,7 +178,8 @@ const events: AnyBotEvent[] = [
       );
 
       const fields = [{ name: 'Кого', value: fmtUser(ban.user), inline: false }];
-      if (reason) fields.push({ name: 'Причина', value: reason, inline: false });
+      if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(ban.guild, {
         title: '🔨 Бан',
@@ -185,7 +208,8 @@ const events: AnyBotEvent[] = [
       );
 
       const fields = [{ name: 'Кого', value: fmtUser(ban.user), inline: false }];
-      if (reason) fields.push({ name: 'Причина', value: reason, inline: false });
+      if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(ban.guild, {
         title: '🔓 Разбан',

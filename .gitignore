@@ -2,6 +2,8 @@ node_modules/
 dist/
 data/
 .env
+.idea/
+.vscode/
 *.log
 *.sqlite
 *.sqlite-shm

@@ -236,6 +236,7 @@ export async function recordNuke(
         { name: 'Кто', value: `${executor} (${executor.tag})`, inline: true },
         { name: 'Действие', value: nukeActionLabel(config.action), inline: true },
         { name: 'Порог', value: String(config.threshold), inline: true },
+        { name: 'Причина', value: reason, inline: false },
       ],
       footer: `ID: ${executor.id}`,
     }),
@@ -272,6 +273,7 @@ export async function recordNuke(
       fields: [
         { name: 'Кто', value: `${executor} (${executor.tag})`, inline: true },
         { name: 'Действие', value: nukeActionLabel(config.action), inline: true },
+        { name: 'Причина', value: reason, inline: false },
       ],
       footer: `ID: ${executor.id}`,
     }),

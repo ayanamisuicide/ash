@@ -5,6 +5,11 @@ dist
 data
 legacy-js
 tests
+web/node_modules
+web/dist
+web/.env
+web/.env.local
+web/*.local
 *.log
 *.sqlite
 *.sqlite-shm

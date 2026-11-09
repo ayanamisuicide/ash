@@ -1,6 +1,15 @@
 import type { Guild } from 'discord.js';
 import { createCase } from '../cases.js';
-import { checkTarget, fail, fetchMember, ok, type ActionResult } from './helpers.js';
+import { dmEmbed } from '../embeds.js';
+import {
+  checkTarget,
+  dm,
+  fail,
+  fetchMember,
+  ok,
+  userAvatar,
+  type ActionResult,
+} from './helpers.js';
 
 export type VoiceAction = 'kick' | 'move' | 'mute' | 'unmute' | 'deafen' | 'undeafen';
 
@@ -61,6 +70,38 @@ export async function voiceAction(
     deafen: 'оглушён',
     undeafen: 'разоглушён',
   };
+
+  const dmTitles: Record<VoiceAction, string> = {
+    kick: 'Отключение от голоса',
+    move: 'Перемещение в голосе',
+    mute: 'Голосовой мут',
+    unmute: 'Голосовой мут снят',
+    deafen: 'Оглушение',
+    undeafen: 'Оглушение снято',
+  };
+
+  const dmDescriptions: Record<VoiceAction, string> = {
+    kick: `Вы отключены от голосового канала на сервере **${guild.name}**.`,
+    move: `Вы перемещены в другой голосовой канал на сервере **${guild.name}**.`,
+    mute: `Вы заглушены в голосовом канале на сервере **${guild.name}**.`,
+    unmute: `С вас снято голосовое заглушение на сервере **${guild.name}**.`,
+    deafen: `Вы оглушены на сервере **${guild.name}**.`,
+    undeafen: `С вас снято оглушение на сервере **${guild.name}**.`,
+  };
+
+  const positive = action === 'unmute' || action === 'undeafen';
+
+  await dm(
+    member.user,
+    dmEmbed('info', guild, {
+      title: dmTitles[action],
+      emoji: positive ? '🔊' : '🎧',
+      tone: positive ? 'success' : 'info',
+      reason,
+      description: dmDescriptions[action],
+      thumbnail: userAvatar(member.user),
+    }),
+  );
 
   const modCase = createCase({
     guildId: guild.id,

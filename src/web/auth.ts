@@ -14,6 +14,8 @@ export interface GuildAccess {
   moderate: boolean;
   /** Право «Управлять сообщениями» */
   manageMessages: boolean;
+  /** Право «Управлять ролями»: выдача и снятие ролей */
+  manageRoles: boolean;
   kick: boolean;
   ban: boolean;
 }
@@ -49,7 +51,8 @@ function computeAccess(guild: Guild, member: GuildMember): GuildAccess {
   const ban = permissions.has(PermissionFlagsBits.BanMembers);
   const moderate = permissions.has(PermissionFlagsBits.ModerateMembers);
   const manageMessages = permissions.has(PermissionFlagsBits.ManageMessages);
-  const moderator = admin || kick || ban || moderate || manageMessages;
+  const manageRoles = permissions.has(PermissionFlagsBits.ManageRoles);
+  const moderator = admin || kick || ban || moderate || manageMessages || manageRoles;
 
   return {
     guild,
@@ -58,6 +61,7 @@ function computeAccess(guild: Guild, member: GuildMember): GuildAccess {
     moderator,
     moderate,
     manageMessages,
+    manageRoles,
     kick,
     ban,
   };

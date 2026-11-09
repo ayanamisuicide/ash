@@ -1,6 +1,10 @@
-import type { ContainerBuilder, Guild } from 'discord.js';
+import type {
+  ActionRowBuilder,
+  ContainerBuilder,
+  Guild,
+  MessageActionRowComponentBuilder,
+} from 'discord.js';
 import { card } from './card.js';
-import { COLORS } from './embeds.js';
 
 export interface LogField {
   name: string;
@@ -10,7 +14,10 @@ export interface LogField {
 
 export interface LogCardOptions {
   title: string;
+  /** Готовый цвет акцентной полосы. Имеет приоритет над tone. */
   color?: number;
+  /** Настроение лога: accent/success/danger/warn/info/neutral/premium. */
+  tone?: 'accent' | 'success' | 'danger' | 'warn' | 'info' | 'neutral' | 'premium';
   description?: string | null;
   /** Строка автора с аватаром: кто совершил действие */
   actor?: { name: string; iconURL?: string | null };
@@ -20,6 +27,8 @@ export interface LogCardOptions {
   footer?: string;
   timestamp?: Date | number;
   image?: string | null;
+  /** Кнопки действий под логом (например, «Отменить действие»). */
+  buttons?: ActionRowBuilder<MessageActionRowComponentBuilder>[];
 }
 
 /**
@@ -28,7 +37,8 @@ export interface LogCardOptions {
  */
 export function logCard(guild: Guild, options: LogCardOptions): ContainerBuilder {
   return card({
-    color: options.color ?? COLORS.primary,
+    tone: options.tone ?? 'accent',
+    color: options.color,
     title: options.title,
     subtitle: options.actor?.name ?? null,
     description: options.description ?? null,
@@ -40,5 +50,6 @@ export function logCard(guild: Guild, options: LogCardOptions): ContainerBuilder
     thumbnail: options.thumbnail ?? options.actor?.iconURL ?? null,
     footer: options.footer ? `${options.footer} · ${guild.name}` : guild.name,
     timestamp: options.timestamp ?? Date.now(),
+    buttons: options.buttons,
   });
 }

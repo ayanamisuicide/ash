@@ -1,5 +1,8 @@
 import type { Guild } from 'discord.js';
+import { buildAppealButton } from '../appealButton.js';
 import { closeActiveCases, createCase } from '../cases.js';
+import { dmEmbed } from '../embeds.js';
+import { humanDuration } from '../format.js';
 import { markModerationRemoval } from '../rolepersist.js';
 import {
   clampDeleteSeconds,
@@ -9,6 +12,7 @@ import {
   fetchMember,
   fetchUser,
   ok,
+  userAvatar,
   type ActionResult,
 } from './helpers.js';
 
@@ -35,10 +39,16 @@ export async function banUser(
 
   const expiresAt = durationMs && durationMs > 0 ? Date.now() + Math.floor(durationMs) : null;
 
+  // DM до бана: после бана бот может уже не иметь общего сервера с пользователем.
   await dm(
     user,
-    `🔨 Ты забанен на сервере **${guild.name}**.\n🧾 Причина: ${reason}` +
-      (expiresAt ? `\n⏳ До: <t:${Math.floor(expiresAt / 1_000)}:f>` : ''),
+    dmEmbed(expiresAt ? 'tempban' : 'ban', guild, {
+      reason,
+      duration: durationMs ? humanDuration(durationMs) : null,
+      expiresAt,
+      thumbnail: userAvatar(user),
+      buttons: [buildAppealButton(guild.id)],
+    }),
   );
 
   try {
@@ -105,7 +115,10 @@ export async function softbanUser(
 
   await dm(
     user,
-    `🧹 Ты софтбанен на сервере **${guild.name}** (сообщения удалены).\n🧾 Причина: ${reason}`,
+    dmEmbed('softban', guild, {
+      reason,
+      thumbnail: userAvatar(user),
+    }),
   );
 
   try {
@@ -177,7 +190,13 @@ export async function kickUser(
   if (problem) return fail(problem);
   if (!member.kickable) return fail('У бота нет прав кикнуть этого участника.');
 
-  await dm(member.user, `👢 Ты кикнут с сервера **${guild.name}**.\n🧾 Причина: ${reason}`);
+  await dm(
+    member.user,
+    dmEmbed('kick', guild, {
+      reason,
+      thumbnail: userAvatar(member.user),
+    }),
+  );
 
   try {
     markModerationRemoval(guild.id, userId);
@@ -214,7 +233,13 @@ export async function unbanUser(
     return fail('Discord отклонил разбан. Проверьте права бота.');
   }
 
-  await dm(banned.user, `🔓 Ты разбанен на сервере **${guild.name}**.\n🧾 Причина: ${reason}`);
+  await dm(
+    banned.user,
+    dmEmbed('unban', guild, {
+      reason,
+      thumbnail: userAvatar(banned.user),
+    }),
+  );
 
   closeActiveCases(guild.id, userId, ['ban', 'tempban'], `Разбан: ${reason}`);
 

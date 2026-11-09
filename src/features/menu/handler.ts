@@ -98,6 +98,7 @@ export const MENU_ACTION_PERMISSIONS: Record<string, bigint> = {
   'role-add': PermissionFlagsBits.ManageRoles,
   'role-remove': PermissionFlagsBits.ManageRoles,
   'role-temp': PermissionFlagsBits.ManageRoles,
+  'role-clear': PermissionFlagsBits.ManageRoles,
   setrole: PermissionFlagsBits.ManageRoles,
   setnick: PermissionFlagsBits.ManageNicknames,
   'voice-kick': PermissionFlagsBits.MoveMembers,
@@ -346,7 +347,11 @@ function buildActionModal(action: string): ModalBuilder | null {
       return new ModalBuilder()
         .setCustomId('modal:clearwarns')
         .setTitle('🧽 Снять предупреждения')
-        .addComponents(userSelect(), textInput('warn_id', 'ID предупреждения (пусто — все)'));
+        .addComponents(
+          userSelect(),
+          textInput('warn_id', 'ID предупреждения (пусто — все)'),
+          reason,
+        );
 
     case 'clear':
       return new ModalBuilder()
@@ -374,6 +379,12 @@ function buildActionModal(action: string): ModalBuilder | null {
           textInput('duration', 'Длительность (1h, 2d, 1w)', { required: true }),
           reason,
         );
+
+    case 'role-clear':
+      return new ModalBuilder()
+        .setCustomId('modal:role-clear')
+        .setTitle('🧹 Снять все роли')
+        .addComponents(userSelect(), reason);
 
     case 'setrole':
       return new ModalBuilder()
@@ -960,7 +971,13 @@ async function handleModal(interaction: ModalSubmitInteraction<'cached'>): Promi
       case 'clearwarns':
         return await finish(
           interaction,
-          await clearWarnsAction(guild, moderatorId, userId!, field(interaction, 'warn_id')),
+          await clearWarnsAction(
+            guild,
+            moderatorId,
+            userId!,
+            field(interaction, 'warn_id'),
+            reason,
+          ),
         );
 
       case 'clear': {
@@ -1016,6 +1033,28 @@ async function handleModal(interaction: ModalSubmitInteraction<'cached'>): Promi
         );
       }
 
+      case 'role-clear': {
+        const confirmationId = createConfirmation({
+          guildId: guild.id,
+          userId: interaction.user.id,
+          kind: 'roleclear',
+          permission: PermissionFlagsBits.ManageRoles,
+          payload: { userId, reason },
+        });
+
+        return void interaction.editReply(
+          buildConfirmationView(
+            confirmationId,
+            '🧹 Снять все роли?',
+            `Снять все управляемые роли с <@${userId}>? Managed-роли интеграций останутся.`,
+            [
+              { label: 'Участник', value: `<@${userId}>`, block: false },
+              { label: 'Причина', value: reason, block: true },
+            ],
+          ),
+        );
+      }
+
       case 'setrole': {
         const roleId = selectedRole(interaction);
         if (!roleId) return await fail(interaction, 'Не удалось определить роль.');
@@ -1031,7 +1070,7 @@ async function handleModal(interaction: ModalSubmitInteraction<'cached'>): Promi
         return void interaction.editReply(
           buildConfirmationView(
             confirmationId,
-            '🎭 Подтверждение setrole',
+            '🎭 Заменить все роли?',
             `Заменить все управляемые роли участника <@${userId}> на <@&${roleId}>?`,
             [
               { label: 'Участник', value: `<@${userId}>`, block: false },

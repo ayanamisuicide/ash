@@ -1,7 +1,9 @@
 import { SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
-import { V2, card } from '../../lib/card.js';
+import { V2 } from '../../lib/card.js';
 import { getLevelInfo } from '../../lib/community.js';
+import { buildEmbed, formatEmbedDate } from '../../lib/embeds.js';
+import { progressBar } from '../../lib/responses.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -16,17 +18,19 @@ export default {
 
     await interaction.editReply({
       components: [
-        card({
-          tone: 'info',
-          title: '📊 Уровень',
+        buildEmbed({
+          tone: 'premium',
+          title: 'Уровень',
+          emoji: '⭐',
           description: `${user} · **${info.level}** уровень`,
           thumbnail: user.displayAvatarURL(),
           fields: [
-            { label: 'XP', value: `${info.xp}`, block: false },
+            { label: 'Уровень', value: String(info.level), block: false },
+            { label: 'XP', value: String(info.xp), block: false },
             { label: 'До следующего', value: `${info.needed - info.rest} XP`, block: false },
-            { label: 'Прогресс', value: `${info.rest}/${info.needed}`, block: false },
+            { label: 'Прогресс', value: progressBar(info.rest, info.needed), block: true },
           ],
-          footer: `ID: ${user.id}`,
+          footer: `🔖 ID: ${user.id} · ${formatEmbedDate()}`,
           timestamp: false,
         }),
       ],

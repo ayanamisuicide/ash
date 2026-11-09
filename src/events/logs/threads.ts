@@ -4,7 +4,7 @@ import { auditInfo } from '../../lib/audit.js';
 import { COLORS } from '../../lib/embeds.js';
 import { humanDuration } from '../../lib/format.js';
 import { logCard } from '../../lib/logCard.js';
-import { fmtUser, isLogEventEnabled, sendLog } from '../../lib/logging.js';
+import { fmtUser, isLogEventEnabled, reasonValue, sendLog } from '../../lib/logging.js';
 
 const events: AnyBotEvent[] = [
   {
@@ -13,7 +13,11 @@ const events: AnyBotEvent[] = [
       if (!newlyCreated) return;
       if (!isLogEventEnabled(thread.guild.id, 'threadCreate')) return;
 
-      const { executor } = await auditInfo(thread.guild, AuditLogEvent.ThreadCreate, thread.id);
+      const { executor, reason } = await auditInfo(
+        thread.guild,
+        AuditLogEvent.ThreadCreate,
+        thread.id,
+      );
 
       const fields = [
         { name: 'Ветка', value: `<#${thread.id}>`, inline: true },
@@ -25,6 +29,7 @@ const events: AnyBotEvent[] = [
         },
       ];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(thread.guild, {
         title: '🧵 Ветка создана',
@@ -42,13 +47,18 @@ const events: AnyBotEvent[] = [
     name: Events.ThreadDelete,
     async execute(thread: AnyThreadChannel) {
       if (!isLogEventEnabled(thread.guild.id, 'threadDelete')) return;
-      const { executor } = await auditInfo(thread.guild, AuditLogEvent.ThreadDelete, thread.id);
+      const { executor, reason } = await auditInfo(
+        thread.guild,
+        AuditLogEvent.ThreadDelete,
+        thread.id,
+      );
 
       const fields = [
         { name: 'Название', value: `\`${thread.name}\``, inline: true },
         { name: 'Родитель', value: thread.parentId ? `<#${thread.parentId}>` : '—', inline: true },
       ];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(thread.guild, {
         title: '🧵 Ветка удалена',
@@ -94,7 +104,7 @@ const events: AnyBotEvent[] = [
 
       if (changes.length === 0) return;
 
-      const { executor } = await auditInfo(
+      const { executor, reason } = await auditInfo(
         newThread.guild,
         AuditLogEvent.ThreadUpdate,
         newThread.id,
@@ -102,6 +112,7 @@ const events: AnyBotEvent[] = [
 
       const fields = [{ name: 'Ветка', value: `<#${newThread.id}>`, inline: true }];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(newThread.guild, {
         title: '✏️ Ветка изменена',

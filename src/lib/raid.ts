@@ -154,6 +154,11 @@ export async function handleRaidJoin(guild: Guild, member: GuildMember): Promise
         fields: [
           { name: 'Последний участник', value: `${member}`, inline: true },
           { name: 'Порог', value: String(config.joinThreshold), inline: true },
+          {
+            name: 'Причина',
+            value: `массовые заходы: ${count} за ${config.joinWindowSec} с`,
+            inline: false,
+          },
         ],
         footer: `ID: ${member.id}`,
       }),
@@ -173,7 +178,14 @@ export async function handleRaidJoin(guild: Guild, member: GuildMember): Promise
         description:
           `Аккаунт создан <t:${Math.floor(member.user.createdTimestamp / 1_000)}:R> ` +
           `(порог: ${config.accountAgeDays} дн.).`,
-        fields: [{ name: 'Участник', value: `${member}`, inline: true }],
+        fields: [
+          { name: 'Участник', value: `${member}`, inline: true },
+          {
+            name: 'Причина',
+            value: `аккаунт младше ${config.accountAgeDays} дн.`,
+            inline: false,
+          },
+        ],
         footer: `ID: ${member.id}`,
       }),
       'raidAlert',

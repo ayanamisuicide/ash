@@ -34,6 +34,7 @@ import {
   updateAutomod,
   updateNukeConfig,
   updateRaidConfig,
+  type AutomodAction,
   type AutomodConfig,
   type ModerationSettings,
   type NukeAction,
@@ -134,6 +135,18 @@ function roleIds(guild: Guild, value: unknown, label: string): string[] {
   return ids;
 }
 
+function channelIds(guild: Guild, value: unknown, label: string): string[] {
+  if (!Array.isArray(value)) throw new HttpError(400, `${label} должен быть массивом.`);
+  if (value.length > 50) throw new HttpError(400, `${label}: максимум 50 каналов.`);
+
+  const ids: string[] = [];
+  for (const item of value) {
+    const found = findChannel(guild, item, label);
+    if (found && !ids.includes(found.id)) ids.push(found.id);
+  }
+  return ids;
+}
+
 export interface SettingsBundle {
   moderation: ModerationSettings;
   logs: LogConfig;
@@ -158,7 +171,15 @@ export function getSettingsBundle(guild: Guild): SettingsBundle {
   };
 }
 
-const AUTOMOD_BOOLEAN_KEYS = ['enabled', 'invites', 'links', 'caps', 'spam'] as const;
+const AUTOMOD_BOOLEAN_KEYS = [
+  'enabled',
+  'invites',
+  'links',
+  'caps',
+  'spam',
+  'deleteMessage',
+] as const;
+const AUTOMOD_ACTIONS: AutomodAction[] = ['delete', 'warn', 'timeout', 'mute', 'kick', 'ban'];
 
 export function updateModerationSettings(
   guild: Guild,
@@ -182,6 +203,66 @@ export function updateModerationSettings(
         .map((word) => asText(word, 'Слово', 100))
         .filter(Boolean)
         .slice(0, 200);
+    }
+    if (automod.action !== undefined) {
+      if (
+        typeof automod.action !== 'string' ||
+        !AUTOMOD_ACTIONS.includes(automod.action as AutomodAction)
+      ) {
+        throw new HttpError(400, 'automod.action: неверное действие.');
+      }
+      patch.action = automod.action as AutomodAction;
+    }
+    if (automod.duration !== undefined) {
+      if (automod.duration === null || automod.duration === '') {
+        patch.durationMs = null;
+      } else {
+        if (typeof automod.duration !== 'string') {
+          throw new HttpError(400, 'automod.duration: неверный формат длительности.');
+        }
+        const durationMs = parseDuration(automod.duration);
+        if (!durationMs) {
+          throw new HttpError(400, 'automod.duration: неверный формат длительности.');
+        }
+        if (durationMs > 365 * 86_400_000) {
+          throw new HttpError(400, 'automod.duration: максимум 365 дней.');
+        }
+        patch.durationMs = durationMs;
+      }
+    }
+    if (automod.capsPercent !== undefined) {
+      patch.capsPercent = asInt(automod.capsPercent, 'automod.capsPercent', 10, 100);
+    }
+    if (automod.capsMinLength !== undefined) {
+      patch.capsMinLength = asInt(automod.capsMinLength, 'automod.capsMinLength', 1, 2_000);
+    }
+    if (automod.spamCount !== undefined) {
+      patch.spamCount = asInt(automod.spamCount, 'automod.spamCount', 2, 100);
+    }
+    if (automod.spamWindowSec !== undefined) {
+      patch.spamWindowSec = asInt(automod.spamWindowSec, 'automod.spamWindowSec', 1, 300);
+    }
+    if (automod.spamDuplicateCount !== undefined) {
+      patch.spamDuplicateCount = asInt(
+        automod.spamDuplicateCount,
+        'automod.spamDuplicateCount',
+        2,
+        100,
+      );
+    }
+    if (automod.ignoredChannels !== undefined) {
+      patch.ignoredChannels = channelIds(guild, automod.ignoredChannels, 'automod.ignoredChannels');
+    }
+    if (automod.ignoredRoles !== undefined) {
+      patch.ignoredRoles = roleIds(guild, automod.ignoredRoles, 'automod.ignoredRoles');
+    }
+
+    const effectiveAction = patch.action ?? getModerationSettings(guild.id).automod.action;
+    if (effectiveAction === 'timeout' && patch.durationMs && patch.durationMs > 28 * 86_400_000) {
+      throw new HttpError(400, 'Для таймаута максимальная длительность — 28 дней.');
+    }
+    if (effectiveAction === 'mute' && patch.durationMs && patch.durationMs > 365 * 86_400_000) {
+      throw new HttpError(400, 'Для мута максимальная длительность — 365 дней.');
     }
 
     if (Object.keys(patch).length > 0) updateAutomod(guild.id, patch);

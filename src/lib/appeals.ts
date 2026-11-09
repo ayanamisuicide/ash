@@ -9,6 +9,8 @@ export interface Appeal {
   reason: string;
   status: AppealStatus;
   createdAt: number;
+  /** Кейс наказания, которое обжалуют (null для legacy-апелляций) */
+  caseId: number | null;
   channelId: string | null;
   messageId: string | null;
   reviewedBy: string | null;
@@ -22,6 +24,7 @@ interface AppealRow {
   reason: string;
   status: string;
   created_at: number;
+  case_id: number | null;
   channel_id: string | null;
   message_id: string | null;
   reviewed_by: string | null;
@@ -36,6 +39,7 @@ function rowToAppeal(row: AppealRow): Appeal {
     reason: row.reason,
     status: row.status as AppealStatus,
     createdAt: Number(row.created_at),
+    caseId: row.case_id === null ? null : Number(row.case_id),
     channelId: row.channel_id,
     messageId: row.message_id,
     reviewedBy: row.reviewed_by,
@@ -43,7 +47,12 @@ function rowToAppeal(row: AppealRow): Appeal {
   };
 }
 
-export function createAppeal(guildId: string, userId: string, reason: string): Appeal {
+export function createAppeal(
+  guildId: string,
+  userId: string,
+  reason: string,
+  caseId: number | null = null,
+): Appeal {
   ensureGuild(guildId);
 
   return transaction(() => {
@@ -65,6 +74,7 @@ export function createAppeal(guildId: string, userId: string, reason: string): A
       reason,
       status: 'pending',
       createdAt: Date.now(),
+      caseId,
       channelId: null,
       messageId: null,
       reviewedBy: null,
@@ -74,8 +84,8 @@ export function createAppeal(guildId: string, userId: string, reason: string): A
     db.prepare(
       `
       INSERT INTO appeals
-        (guild_id, id, user_id, reason, status, created_at, channel_id, message_id, reviewed_by, reviewed_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (guild_id, id, user_id, reason, status, created_at, case_id, channel_id, message_id, reviewed_by, reviewed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     ).run(
       appeal.guildId,
@@ -84,6 +94,7 @@ export function createAppeal(guildId: string, userId: string, reason: string): A
       appeal.reason,
       appeal.status,
       appeal.createdAt,
+      appeal.caseId,
       appeal.channelId,
       appeal.messageId,
       appeal.reviewedBy,
@@ -125,6 +136,10 @@ export function updateAppeal(
     sets.push('created_at = ?');
     values.push(patch.createdAt);
   }
+  if (patch.caseId !== undefined) {
+    sets.push('case_id = ?');
+    values.push(patch.caseId);
+  }
   if (patch.channelId !== undefined) {
     sets.push('channel_id = ?');
     values.push(patch.channelId);
@@ -161,6 +176,27 @@ export function findPendingAppeal(guildId: string, userId: string): Appeal | nul
     )
     .get(guildId, userId) as AppealRow | undefined;
   return row ? rowToAppeal(row) : null;
+}
+
+export function findPendingAppealForCase(guildId: string, caseId: number): Appeal | null {
+  const row = db
+    .prepare(
+      `
+      SELECT * FROM appeals
+      WHERE guild_id = ? AND case_id = ? AND status = 'pending'
+      ORDER BY id DESC LIMIT 1
+    `,
+    )
+    .get(guildId, caseId) as AppealRow | undefined;
+  return row ? rowToAppeal(row) : null;
+}
+
+/** Удаляет апелляцию, если её не удалось доставить в канал. */
+export function deleteAppeal(guildId: string, appealId: number): boolean {
+  const result = db
+    .prepare('DELETE FROM appeals WHERE guild_id = ? AND id = ?')
+    .run(guildId, appealId);
+  return Number(result.changes) > 0;
 }
 
 export function listAppeals(guildId: string, status?: AppealStatus): Appeal[] {

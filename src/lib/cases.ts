@@ -351,7 +351,11 @@ export function closeActiveCases(
   });
 }
 
-export function closeWarnCases(guildId: string, userId: string): ModCase[] {
+export function closeWarnCases(
+  guildId: string,
+  userId: string,
+  reason = 'Снятие предупреждений',
+): ModCase[] {
   return transaction(() => {
     const rows = db
       .prepare(
@@ -368,13 +372,38 @@ export function closeWarnCases(guildId: string, userId: string): ModCase[] {
       const item = rowToCase(row);
       const updated = updateCase(guildId, item.id, {
         active: false,
-        extra: { ...item.extra, closedReason: 'Снятие предупреждений' },
+        extra: { ...item.extra, closedReason: reason },
       });
       if (updated) closed.push(updated);
     }
 
     return closed;
   });
+}
+
+/**
+ * ID ролей из активных наказаний (мут и временная роль). Нужны, чтобы
+ * rolepersist не возвращал эти роли участнику после повторного захода.
+ */
+export function activePunishmentRoleIds(guildId: string, userId: string): string[] {
+  const rows = db
+    .prepare(
+      `
+      SELECT extra FROM cases
+      WHERE guild_id = ? AND user_id = ? AND active = 1
+        AND type IN ('mute', 'temprole')
+    `,
+    )
+    .all(guildId, userId) as unknown as Array<{ extra: string }>;
+
+  const roleIds: string[] = [];
+  for (const row of rows) {
+    const extra = parseJson<Record<string, unknown>>(row.extra, {});
+    if (typeof extra.roleId === 'string' && !roleIds.includes(extra.roleId)) {
+      roleIds.push(extra.roleId);
+    }
+  }
+  return roleIds;
 }
 
 const CASE_TYPE_VALUES: CaseType[] = [

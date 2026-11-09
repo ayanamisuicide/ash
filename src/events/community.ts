@@ -6,13 +6,18 @@ import {
   type Role,
 } from 'discord.js';
 import type { AnyBotEvent } from '../core/types.js';
+import { V2 } from '../lib/card.js';
 import { addXp, getCommunitySettings, renderTemplate } from '../lib/community.js';
+import { goodbyeMessage, levelUpMessage, welcomeMessage } from '../lib/responses.js';
+
+type TemplateKind = 'welcome' | 'goodbye' | 'levelup';
 
 async function sendTemplate(
   channelId: string | null,
   guild: GuildMember['guild'],
   template: string,
   member: GuildMember,
+  kind: TemplateKind,
   extra: Record<string, string | number> = {},
 ): Promise<void> {
   if (!channelId) return;
@@ -26,7 +31,19 @@ async function sendTemplate(
     ...extra,
   });
 
-  await channel.send({ content }).catch(() => undefined);
+  const view =
+    kind === 'welcome'
+      ? welcomeMessage(member.user, guild, guild.memberCount, content)
+      : kind === 'goodbye'
+        ? goodbyeMessage(member.user, guild, content)
+        : levelUpMessage(member.user, Number(extra.level ?? 0), Number(extra.xp ?? 0), content);
+
+  await channel
+    .send({
+      components: [view],
+      flags: V2,
+    })
+    .catch(() => undefined);
 }
 
 const events: AnyBotEvent[] = [
@@ -51,7 +68,13 @@ const events: AnyBotEvent[] = [
         }
       }
 
-      await sendTemplate(settings.welcomeChannelId, member.guild, settings.welcomeMessage, member);
+      await sendTemplate(
+        settings.welcomeChannelId,
+        member.guild,
+        settings.welcomeMessage,
+        member,
+        'welcome',
+      );
     },
   },
   {
@@ -63,6 +86,7 @@ const events: AnyBotEvent[] = [
         member.guild,
         settings.goodbyeMessage,
         member as GuildMember,
+        'goodbye',
       );
     },
   },
@@ -93,6 +117,7 @@ const events: AnyBotEvent[] = [
         guild,
         settings.levelupMessage,
         member,
+        'levelup',
         { level: gained.after.level, xp: gained.after.xp },
       );
     },

@@ -1,8 +1,9 @@
-import { Events, type VoiceState } from 'discord.js';
+import { AuditLogEvent, Events, type VoiceState } from 'discord.js';
 import type { AnyBotEvent } from '../../core/types.js';
+import { auditInfo } from '../../lib/audit.js';
 import { COLORS } from '../../lib/embeds.js';
 import { logCard } from '../../lib/logCard.js';
-import { isLogEventEnabled, fmtUser, sendLog } from '../../lib/logging.js';
+import { isLogEventEnabled, fmtUser, reasonValue, sendLog } from '../../lib/logging.js';
 
 const events: AnyBotEvent[] = [
   {
@@ -44,6 +45,32 @@ const events: AnyBotEvent[] = [
 
       if (changes.length === 0) return;
 
+      // Причину можно достать из аудита только для действий модератора:
+      // перемещение/отключение из голосового канала и server mute/deaf.
+      const moved = Boolean(
+        oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId,
+      );
+      const disconnected = Boolean(oldState.channelId && !newState.channelId);
+      const serverAudioChanged =
+        oldState.serverMute !== newState.serverMute || oldState.serverDeaf !== newState.serverDeaf;
+
+      let audit: Awaited<ReturnType<typeof auditInfo>> | null = null;
+      if (moved || disconnected) {
+        audit = await auditInfo(
+          guild,
+          moved ? AuditLogEvent.MemberMove : AuditLogEvent.MemberDisconnect,
+          member.id,
+        );
+      } else if (serverAudioChanged) {
+        audit = await auditInfo(guild, AuditLogEvent.MemberUpdate, member.id);
+      }
+
+      const fields = [{ name: 'Участник', value: fmtUser(member.user), inline: true }];
+      if (audit?.executor) {
+        fields.push({ name: 'Кем', value: fmtUser(audit.executor), inline: true });
+      }
+      fields.push({ name: 'Причина', value: reasonValue(audit?.reason), inline: false });
+
       const embed = logCard(guild, {
         title: '🔊 Голосовое состояние',
         color: COLORS.primary,
@@ -52,7 +79,7 @@ const events: AnyBotEvent[] = [
           iconURL: member.user.displayAvatarURL(),
         },
         description: changes.join('\n'),
-        fields: [{ name: 'Участник', value: fmtUser(member.user), inline: true }],
+        fields,
         footer: `ID: ${member.id}`,
       });
 

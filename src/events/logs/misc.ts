@@ -16,7 +16,15 @@ import type { AnyBotEvent } from '../../core/types.js';
 import { auditInfo } from '../../lib/audit.js';
 import { COLORS } from '../../lib/embeds.js';
 import { logCard } from '../../lib/logCard.js';
-import { fmtRelative, isLogEventEnabled, quote, sendLog, truncate } from '../../lib/logging.js';
+import {
+  fmtRelative,
+  fmtUser,
+  isLogEventEnabled,
+  quote,
+  reasonValue,
+  sendLog,
+  truncate,
+} from '../../lib/logging.js';
 
 type WebhookChannel = TextChannel | NewsChannel | VoiceChannel | ForumChannel | MediaChannel;
 
@@ -75,11 +83,20 @@ const events: AnyBotEvent[] = [
     async execute(channel: WebhookChannel) {
       if (!isLogEventEnabled(channel.guild.id, 'webhookUpdate')) return;
 
+      const { executor, reason } = await auditInfo(
+        channel.guild,
+        AuditLogEvent.WebhookUpdate,
+        channel.id,
+      );
+      const fields = [{ name: 'Канал', value: `<#${channel.id}>`, inline: true }];
+      if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
+
       const embed = logCard(channel.guild, {
         title: '🪝 Вебхуки изменены',
         color: COLORS.primary,
         description: `Изменены вебхуки в канале <#${channel.id}>.`,
-        fields: [{ name: 'Канал', value: `<#${channel.id}>`, inline: true }],
+        fields,
         footer: `ID: ${channel.id}`,
       });
 
@@ -106,6 +123,9 @@ const events: AnyBotEvent[] = [
       if (event.creator) {
         fields.push({ name: 'Создал', value: `${event.creator}`, inline: true });
       }
+
+      const { reason } = await auditInfo(guild, AuditLogEvent.GuildScheduledEventCreate, event.id);
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(guild, {
         title: '📅 Событие создано',
@@ -137,6 +157,13 @@ const events: AnyBotEvent[] = [
 
       const fields = [{ name: 'Название', value: `\`${newEvent.name}\``, inline: true }];
 
+      const { reason } = await auditInfo(
+        guild,
+        AuditLogEvent.GuildScheduledEventUpdate,
+        newEvent.id,
+      );
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
+
       const embed = logCard(guild, {
         title: '📅 Событие изменено',
         color: COLORS.warn,
@@ -156,17 +183,20 @@ const events: AnyBotEvent[] = [
       if (!guild) return;
       if (!isLogEventEnabled(guild.id, 'scheduledEventDelete')) return;
 
-      const { executor } = await auditInfo(
+      const { executor, reason } = await auditInfo(
         guild,
         AuditLogEvent.GuildScheduledEventDelete,
         event.id,
       );
 
+      const fields = [{ name: 'Название', value: `\`${event.name}\``, inline: true }];
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
+
       const embed = logCard(guild, {
         title: '📅 Событие удалено',
         color: COLORS.danger,
         actor: executor ? { name: executor.tag, iconURL: executor.displayAvatarURL() } : undefined,
-        fields: [{ name: 'Название', value: `\`${event.name}\``, inline: true }],
+        fields,
         footer: `ID: ${event.id}`,
       });
 
@@ -184,7 +214,7 @@ const events: AnyBotEvent[] = [
       const fields = [
         { name: 'Пользователь', value: `<@${execution.userId}>`, inline: true },
         {
-          name: 'Правило',
+          name: 'Причина',
           value: execution.autoModerationRule?.name ?? `ID ${execution.ruleId}`,
           inline: true,
         },

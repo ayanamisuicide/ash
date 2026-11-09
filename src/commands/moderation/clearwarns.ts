@@ -13,21 +13,30 @@ export default {
     .addStringOption((option) =>
       option.setName('warn_id').setDescription('ID конкретного предупреждения (иначе — все)'),
     )
+    .addStringOption((option) =>
+      option.setName('reason').setDescription('Причина снятия').setMaxLength(450),
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
   async execute(interaction) {
     await interaction.deferReply();
     const user = interaction.options.getUser('user', true);
     const warnId = interaction.options.getString('warn_id');
+    const reason = interaction.options.getString('reason') ?? 'Снятие предупреждений';
 
-    const result = await clearWarnsAction(interaction.guild, interaction.user.id, user.id, warnId);
+    const result = await clearWarnsAction(
+      interaction.guild,
+      interaction.user.id,
+      user.id,
+      warnId,
+      reason,
+    );
 
     await replyActionResult(interaction, result, {
-      title: result.ok
-        ? warnId
-          ? '🧽 Предупреждение снято'
-          : '🧽 Предупреждения сняты'
-        : 'Ошибка',
+      action: 'clearWarns',
+      target: user,
+      moderator: interaction.user,
+      reason,
       thumbnail: user.displayAvatarURL(),
     });
   },

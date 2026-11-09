@@ -1,14 +1,10 @@
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   ChannelType,
   MessageFlags,
   PermissionFlagsBits,
   type ButtonInteraction,
   type Guild,
   type GuildTextBasedChannel,
-  type MessageActionRowComponentBuilder,
 } from 'discord.js';
 import { V2, card, errorCard } from '../lib/card.js';
 import { COLORS } from '../lib/embeds.js';
@@ -20,16 +16,7 @@ import {
   getTicket,
 } from '../lib/community.js';
 import { logCard } from '../lib/logCard.js';
-
-function ticketRow(): ActionRowBuilder<MessageActionRowComponentBuilder> {
-  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId('ticket:close')
-      .setLabel('Закрыть тикет')
-      .setEmoji('🔒')
-      .setStyle(ButtonStyle.Danger),
-  );
-}
+import { ticketCreated } from '../lib/responses.js';
 
 async function logTicket(
   guild: Guild,
@@ -154,16 +141,13 @@ export async function handleTicketButton(interaction: ButtonInteraction<'cached'
       return;
     }
 
-    createTicket(guild.id, channel.id, interaction.user.id);
+    const ticket = createTicket(guild.id, channel.id, interaction.user.id);
     await channel.send({
       components: [
-        card({
-          tone: 'info',
-          title: '🎫 Тикет',
-          description: `Здравствуйте, ${interaction.user}. Опишите проблему, и модераторы ответят.`,
-          fields: [{ label: 'Автор', value: `${interaction.user}`, block: false }],
-          buttons: [ticketRow()],
-          timestamp: false,
+        ticketCreated(ticket, {
+          guild,
+          category: category.name,
+          supportRoleId: supportRole?.id ?? null,
         }),
       ],
       flags: V2,

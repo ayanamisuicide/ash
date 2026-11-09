@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 26% 5%;
+    --foreground: 220 33% 96%;
+
+    --card: 222 27% 10%;
+    --card-foreground: 220 33% 96%;
+
+    --popover: 222 30% 8%;
+    --popover-foreground: 220 33% 96%;
+
+    --primary: 235 100% 70%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 222 25% 14%;
+    --secondary-foreground: 220 20% 90%;
+
+    --muted: 222 25% 13%;
+    --muted-foreground: 220 15% 62%;
+
+    --accent: 235 100% 70%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 355 100% 69%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 63% 54%;
+    --success-foreground: 152 80% 10%;
+
+    --warning: 40 100% 56%;
+    --warning-foreground: 40 90% 10%;
+
+    --danger: 355 100% 69%;
+    --danger-foreground: 0 0% 100%;
+
+    --info: 205 100% 66%;
+    --info-foreground: 205 80% 10%;
+
+    --panel: 222 27% 10%;
+    --panel-2: 222 30% 8%;
+
+    --border: 224 20% 17%;
+    --input: 224 20% 17%;
+    --ring: 235 100% 70%;
+
+    --radius: 0.9rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+    color-scheme: dark;
+  }
+
+  /*
+   * Нативный список <select> на Windows может рисоваться со светлой
+   * системной подложкой, наследуя при этом белый цвет текста панели.
+   * Задаём цвета опциям явно, иначе получается белое на белом.
+   */
+  select {
+    color-scheme: dark;
+  }
+
+  select option {
+    background-color: hsl(var(--card));
+    color: hsl(var(--foreground));
+  }
+
+  select option:disabled {
+    color: hsl(var(--muted-foreground));
+  }
+
+  body {
+    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+    background-image:
+      radial-gradient(1000px 600px at 80% -10%, rgba(102, 115, 255, 0.12), transparent 60%),
+      radial-gradient(900px 520px at -10% 100%, rgba(84, 184, 255, 0.07), transparent 60%),
+      radial-gradient(700px 500px at 55% 120%, rgba(61, 214, 140, 0.04), transparent 60%);
+    background-attachment: fixed;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1,
+      'ss01' 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+
+  ::selection {
+    @apply bg-accent/30 text-white;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border-2 border-solid border-transparent bg-white/10 bg-clip-padding;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-white/20;
+  }
+}
+
+@layer components {
+  /* Основная стеклянная карточка по дизайн-системе */
+  .glass-card {
+    @apply rounded-2xl border border-white/[0.08] bg-panel-gradient shadow-[0_24px_70px_-40px_rgba(0,0,0,0.9),inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-[14px];
+  }
+
+  .glass-modal {
+    @apply rounded-2xl border border-white/[0.1] bg-modal-gradient shadow-modal backdrop-blur-[20px];
+  }
+
+  .glass-sidebar {
+    @apply border-r border-white/[0.06] bg-sidebar-gradient shadow-sidebar backdrop-blur-[16px];
+  }
+
+  .text-gradient {
+    @apply bg-text-gradient bg-clip-text text-transparent;
+  }
+
+  .eyebrow {
+    @apply text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground;
+  }
+
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Shimmer-скелетон: блик едет по поверхности 1.2s */
+  .skeleton {
+    @apply animate-shimmer rounded-lg bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_25%,rgba(255,255,255,0.09)_37%,rgba(255,255,255,0.04)_63%)] bg-shimmer;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mask-radial {
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, black 15%, transparent 75%);
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, black 15%, transparent 75%);
+  }
+
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

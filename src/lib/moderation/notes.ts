@@ -4,7 +4,7 @@ import { COLORS } from '../embeds.js';
 import { logCard } from '../logCard.js';
 import { sendLog } from '../logger.js';
 import { addNote, clearNotes, removeNote } from '../notes.js';
-import { fail, fetchUser, ok, type ActionResult } from './helpers.js';
+import { fail, fetchUser, ok, userAvatar, type ActionResult } from './helpers.js';
 
 export async function noteAddAction(
   guild: Guild,
@@ -28,13 +28,13 @@ export async function noteAddAction(
     guild,
     logCard(guild, {
       title: '📝 Заметка добавлена',
-      color: COLORS.primary,
-      actor: target ? { name: target.tag, iconURL: target.displayAvatarURL() } : undefined,
+      color: COLORS.info,
+      actor: target ? { name: target.tag, iconURL: userAvatar(target) } : undefined,
       fields: [
         { name: 'Кому', value: target ? `${target}` : `<@${userId}>`, inline: true },
         { name: 'Кем', value: `<@${moderatorId}>`, inline: true },
         { name: 'Кейс', value: `#${modCase.id}`, inline: true },
-        { name: 'Текст', value: text },
+        { name: 'Причина', value: text },
       ],
       footer: `ID: ${userId}`,
     }),
@@ -67,12 +67,12 @@ export async function noteRemoveAction(
     guild,
     logCard(guild, {
       title: '🗑️ Заметка удалена',
-      color: COLORS.gray,
+      color: COLORS.neutral,
       fields: [
         { name: 'Кому', value: `<@${userId}>`, inline: true },
         { name: 'Кем', value: `<@${moderatorId}>`, inline: true },
         { name: 'Кейс', value: `#${modCase.id}`, inline: true },
-        { name: 'Текст', value: removed.text },
+        { name: 'Причина', value: removed.text },
       ],
       footer: `ID: ${userId}`,
     }),
@@ -100,17 +100,29 @@ export async function noteClearAction(
     extra: { count: removed.length },
   });
 
+  const fields = [
+    { name: 'Кому', value: `<@${userId}>`, inline: true },
+    { name: 'Кем', value: `<@${moderatorId}>`, inline: true },
+    { name: 'Кейс', value: `#${modCase.id}`, inline: true },
+    { name: 'Удалено', value: String(removed.length), inline: true },
+  ];
+
+  // Причины удалённых заметок — чтобы в логе не оставался только счётчик.
+  fields.push({
+    name: 'Причины удалённых заметок',
+    value: removed
+      .slice(0, 5)
+      .map((note) => `\`${note.id}\` — ${note.text.slice(0, 120)}`)
+      .join('\n'),
+    inline: false,
+  });
+
   await sendLog(
     guild,
     logCard(guild, {
       title: '🗑️ Заметки удалены',
-      color: COLORS.gray,
-      fields: [
-        { name: 'Кому', value: `<@${userId}>`, inline: true },
-        { name: 'Кем', value: `<@${moderatorId}>`, inline: true },
-        { name: 'Кейс', value: `#${modCase.id}`, inline: true },
-        { name: 'Удалено', value: String(removed.length), inline: true },
-      ],
+      color: COLORS.neutral,
+      fields,
       footer: `ID: ${userId}`,
     }),
     'noteRemove',

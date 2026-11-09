@@ -3,7 +3,13 @@ import type { AnyBotEvent } from '../../core/types.js';
 import { auditInfo } from '../../lib/audit.js';
 import { COLORS } from '../../lib/embeds.js';
 import { logCard } from '../../lib/logCard.js';
-import { channelTypeLabel, fmtUser, isLogEventEnabled, sendLog } from '../../lib/logging.js';
+import {
+  channelTypeLabel,
+  fmtUser,
+  isLogEventEnabled,
+  reasonValue,
+  sendLog,
+} from '../../lib/logging.js';
 
 function channelFields(channel: NonThreadGuildBasedChannel) {
   return [
@@ -19,9 +25,14 @@ const events: AnyBotEvent[] = [
     name: Events.ChannelCreate,
     async execute(channel: NonThreadGuildBasedChannel) {
       if (!isLogEventEnabled(channel.guild.id, 'channelCreate')) return;
-      const { executor } = await auditInfo(channel.guild, AuditLogEvent.ChannelCreate, channel.id);
+      const { executor, reason } = await auditInfo(
+        channel.guild,
+        AuditLogEvent.ChannelCreate,
+        channel.id,
+      );
       const fields = channelFields(channel);
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(channel.guild, {
         title: '📁 Канал создан',
@@ -49,7 +60,7 @@ const events: AnyBotEvent[] = [
 
       const fields = channelFields(channel);
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
-      if (reason) fields.push({ name: 'Причина', value: reason, inline: false });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(channel.guild, {
         title: '🗑️ Канал удалён',
@@ -105,10 +116,15 @@ const events: AnyBotEvent[] = [
 
       if (changes.length === 0) return;
 
-      const { executor } = await auditInfo(guild, AuditLogEvent.ChannelUpdate, newChannel.id);
+      const { executor, reason } = await auditInfo(
+        guild,
+        AuditLogEvent.ChannelUpdate,
+        newChannel.id,
+      );
 
       const fields = [{ name: 'Канал', value: `<#${newChannel.id}>`, inline: true }];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(guild, {
         title: '✏️ Канал изменён',

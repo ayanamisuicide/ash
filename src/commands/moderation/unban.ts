@@ -34,6 +34,11 @@ export default {
 
     const result = await unbanUser(interaction.guild, interaction.user.id, userId, reason);
 
-    await replyActionResult(interaction, result, { title: '🔓 Разбан' });
+    await replyActionResult(interaction, result, {
+      action: 'unban',
+      target: userId,
+      moderator: interaction.user,
+      reason,
+    });
   },
 } satisfies Command;

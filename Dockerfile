@@ -7,8 +7,13 @@ ENV NODE_OPTIONS=--disable-warning=ExperimentalWarning
 COPY package.json package-lock.json tsconfig.json ./
 RUN npm ci
 
+# React-панель собирается в web/dist и попадает в dist/web/public.
+COPY web/package.json web/package-lock.json ./web/
+RUN npm --prefix web ci
+
 COPY src ./src
 COPY scripts ./scripts
+COPY web ./web
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime

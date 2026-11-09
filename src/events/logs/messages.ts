@@ -11,6 +11,7 @@ import {
 } from 'discord.js';
 import type { AnyBotEvent } from '../../core/types.js';
 import { auditInfo } from '../../lib/audit.js';
+import { consumeBulkDeleteReason } from '../../lib/bulkDeleteReason.js';
 import { COLORS } from '../../lib/embeds.js';
 import { logCard } from '../../lib/logCard.js';
 import {
@@ -22,6 +23,7 @@ import {
   quote,
   sendLog,
   truncate,
+  reasonValue,
 } from '../../lib/logging.js';
 
 async function resolveReaction(
@@ -89,7 +91,11 @@ const events: AnyBotEvent[] = [
 
       const author = message.author;
       const content = message.content?.trim() ?? '';
-      const { executor } = await auditInfo(guild, AuditLogEvent.MessageDelete, author?.id ?? null);
+      const { executor, reason } = await auditInfo(
+        guild,
+        AuditLogEvent.MessageDelete,
+        author?.id ?? null,
+      );
 
       const fields = [{ name: 'Канал', value: `<#${message.channelId}>`, inline: true }];
       if (author) {
@@ -101,6 +107,7 @@ const events: AnyBotEvent[] = [
       if (message.attachments.size > 0) {
         fields.push({ name: 'Вложений', value: String(message.attachments.size), inline: true });
       }
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(guild, {
         title: '🗑️ Сообщение удалено',
@@ -171,12 +178,28 @@ const events: AnyBotEvent[] = [
         )
         .join('\n');
 
-      const { executor } = await auditInfo(guild, AuditLogEvent.MessageBulkDelete, channel.id);
+      const { executor, reason } = await auditInfo(
+        guild,
+        AuditLogEvent.MessageBulkDelete,
+        channel.id,
+      );
+      const purge = consumeBulkDeleteReason(channel.id);
+      const botInitiated = !executor || executor.id === guild.client.user?.id;
+      const ownPurge = botInitiated ? purge : null;
+
       const fields = [
         { name: 'Канал', value: `<#${channel.id}>`, inline: true },
         { name: 'Удалено', value: String(messages.size), inline: true },
       ];
-      if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+
+      if (ownPurge) {
+        fields.push({ name: 'Кем', value: `<@${ownPurge.moderatorId}>`, inline: true });
+      } else if (executor) {
+        fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      }
+
+      const finalReason = ownPurge?.reason ?? reason;
+      fields.push({ name: 'Причина', value: reasonValue(finalReason), inline: false });
 
       const embed = logCard(guild, {
         title: '🧹 Массовое удаление сообщений',

@@ -3,20 +3,25 @@ import type { AnyBotEvent } from '../../core/types.js';
 import { auditInfo } from '../../lib/audit.js';
 import { COLORS } from '../../lib/embeds.js';
 import { logCard } from '../../lib/logCard.js';
-import { fmtUser, isLogEventEnabled, sendLog } from '../../lib/logging.js';
+import { fmtUser, isLogEventEnabled, reasonValue, sendLog } from '../../lib/logging.js';
 
 const events: AnyBotEvent[] = [
   {
     name: Events.GuildEmojiCreate,
     async execute(emoji: GuildEmoji) {
       if (!isLogEventEnabled(emoji.guild.id, 'emojiCreate')) return;
-      const { executor } = await auditInfo(emoji.guild, AuditLogEvent.EmojiCreate, emoji.id);
+      const { executor, reason } = await auditInfo(
+        emoji.guild,
+        AuditLogEvent.EmojiCreate,
+        emoji.id,
+      );
 
       const fields = [
         { name: 'Эмодзи', value: `${emoji} \`${emoji.name}\``, inline: true },
         { name: 'Анимированный', value: emoji.animated ? 'да' : 'нет', inline: true },
       ];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(emoji.guild, {
         title: '😀 Эмодзи добавлен',
@@ -35,10 +40,15 @@ const events: AnyBotEvent[] = [
     name: Events.GuildEmojiDelete,
     async execute(emoji: GuildEmoji) {
       if (!isLogEventEnabled(emoji.guild.id, 'emojiDelete')) return;
-      const { executor } = await auditInfo(emoji.guild, AuditLogEvent.EmojiDelete, emoji.id);
+      const { executor, reason } = await auditInfo(
+        emoji.guild,
+        AuditLogEvent.EmojiDelete,
+        emoji.id,
+      );
 
       const fields = [{ name: 'Имя', value: `\`${emoji.name}\``, inline: true }];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(emoji.guild, {
         title: '😀 Эмодзи удалён',
@@ -58,12 +68,17 @@ const events: AnyBotEvent[] = [
       if (oldEmoji.name === newEmoji.name) return;
       if (!isLogEventEnabled(newEmoji.guild.id, 'emojiUpdate')) return;
 
-      const { executor } = await auditInfo(newEmoji.guild, AuditLogEvent.EmojiUpdate, newEmoji.id);
+      const { executor, reason } = await auditInfo(
+        newEmoji.guild,
+        AuditLogEvent.EmojiUpdate,
+        newEmoji.id,
+      );
 
       const fields = [
         { name: 'Имя', value: `\`${oldEmoji.name}\` → \`${newEmoji.name}\``, inline: false },
       ];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(newEmoji.guild, {
         title: '😀 Эмодзи изменён',
@@ -85,13 +100,14 @@ const events: AnyBotEvent[] = [
       if (!guild) return;
       if (!isLogEventEnabled(guild.id, 'stickerCreate')) return;
 
-      const { executor } = await auditInfo(guild, AuditLogEvent.StickerCreate, sticker.id);
+      const { executor, reason } = await auditInfo(guild, AuditLogEvent.StickerCreate, sticker.id);
 
       const fields = [
         { name: 'Название', value: `\`${sticker.name}\``, inline: true },
         { name: 'Теги', value: sticker.tags ? `\`${sticker.tags}\`` : '—', inline: true },
       ];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(guild, {
         title: '🩹 Стикер добавлен',
@@ -114,10 +130,11 @@ const events: AnyBotEvent[] = [
       if (!guild) return;
       if (!isLogEventEnabled(guild.id, 'stickerDelete')) return;
 
-      const { executor } = await auditInfo(guild, AuditLogEvent.StickerDelete, sticker.id);
+      const { executor, reason } = await auditInfo(guild, AuditLogEvent.StickerDelete, sticker.id);
 
       const fields = [{ name: 'Название', value: `\`${sticker.name}\``, inline: true }];
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(guild, {
         title: '🩹 Стикер удалён',
@@ -144,7 +161,11 @@ const events: AnyBotEvent[] = [
         return;
       }
 
-      const { executor } = await auditInfo(guild, AuditLogEvent.StickerUpdate, newSticker.id);
+      const { executor, reason } = await auditInfo(
+        guild,
+        AuditLogEvent.StickerUpdate,
+        newSticker.id,
+      );
 
       const fields = [{ name: 'Название', value: `\`${newSticker.name}\``, inline: true }];
       if (oldSticker.name !== newSticker.name) {
@@ -155,6 +176,7 @@ const events: AnyBotEvent[] = [
         });
       }
       if (executor) fields.push({ name: 'Кем', value: fmtUser(executor), inline: true });
+      fields.push({ name: 'Причина', value: reasonValue(reason), inline: false });
 
       const embed = logCard(guild, {
         title: '🩹 Стикер изменён',

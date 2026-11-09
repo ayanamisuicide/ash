@@ -23,7 +23,10 @@ export default {
     const result = await unmuteUser(interaction.guild, interaction.user.id, user.id, reason);
 
     await replyActionResult(interaction, result, {
-      title: '🔊 Снятие мута',
+      action: 'unmute',
+      target: user,
+      moderator: interaction.user,
+      reason,
       thumbnail: user.displayAvatarURL(),
     });
   },

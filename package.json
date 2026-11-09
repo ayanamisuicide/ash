@@ -1,14 +1,21 @@
 {
   "name": "probot-style-bot",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Discord-бот в стиле ProBot: модерация, логирование, веб-панель модератора",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
+    "predev": "node scripts/stop-bot.mjs",
     "dev": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx watch src/index.ts",
+    "launch": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1",
+    "launch:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1 -Dev",
+    "launch:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1 -ChecksOnly -SkipDeploy -NoNewWindow -NoBanner",
+    "stop": "node scripts/stop-bot.mjs",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "build": "npm run clean && tsc && npm run copy-assets",
+    "build": "npm run clean && tsc && npm run build:panel && npm run copy-assets",
+    "build:panel": "node scripts/build-panel.mjs",
     "copy-assets": "node scripts/copy-assets.mjs",
+    "prestart": "node scripts/stop-bot.mjs",
     "start": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --max-warnings=0",
@@ -18,6 +25,7 @@
     "ci": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build",
     "health": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning node scripts/healthcheck.mjs",
     "restore": "node scripts/restore.mjs",
+    "tunnel": "node scripts/tailscale.mjs",
     "deploy": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx src/deploy-commands.ts"
   },
   "engines": {

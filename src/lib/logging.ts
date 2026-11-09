@@ -12,6 +12,12 @@ export function fmtRelative(date: Date | number): string {
   return `<t:${Math.floor(ms / 1_000)}:R>`;
 }
 
+/** Причина для логов: поле не должно исчезать, даже если аудит её не вернул. */
+export function reasonValue(reason: string | null | undefined): string {
+  const clean = reason?.trim();
+  return clean || 'Не указана';
+}
+
 /** Обрезает текст под лимиты эмбеда */
 export function truncate(text: string, max = 1024): string {
   const clean = text.trim();

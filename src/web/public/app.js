@@ -30,6 +30,7 @@ const ICONS = {
   warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.8 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>',
   clock:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 9V6a3 3 0 0 0-5.7-1.3M9 9v3a3 3 0 0 0 5.1 2.1"/><path d="M5 10a7 7 0 0 0 10.5 6.1M12 17v4M8 21h8M3 3l18 18"/></svg>',
   ban: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>',
   kick: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="m9 8 4 4-4 4M3 12h10"/></svg>',
   note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>',
@@ -269,6 +270,7 @@ function access() {
       kick: false,
       ban: false,
       manageMessages: false,
+      manageRoles: false,
     }
   );
 }
@@ -809,6 +811,13 @@ function renderMemberProfile(member) {
     if (member.timeoutUntil)
       actions.push(actionButton('untimeout', 'Снять таймаут', 'clock', 'btn'));
     else actions.push(actionButton('timeout', 'Таймаут', 'clock', 'btn'));
+    if (member.inGuild) {
+      if (member.muted) actions.push(actionButton('unmute', 'Снять мут', 'mute', 'btn'));
+      else actions.push(actionButton('mute', 'Мут', 'mute', 'btn'));
+    }
+  }
+  if ((can.admin || can.manageRoles) && member.inGuild) {
+    actions.push(actionButton('role', 'Роли', 'shield', 'btn'));
   }
   if ((can.admin || can.kick) && member.inGuild) {
     actions.push(actionButton('kick', 'Кикнуть', 'kick', 'btn btn-danger'));
@@ -822,6 +831,7 @@ function renderMemberProfile(member) {
   const timeout = member.timeoutUntil
     ? `<span class="badge badge-warn">до ${esc(fmtDate(member.timeoutUntil))}</span>`
     : '';
+  const muteBadge = member.muted ? '<span class="badge badge-warn">Мут</span>' : '';
   const banBadge = member.banned ? '<span class="badge badge-danger">Забанен</span>' : '';
   const botBadge = member.bot ? '<span class="badge badge-neutral">Бот</span>' : '';
   const inGuildBadge = member.inGuild
@@ -832,7 +842,7 @@ function renderMemberProfile(member) {
     <div class="profile-head">
       <img class="avatar xl" src="${esc(member.avatarUrl)}" alt="" />
       <div class="profile-info">
-        <h2>${esc(member.displayName)} ${botBadge}${banBadge}${timeout}</h2>
+        <h2>${esc(member.displayName)} ${botBadge}${banBadge}${muteBadge}${timeout}</h2>
         <div class="sub">@${esc(member.username)} · <span class="mono">${esc(member.id)}</span>
           <button class="icon-btn" type="button" data-action="copy" data-copy="${esc(member.id)}" title="Скопировать ID">${icon('copy')}</button>
         </div>
@@ -906,14 +916,20 @@ function memberTabContent(member) {
 
   if (!member.warnings.length)
     return emptyState('Варнов нет', 'У участника чистая история предупреждений.', 'check');
-  return member.warnings
-    .map(
-      (warn) => `<div class="list-item">
+  const header = canModerate
+    ? `<div class="toolbar"><span class="hint">Всего варнов: ${esc(member.warnings.length)}</span><div class="spacer"></div><button class="btn btn-sm btn-danger" type="button" data-action="clear-warns">Снять все</button></div>`
+    : '';
+  return (
+    header +
+    member.warnings
+      .map(
+        (warn) => `<div class="list-item">
         <div class="grow"><div class="title">${esc(warn.reason)}</div><div class="meta"><span class="mono">${esc(warn.id)}</span><span>выдал ${esc(warn.moderatorId)}</span><span>${esc(fmtDate(warn.createdAt))}</span></div></div>
         ${canModerate ? `<button class="icon-btn" type="button" data-action="delete-warn" data-id="${esc(warn.id)}" title="Снять предупреждение">${icon('trash')}</button>` : ''}
       </div>`,
-    )
-    .join('');
+      )
+      .join('')
+  );
 }
 
 async function selectMember(userId, options = {}) {
@@ -959,6 +975,31 @@ function openMemberAction(kind, userId) {
       title: 'Снять таймаут',
       body: `<div class="field"><label>Причина</label><textarea class="textarea" name="reason" maxlength="500" required>Снятие таймаута через веб-панель</textarea></div>`,
       label: 'Снять таймаут',
+      classes: 'btn btn-primary',
+    },
+    mute: {
+      title: 'Заглушить участника',
+      body: `<div class="form-grid">
+        <div class="field"><label>Длительность</label><input class="input" name="duration" placeholder="пусто — до снятия вручную" /><span class="hint">Например: 10m, 1h, 2d. Максимум 365 дней.</span></div>
+        <div class="field"><label>Причина</label><input class="input" name="reason" maxlength="500" required placeholder="Причина мута" /></div>
+      </div>`,
+      label: 'Заглушить',
+      classes: 'btn btn-primary',
+    },
+    unmute: {
+      title: 'Снять мут',
+      body: `<div class="field"><label>Причина</label><textarea class="textarea" name="reason" maxlength="500" required>Снятие мута через веб-панель</textarea></div>`,
+      label: 'Снять мут',
+      classes: 'btn btn-primary',
+    },
+    role: {
+      title: 'Управление ролями',
+      body: `<div class="form-grid">
+        <div class="field"><label>Действие</label><select class="select" name="action"><option value="add">Выдать роль</option><option value="remove">Снять роль</option></select></div>
+        <div class="field"><label>Роль</label><select class="select" name="roleId" required>${roleOptions('')}</select></div>
+        <div class="field full"><label>Причина</label><input class="input" name="reason" maxlength="500" required placeholder="Причина изменения ролей" /></div>
+      </div>`,
+      label: 'Применить',
       classes: 'btn btn-primary',
     },
     kick: {
@@ -1691,6 +1732,32 @@ document.addEventListener('click', (event) => {
   if (action === 'member-tab') {
     state.members.tab = target.dataset.tab ?? 'warns';
     renderView();
+    return;
+  }
+
+  if (action === 'clear-warns') {
+    const userId = state.members.selected?.id;
+    if (!userId) return;
+    confirmAction({
+      title: 'Снять все предупреждения?',
+      message:
+        'Все варны участника будут удалены, связанные кейсы закроются. Действие попадёт в логи.',
+      label: 'Снять все',
+      danger: true,
+      onConfirm: async () => {
+        const result = await api(`/api/guilds/${state.guildId}/actions/clearwarns`, {
+          method: 'POST',
+          body: { userId },
+        });
+        if (!result.ok) {
+          toast(result.message ?? 'Не удалось снять предупреждения.', 'error');
+          return;
+        }
+        toast(result.message ?? 'Предупреждения сняты.', 'success');
+        await refreshOverview();
+        await selectMember(userId, { silent: true, keepTab: true });
+      },
+    });
     return;
   }
 

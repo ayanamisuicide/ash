@@ -7,7 +7,7 @@ import {
 import { V2, card, type CardField } from './card.js';
 import { newId } from './ids.js';
 
-export type ConfirmationKind = 'setrole' | 'massban' | 'lockdown' | 'antinuke-action';
+export type ConfirmationKind = 'setrole' | 'roleclear' | 'massban' | 'lockdown' | 'antinuke-action';
 
 export interface PendingConfirmation {
   id: string;

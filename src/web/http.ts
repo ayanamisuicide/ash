@@ -75,7 +75,7 @@ export function securityHeaders(res: ServerResponse): void {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' https://cdn.discordapp.com data:",
       "connect-src 'self'",
-      "font-src 'self'",
+      "font-src 'self' data:",
       "base-uri 'none'",
       "form-action 'self'",
       "frame-ancestors 'none'",

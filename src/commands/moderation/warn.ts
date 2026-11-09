@@ -23,7 +23,10 @@ export default {
     const result = await warnUser(interaction.guild, interaction.user.id, user.id, reason);
 
     await replyActionResult(interaction, result, {
-      title: '⚠️ Предупреждение',
+      action: 'warn',
+      target: user,
+      moderator: interaction.user,
+      reason,
       thumbnail: user.displayAvatarURL(),
     });
   },

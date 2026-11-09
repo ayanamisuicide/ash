@@ -1,4 +1,5 @@
-import type { Guild, GuildMember, User } from 'discord.js';
+import type { ContainerBuilder, Guild, GuildMember, User } from 'discord.js';
+import { V2 } from '../card.js';
 import { parseDuration } from '../format.js';
 import { hasImmunity } from '../modSettings.js';
 
@@ -53,6 +54,33 @@ export async function fetchMember(guild: Guild, userId: string): Promise<GuildMe
   return guild.members.fetch(userId).catch(() => null);
 }
 
-export async function dm(user: User, text: string): Promise<void> {
-  await user.send(text).catch(() => {});
+/**
+ * Безопасно получает URL аватара. В тестах и при работе с частичными
+ * пользователями метод `displayAvatarURL` может отсутствовать.
+ */
+export function userAvatar(user: User): string | null {
+  const fn = (
+    user as unknown as {
+      displayAvatarURL?: (options?: { size?: number }) => string;
+    }
+  ).displayAvatarURL;
+
+  return typeof fn === 'function' ? fn.call(user, { size: 128 }) : null;
+}
+
+/**
+ * Отправляет участнику ЛС: обычный текст или Components V2-карточку.
+ * Ошибки доставки не прерывают модерационное действие.
+ */
+export async function dm(user: User, message: string | ContainerBuilder): Promise<void> {
+  const onError = (error: unknown): void => {
+    console.warn(`[moderation] не удалось отправить ЛС ${user.id}:`, error);
+  };
+
+  if (typeof message === 'string') {
+    await user.send({ content: message }).catch(onError);
+    return;
+  }
+
+  await user.send({ components: [message], flags: V2 }).catch(onError);
 }

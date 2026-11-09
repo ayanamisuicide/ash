@@ -94,7 +94,10 @@ export default {
       const text = interaction.options.getString('text', true);
       const result = await noteAddAction(interaction.guild, interaction.user.id, user.id, text);
       await replyActionResult(interaction, result, {
-        title: '📝 Заметка',
+        action: 'note',
+        target: user,
+        moderator: interaction.user,
+        reason: text,
         thumbnail: user.displayAvatarURL(),
       });
       return;
@@ -104,7 +107,10 @@ export default {
       const id = interaction.options.getString('id', true);
       const result = await noteRemoveAction(interaction.guild, interaction.user.id, user.id, id);
       await replyActionResult(interaction, result, {
-        title: '📝 Удаление заметки',
+        action: 'noteRemove',
+        target: user,
+        moderator: interaction.user,
+        reason: `Удалена заметка \`${id}\``,
         thumbnail: user.displayAvatarURL(),
       });
       return;
@@ -112,7 +118,10 @@ export default {
 
     const result = await noteClearAction(interaction.guild, interaction.user.id, user.id);
     await replyActionResult(interaction, result, {
-      title: '📝 Очистка заметок',
+      action: 'noteRemove',
+      target: user,
+      moderator: interaction.user,
+      reason: 'Очищены все заметки',
       thumbnail: user.displayAvatarURL(),
     });
   },

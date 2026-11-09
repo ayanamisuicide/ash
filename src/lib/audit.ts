@@ -52,6 +52,28 @@ export interface AuditInfo {
   reason: string | null;
 }
 
+interface AuditActor {
+  id: string;
+  tag?: string | null;
+  username?: string | null;
+}
+
+const MODERATOR_REASON = /^Модератор\s+(\d{17,20}):\s*([\s\S]*)$/;
+
+/**
+ * Discord хранит причину так, как её передали в API: `Модератор 123: текст`.
+ * В логах вместо сырого ID показываем тег исполнителя, а если его нет —
+ * кликабельное упоминание.
+ */
+export function formatAuditReason(reason: string | null, actor: AuditActor | null): string | null {
+  if (!reason) return null;
+
+  return reason.replace(MODERATOR_REASON, (_match, id: string, text: string) => {
+    const label = actor && actor.id === id ? actor.tag || actor.username || `<@${id}>` : `<@${id}>`;
+    return `Модератор ${label}: ${text}`;
+  });
+}
+
 /** Возвращает исполнителя и причину действия из аудита */
 export async function auditInfo(
   guild: Guild,
@@ -61,8 +83,9 @@ export async function auditInfo(
 ): Promise<AuditInfo> {
   const entry = await findAuditEntry(guild, type, targetId, retries);
   const executor = entry?.executor;
+  const user = executor && !executor.partial ? executor : null;
   return {
-    executor: executor && !executor.partial ? executor : null,
-    reason: entry?.reason ?? null,
+    executor: user,
+    reason: formatAuditReason(entry?.reason ?? null, user),
   };
 }

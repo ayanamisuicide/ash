@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { motion } from 'framer-motion';
 import { ArrowRight, ChevronRight, ClipboardList } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { RecentCase } from '@/api/types';
@@ -6,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { caseTypeBadgeClasses, caseTypeLabel } from '@/lib/cases';
+import { EASE_OUT_SOFT } from '@/lib/constants';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -98,9 +100,16 @@ export function RecentCasesTable({
                 </tr>
               </thead>
               <tbody>
-                {cases.map((item) => (
-                  <tr
+                {cases.map((item, index) => (
+                  <motion.tr
                     key={item.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: 0.28,
+                      delay: Math.min(index * 0.02, 0.2),
+                      ease: EASE_OUT_SOFT,
+                    }}
                     onClick={onCaseClick ? () => onCaseClick(item) : undefined}
                     onKeyDown={
                       onCaseClick
@@ -114,7 +123,7 @@ export function RecentCasesTable({
                     tabIndex={onCaseClick ? 0 : undefined}
                     aria-label={onCaseClick ? `Открыть кейс #${item.id}` : undefined}
                     className={cn(
-                      'group border-b border-white/[0.04] transition-colors duration-150 last:border-0 hover:bg-white/[0.025]',
+                      'group border-b border-white/[0.04] transition-[background-color,box-shadow] duration-200 last:border-0 hover:bg-accent/[0.045] hover:shadow-[inset_2px_0_0_rgba(102,115,255,0.55)]',
                       onCaseClick &&
                         'cursor-pointer focus-visible:bg-accent/[0.06] focus-visible:outline-none',
                     )}
@@ -182,20 +191,22 @@ export function RecentCasesTable({
                           <span
                             className={cn(
                               'h-1 w-1 rounded-full',
-                              item.active ? 'bg-success' : 'bg-muted-foreground',
+                              item.active
+                                ? 'bg-success shadow-[0_0_6px_rgba(61,214,140,0.75)]'
+                                : 'bg-muted-foreground',
                             )}
                           />
                           {item.active ? 'Активен' : 'Закрыт'}
                         </span>
                         {onCaseClick ? (
                           <ChevronRight
-                            className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-70 group-focus-visible:opacity-70"
+                            className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-[opacity,transform] duration-200 group-hover:translate-x-0.5 group-hover:opacity-70 group-focus-visible:opacity-70"
                             aria-hidden
                           />
                         ) : null}
                       </div>
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))}
               </tbody>
             </table>

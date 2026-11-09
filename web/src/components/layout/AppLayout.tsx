@@ -20,15 +20,29 @@ export function AppLayout() {
         <Topbar />
 
         <main className="relative flex-1">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(ellipse_at_top,rgba(102,115,255,0.06),transparent_65%)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(ellipse_at_top,rgba(102,115,255,0.08),transparent_65%)]" />
+          <motion.div
+            key={`route-beam-${location.pathname}`}
+            initial={{ scaleX: 0, opacity: 0.9 }}
+            animate={{ scaleX: 1, opacity: 0 }}
+            transition={{ duration: 0.7, ease: EASE_OUT_SOFT }}
+            className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[2px] origin-left bg-gradient-to-r from-accent via-info to-premium shadow-[0_0_14px_rgba(102,115,255,0.7)]"
+            aria-hidden
+          />
           <div className="relative mx-auto w-full max-w-[1600px] px-4 pb-10 pt-5 sm:px-6 sm:pt-6 lg:px-8 lg:pb-12 lg:pt-8">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={location.pathname}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.3, ease: EASE_OUT_SOFT }}
+                initial={{ opacity: 0, y: 18, scale: 0.995, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                exit={{
+                  opacity: 0,
+                  y: -8,
+                  scale: 0.998,
+                  filter: 'blur(3px)',
+                  transition: { duration: 0.18, ease: 'easeIn' },
+                }}
+                transition={{ duration: 0.4, ease: EASE_OUT_SOFT }}
               >
                 <Outlet />
               </motion.div>

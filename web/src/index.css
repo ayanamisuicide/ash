@@ -123,7 +123,33 @@
 @layer components {
   /* Основная стеклянная карточка по дизайн-системе */
   .glass-card {
-    @apply rounded-2xl border border-white/[0.08] bg-panel-gradient shadow-[0_24px_70px_-40px_rgba(0,0,0,0.9),inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-[14px];
+    @apply relative isolate rounded-2xl border border-white/[0.08] bg-panel-gradient shadow-[0_24px_70px_-40px_rgba(0,0,0,0.9),inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-[14px];
+    --spot-x: 50%;
+    --spot-y: 0%;
+  }
+
+  /*
+   * Мягкое свечение, следующее за курсором внутри карточки.
+   * Координаты --spot-x/--spot-y обновляет useCardSpotlight.
+   */
+  .glass-card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(
+      420px circle at var(--spot-x) var(--spot-y),
+      rgba(129, 140, 248, 0.16),
+      transparent 64%
+    );
+    opacity: 0;
+    transition: opacity 320ms ease;
+    pointer-events: none;
+  }
+
+  .glass-card:hover::before {
+    opacity: 1;
   }
 
   .glass-modal {
@@ -136,6 +162,8 @@
 
   .text-gradient {
     @apply bg-text-gradient bg-clip-text text-transparent;
+    background-size: 200% auto;
+    animation: text-shimmer 9s ease-in-out infinite;
   }
 
   .eyebrow {
@@ -165,7 +193,16 @@
     -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, black 15%, transparent 75%);
     mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, black 15%, transparent 75%);
   }
+}
 
+@keyframes text-shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

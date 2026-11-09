@@ -11,12 +11,11 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, interactive = false, children, ...props }, ref) => (
     <motion.div
       ref={ref}
-      whileHover={interactive ? { y: -4, scale: 1.02 } : undefined}
-      transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+      whileHover={interactive ? { y: -5, scale: 1.015 } : undefined}
+      transition={{ type: 'spring', stiffness: 340, damping: 26, mass: 0.6 }}
       className={cn(
         'glass-card text-card-foreground transition-[border-color,box-shadow] duration-200',
-        interactive &&
-          'cursor-pointer hover:border-accent/25 hover:shadow-glow-card',
+        interactive && 'cursor-pointer hover:border-accent/25 hover:shadow-glow-card',
         className,
       )}
       {...props}
@@ -49,7 +48,11 @@ const CardDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <p ref={ref} className={cn('text-sm leading-relaxed text-muted-foreground', className)} {...props} />
+  <p
+    ref={ref}
+    className={cn('text-sm leading-relaxed text-muted-foreground', className)}
+    {...props}
+  />
 ));
 CardDescription.displayName = 'CardDescription';
 

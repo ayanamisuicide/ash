@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { getHealth } from '@/api/endpoints';
+import { getCurrentPanelBuild, normalizePanelBuild, writeUpdateNotice } from '@/lib/autoUpdate';
 import { APP_VERSION } from '@/lib/constants';
 import { toast } from '@/store/ui';
 
@@ -12,27 +13,6 @@ const INITIAL_CHECK_DELAY_MS = 8_000;
 /** Даём тосту показаться перед перезагрузкой */
 const RELOAD_DELAY_MS = 2_500;
 const GUARD_KEY = 'nexus.auto-update.target';
-
-function currentBuild(): string {
-  const script = document.querySelector<HTMLScriptElement>('script[type="module"][src]');
-  if (!script) return '';
-
-  try {
-    return new URL(script.src, window.location.href).pathname;
-  } catch {
-    return '';
-  }
-}
-
-function normalizeBuild(build?: string): string {
-  if (!build) return '';
-
-  try {
-    return new URL(build, window.location.href).pathname;
-  } catch {
-    return '';
-  }
-}
 
 function readGuard(): string {
   try {
@@ -90,8 +70,8 @@ export function useAutoUpdate(): void {
         const health = await getHealth(currentController.signal);
         if (disposed || reloadingRef.current) return;
 
-        const healthBuild = normalizeBuild(health.build);
-        const buildChanged = Boolean(healthBuild && healthBuild !== currentBuild());
+        const healthBuild = normalizePanelBuild(health.build);
+        const buildChanged = Boolean(healthBuild && healthBuild !== getCurrentPanelBuild());
         const versionChanged = Boolean(health.version && health.version !== APP_VERSION);
 
         if (!buildChanged && !versionChanged) {
@@ -112,6 +92,11 @@ export function useAutoUpdate(): void {
           'Обновление NEXUS',
           `Вышла новая версия${versionLabel}. Страница перезагрузится автоматически.`,
         );
+        writeUpdateNotice({
+          version: health.version || APP_VERSION,
+          build: health.build || healthBuild,
+          at: Date.now(),
+        });
         window.setTimeout(() => window.location.reload(), RELOAD_DELAY_MS);
       } catch {
         // Сеть может быть недоступна — просто попробуем при следующей проверке.

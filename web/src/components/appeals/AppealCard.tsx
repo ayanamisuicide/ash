@@ -44,7 +44,7 @@ export function AppealCard({
     appeal.caseType === 'softban';
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden p-4">
+    <Card className="flex h-full flex-col overflow-hidden p-4 transition-[transform,border-color,box-shadow] duration-300 hover:-translate-y-0.5 hover:border-accent/20 hover:shadow-glow-card">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] text-muted-foreground">Апелляция #{appeal.id}</p>
@@ -62,7 +62,12 @@ export function AppealCard({
             status.className,
           )}
         >
-          <span className="h-1 w-1 rounded-full bg-current" />
+          <span
+            className={cn(
+              'h-1 w-1 rounded-full bg-current',
+              appeal.status === 'pending' && 'animate-pulse-soft shadow-[0_0_6px_currentColor]',
+            )}
+          />
           {status.label}
         </span>
       </div>

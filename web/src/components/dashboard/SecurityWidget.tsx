@@ -46,7 +46,7 @@ function SecurityBlock({
   return (
     <div
       className={cn(
-        'rounded-xl border p-3.5 transition-colors duration-200',
+        'rounded-xl border p-3.5 transition-[transform,border-color,background-color] duration-200 hover:-translate-y-0.5',
         enabled
           ? 'border-success/15 bg-success/[0.035] hover:border-success/25'
           : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]',

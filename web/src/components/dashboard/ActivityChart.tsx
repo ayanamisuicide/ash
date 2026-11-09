@@ -11,13 +11,7 @@ import {
 } from 'recharts';
 import { Activity } from 'lucide-react';
 import type { CaseType } from '@/api/types';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { CASE_CHART_TEXT, CASE_TONE_COLORS, caseTypeColor, caseTypeLabel } from '@/lib/cases';
 import { formatNumber } from '@/lib/format';
 
@@ -129,7 +123,7 @@ export function ActivityChart({ data }: ActivityChartProps) {
           <CardDescription className="mt-1">Распределение по типам</CardDescription>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.035] px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_6px_rgba(102,115,255,0.8)]" />
+          <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-accent shadow-[0_0_8px_rgba(102,115,255,0.9)]" />
           {formatNumber(total)} активных
         </span>
       </CardHeader>
@@ -142,8 +136,8 @@ export function ActivityChart({ data }: ActivityChartProps) {
             </div>
             <p className="text-sm font-semibold">Активных наказаний нет</p>
             <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground">
-              Когда модерация начнёт выдавать баны, муты или таймауты, здесь появится
-              распределение по типам.
+              Когда модерация начнёт выдавать баны, муты или таймауты, здесь появится распределение
+              по типам.
             </p>
           </div>
         ) : (
@@ -174,17 +168,37 @@ export function ActivityChart({ data }: ActivityChartProps) {
                   content={<ChartTooltip />}
                   wrapperStyle={{ outline: 'none' }}
                 />
+                <defs>
+                  {chartData.map((item) => (
+                    <linearGradient
+                      key={item.key}
+                      id={`bar-gradient-${item.key}`}
+                      x1="0"
+                      y1="0"
+                      x2="1"
+                      y2="0"
+                    >
+                      <stop offset="0%" stopColor={item.color} stopOpacity={0.75} />
+                      <stop offset="100%" stopColor={item.color} stopOpacity={1} />
+                    </linearGradient>
+                  ))}
+                </defs>
                 <Bar
                   dataKey="count"
                   name="Активных"
                   radius={[0, 8, 8, 0]}
                   barSize={18}
                   background={{ fill: 'rgba(255,255,255,0.025)' }}
-                  animationDuration={900}
+                  animationBegin={120}
+                  animationDuration={1100}
                   animationEasing="ease-out"
                 >
                   {chartData.map((item) => (
-                    <Cell key={item.key} fill={item.color} fillOpacity={0.9} />
+                    <Cell
+                      key={item.key}
+                      fill={`url(#bar-gradient-${item.key})`}
+                      style={{ filter: `drop-shadow(0 0 5px ${item.color}55)` }}
+                    />
                   ))}
                 </Bar>
               </BarChart>

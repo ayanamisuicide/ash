@@ -143,12 +143,20 @@ const config = {
           to: { opacity: '0' },
         },
         'modal-in': {
-          from: { opacity: '0', transform: 'translateY(-20px) scale(0.95)' },
-          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+          from: {
+            opacity: '0',
+            transform: 'translateY(-16px) scale(0.95)',
+            filter: 'blur(8px)',
+          },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)', filter: 'blur(0)' },
         },
         'modal-out': {
-          from: { opacity: '1', transform: 'translateY(0) scale(1)' },
-          to: { opacity: '0', transform: 'translateY(-10px) scale(0.96)' },
+          from: { opacity: '1', transform: 'translateY(0) scale(1)', filter: 'blur(0)' },
+          to: {
+            opacity: '0',
+            transform: 'translateY(-10px) scale(0.97)',
+            filter: 'blur(4px)',
+          },
         },
         'drawer-in': {
           from: { transform: 'translateX(-100%)' },
@@ -162,16 +170,31 @@ const config = {
           from: { opacity: '0', transform: 'translateY(6px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-5px)' },
+        },
+        'pulse-soft': {
+          '0%, 100%': { opacity: '0.55' },
+          '50%': { opacity: '1' },
+        },
+        'grid-drift': {
+          '0%': { backgroundPosition: '0 0' },
+          '100%': { backgroundPosition: '56px 56px' },
+        },
       },
       animation: {
         shimmer: 'shimmer 1.2s linear infinite',
         'overlay-in': 'overlay-in 0.2s ease-out',
         'overlay-out': 'overlay-out 0.2s ease-in',
-        'modal-in': 'modal-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        'modal-out': 'modal-out 0.2s cubic-bezier(0.4, 0, 1, 1)',
+        'modal-in': 'modal-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'modal-out': 'modal-out 0.18s cubic-bezier(0.4, 0, 1, 1)',
         'drawer-in': 'drawer-in 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
         'drawer-out': 'drawer-out 0.22s cubic-bezier(0.4, 0, 1, 1)',
         'tab-in': 'tab-in 0.26s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        float: 'float 6s ease-in-out infinite',
+        'pulse-soft': 'pulse-soft 3.4s ease-in-out infinite',
+        'grid-drift': 'grid-drift 50s linear infinite',
         'spin-slow': 'spin 16s linear infinite',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',

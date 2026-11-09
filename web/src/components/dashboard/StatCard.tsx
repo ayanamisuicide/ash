@@ -21,10 +21,7 @@ export interface StatCardProps {
   tone?: StatTone;
 }
 
-const toneStyles: Record<
-  StatTone,
-  { icon: string; halo: string; hover: string; line: string }
-> = {
+const toneStyles: Record<StatTone, { icon: string; halo: string; hover: string; line: string }> = {
   default: {
     icon: 'border-accent/20 bg-accent/10 text-accent',
     halo: 'bg-accent/10',
@@ -88,8 +85,8 @@ export function StatCard({ icon: Icon, label, value, note, tone = 'default' }: S
   return (
     <motion.div
       ref={ref}
-      whileHover={{ y: -4, scale: 1.02 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
+      whileHover={{ y: -5, scale: 1.025 }}
+      transition={{ type: 'spring', stiffness: 360, damping: 24, mass: 0.55 }}
       className={cn(
         'glass-card group relative overflow-hidden p-4 transition-[border-color,box-shadow] duration-200',
         styles.hover,
@@ -100,6 +97,11 @@ export function StatCard({ icon: Icon, label, value, note, tone = 'default' }: S
           'pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full opacity-60 blur-2xl transition-opacity duration-300 group-hover:opacity-100',
           styles.halo,
         )}
+        aria-hidden
+      />
+
+      <span
+        className="pointer-events-none absolute inset-0 -translate-x-full bg-[linear-gradient(105deg,transparent_38%,rgba(255,255,255,0.07)_50%,transparent_62%)] transition-transform duration-700 ease-out group-hover:translate-x-full"
         aria-hidden
       />
 
@@ -118,7 +120,7 @@ export function StatCard({ icon: Icon, label, value, note, tone = 'default' }: S
 
         <div
           className={cn(
-            'grid h-9 w-9 shrink-0 place-items-center rounded-xl border transition-transform duration-200 group-hover:scale-105',
+            'grid h-9 w-9 shrink-0 place-items-center rounded-xl border transition-[transform,box-shadow] duration-300 group-hover:-rotate-6 group-hover:scale-110',
             styles.icon,
           )}
         >

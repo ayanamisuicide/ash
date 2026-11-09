@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom';
+import { motion, useScroll, useSpring } from 'framer-motion';
 import { Activity, ChevronDown, LogOut, Menu, User } from 'lucide-react';
 import { GuildAvatar } from '@/components/layout/GuildAvatar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
@@ -33,6 +34,12 @@ export function Topbar() {
   const activeGuild = useAuthStore(selectActiveGuild);
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
   const logout = useLogout();
+  const { scrollYProgress } = useScroll();
+  const scrollProgress = useSpring(scrollYProgress, {
+    stiffness: 140,
+    damping: 28,
+    mass: 0.3,
+  });
 
   const pageMeta = getPageMeta(location.pathname);
   const isDemo = isDemoGuildId(activeGuild?.id);
@@ -42,7 +49,7 @@ export function Topbar() {
   const displayName = user?.displayName ?? 'Пользователь';
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#0a0c11]/70 backdrop-blur-[14px]">
+    <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#0a0c11]/65 backdrop-blur-[16px]">
       <div className="mx-auto flex h-[72px] w-full max-w-[1600px] items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-8">
         <Button
           type="button"
@@ -152,9 +159,7 @@ export function Topbar() {
                 <p className="truncate text-[11px] text-muted-foreground">@{user.username}</p>
               ) : null}
               {activeGuild ? (
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {activeGuild.name}
-                </p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">{activeGuild.name}</p>
               ) : null}
             </div>
             <DropdownMenuSeparator />
@@ -169,6 +174,12 @@ export function Topbar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <motion.span
+        style={{ scaleX: scrollProgress }}
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px origin-left bg-gradient-to-r from-accent via-info to-premium shadow-[0_0_10px_rgba(102,115,255,0.7)]"
+        aria-hidden
+      />
     </header>
   );
 }

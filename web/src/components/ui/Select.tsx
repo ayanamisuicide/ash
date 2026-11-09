@@ -12,7 +12,7 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
  */
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, children, ...props }, ref) => (
-    <div className="relative">
+    <div className="group relative">
       <select
         ref={ref}
         className={cn(fieldClasses, 'h-10 cursor-pointer appearance-none px-3 pr-9', className)}
@@ -21,7 +21,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         {children}
       </select>
       <ChevronDown
-        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-[transform,color] duration-200 group-focus-within:-rotate-180 group-focus-within:text-accent-soft"
         aria-hidden
       />
     </div>

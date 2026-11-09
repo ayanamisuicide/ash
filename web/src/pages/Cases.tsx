@@ -194,7 +194,9 @@ export function CasesPage() {
             <span className="h-px w-5 bg-accent/70" />
             NEXUS / КЕЙСЫ
           </p>
-          <h1 className="mt-2 text-2xl font-bold tracking-[-0.03em] sm:text-3xl">Кейсы</h1>
+          <h1 className="mt-2 text-gradient text-2xl font-bold tracking-[-0.03em] sm:text-3xl">
+            Кейсы
+          </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             Полная история наказаний: поиск, фильтры и управление причинами.
           </p>

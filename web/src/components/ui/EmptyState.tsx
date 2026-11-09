@@ -46,10 +46,7 @@ const sizeClasses: Record<
   },
 };
 
-const toneClasses: Record<
-  EmptyStateTone,
-  { icon: string; halo: string; ring: string }
-> = {
+const toneClasses: Record<EmptyStateTone, { icon: string; halo: string; ring: string }> = {
   danger: {
     icon: 'border-danger/20 bg-danger/10 text-danger',
     halo: 'bg-danger/15',
@@ -101,7 +98,7 @@ export function EmptyState({
 
       <div
         className={cn(
-          'relative grid place-items-center border',
+          'relative grid place-items-center border motion-safe:animate-float',
           layout.icon,
           styles.icon,
           styles.ring,

@@ -207,7 +207,9 @@ export function AppealsPage() {
             <span className="h-px w-5 bg-accent/70" />
             NEXUS / АПЕЛЛЯЦИИ
           </p>
-          <h1 className="mt-2 text-2xl font-bold tracking-[-0.03em] sm:text-3xl">Апелляции</h1>
+          <h1 className="mt-2 text-gradient text-2xl font-bold tracking-[-0.03em] sm:text-3xl">
+            Апелляции
+          </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             Очередь обращений и решения по разбанам.
           </p>

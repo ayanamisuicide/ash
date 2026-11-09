@@ -3,8 +3,8 @@ import { cn } from '@/lib/utils';
 
 const fieldClasses =
   'w-full rounded-xl border border-white/[0.08] bg-white/[0.04] text-sm text-foreground ' +
-  'shadow-inner-top transition-colors duration-150 placeholder:text-muted-foreground/70 ' +
-  'hover:border-white/[0.13] focus:border-accent/45 focus:bg-white/[0.06] focus:outline-none ' +
+  'shadow-inner-top transition-[border-color,background-color,box-shadow] duration-200 placeholder:text-muted-foreground/70 ' +
+  'hover:border-white/[0.13] focus:border-accent/45 focus:bg-white/[0.06] focus:shadow-[0_0_0_4px_rgba(102,115,255,0.06)] focus:outline-none ' +
   'focus:ring-2 focus:ring-accent/15 disabled:cursor-not-allowed disabled:opacity-55';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}

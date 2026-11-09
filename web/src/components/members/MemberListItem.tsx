@@ -35,13 +35,13 @@ export function MemberListItem({ member, selected, onSelect }: MemberListItemPro
       onClick={() => onSelect(member)}
       aria-current={selected ? 'true' : undefined}
       className={cn(
-        'group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+        'group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-[background-color,border-color,box-shadow,transform] duration-200 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
         selected
-          ? 'border-accent/30 bg-accent/[0.12]'
+          ? 'border-accent/30 bg-accent/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
           : 'border-transparent hover:border-white/[0.08] hover:bg-white/[0.04]',
       )}
     >
-      <Avatar className="h-10 w-10 rounded-xl">
+      <Avatar className="h-10 w-10 rounded-xl transition-transform duration-200 group-hover:scale-105">
         {member.avatarUrl ? <AvatarImage src={member.avatarUrl} alt="" /> : null}
         <AvatarFallback>{getInitials(member.displayName)}</AvatarFallback>
       </Avatar>
@@ -80,10 +80,10 @@ export function MemberListItem({ member, selected, onSelect }: MemberListItemPro
 
       <ChevronRight
         className={cn(
-          'h-3.5 w-3.5 shrink-0 transition-opacity',
+          'h-3.5 w-3.5 shrink-0 transition-[opacity,transform] duration-200',
           selected
-            ? 'text-accent opacity-100'
-            : 'text-muted-foreground opacity-0 group-hover:opacity-70',
+            ? 'translate-x-0.5 text-accent opacity-100'
+            : 'text-muted-foreground opacity-0 group-hover:translate-x-0.5 group-hover:opacity-70',
         )}
         aria-hidden
       />

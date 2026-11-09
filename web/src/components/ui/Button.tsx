@@ -43,8 +43,7 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends Omit<HTMLMotionProps<'button'>, 'children'>,
-    VariantProps<typeof buttonVariants> {
+  extends Omit<HTMLMotionProps<'button'>, 'children'>, VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   children?: React.ReactNode;
 }
@@ -59,7 +58,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           ref={ref as React.ForwardedRef<HTMLElement>}
           // Для ссылок, стилизованных под кнопку, hover-масштаб задаём CSS:
           // Slot не умеет прокидывать whileHover в дочерний <a>.
-          className={cn(classes, 'transition-transform hover:scale-[1.02] active:scale-[0.98]')}
+          className={cn(
+            classes,
+            'transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]',
+          )}
           {...(props as unknown as React.HTMLAttributes<HTMLElement>)}
         >
           {children}
@@ -73,9 +75,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         className={classes}
         disabled={disabled}
         // Пружинная физика вместо линейного CSS-перехода — кнопка «отвечает» на палец.
-        whileHover={disabled ? undefined : { scale: 1.03, filter: 'brightness(1.05)' }}
+        whileHover={disabled ? undefined : { scale: 1.03, filter: 'brightness(1.06)' }}
         whileTap={disabled ? undefined : { scale: 0.97 }}
-        transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
+        transition={{ type: 'spring', stiffness: 460, damping: 26, mass: 0.55 }}
         {...props}
       >
         {children}

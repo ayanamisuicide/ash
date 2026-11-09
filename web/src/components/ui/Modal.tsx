@@ -40,13 +40,13 @@ export function Modal({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-[#07090e]/70 backdrop-blur-sm data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-[#07090e]/70 backdrop-blur-md data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out" />
 
         <Dialog.Content
           className={cn(
             // inset-0 + m-auto центрирует карточку без transform-утилит,
             // чтобы CSS-keyframes могли свободно анимировать scale/y.
-            'glass-modal fixed inset-0 z-50 m-auto h-fit max-h-[90vh] w-[calc(100%-2rem)] overflow-y-auto p-5 focus:outline-none data-[state=open]:animate-modal-in data-[state=closed]:animate-modal-out sm:p-6',
+            'glass-modal fixed inset-0 z-50 m-auto h-fit max-h-[90vh] w-[calc(100%-2rem)] overflow-y-auto p-5 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.95),0_0_80px_-24px_rgba(102,115,255,0.28)] focus:outline-none data-[state=open]:animate-modal-in data-[state=closed]:animate-modal-out sm:p-6',
             sizeClasses[size],
             className,
           )}

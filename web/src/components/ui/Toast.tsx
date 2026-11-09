@@ -54,24 +54,39 @@ function ToastCardInner({ toast }: ToastCardProps, ref: ForwardedRef<HTMLDivElem
     <motion.div
       ref={ref}
       layout
-      initial={{ opacity: 0, x: 100, scale: 0.96 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 100, scale: 0.96 }}
-      transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+      initial={{ opacity: 0, x: 90, scale: 0.92, filter: 'blur(4px)' }}
+      animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+      exit={{ opacity: 0, x: 90, scale: 0.94, filter: 'blur(3px)' }}
+      transition={{ type: 'spring', stiffness: 380, damping: 30, mass: 0.7 }}
       className={cn(
         'glass-modal pointer-events-auto relative overflow-hidden rounded-xl border p-3.5 pr-10 shadow-modal',
         config.borderClass,
       )}
       role={toast.variant === 'error' ? 'alert' : 'status'}
     >
-      <div className="flex gap-3">
-        <div className={cn('mt-0.5 shrink-0', config.iconClass)}>
+      <span
+        className={cn(
+          'pointer-events-none absolute -left-10 -top-10 h-24 w-24 rounded-full opacity-30 blur-2xl',
+          config.barClass,
+        )}
+        aria-hidden
+      />
+
+      <div className="relative flex gap-3">
+        <motion.div
+          initial={{ scale: 0.5, rotate: -14 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 22, delay: 0.04 }}
+          className={cn('mt-0.5 shrink-0', config.iconClass)}
+        >
           <Icon className="h-[18px] w-[18px]" />
-        </div>
+        </motion.div>
         <div className="min-w-0">
           <p className="text-[13px] font-semibold leading-snug">{toast.title}</p>
           {toast.description ? (
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{toast.description}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {toast.description}
+            </p>
           ) : null}
         </div>
       </div>

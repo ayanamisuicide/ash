@@ -2,12 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import * as Dialog from '@radix-ui/react-dialog';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Check,
-  ChevronsUpDown,
-  LogOut,
-  X,
-} from 'lucide-react';
+import { Check, ChevronsUpDown, LogOut, X } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { GuildAvatar } from '@/components/layout/GuildAvatar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
@@ -57,9 +52,13 @@ function GuildSwitcher({ onNavigate }: { onNavigate?: () => void }) {
       <DropdownMenuTrigger asChild disabled={guilds.length === 0}>
         <button
           type="button"
-          className="focus-ring group flex w-full items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.035] p-2.5 text-left transition-colors duration-150 hover:border-accent/25 hover:bg-white/[0.055] disabled:cursor-default disabled:opacity-60"
+          className="focus-ring group flex w-full items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.035] p-2.5 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-0.5 hover:border-accent/25 hover:bg-white/[0.055] disabled:cursor-default disabled:opacity-60"
         >
-          {activeGuild ? <GuildAvatar guild={activeGuild} size="lg" /> : <div className="h-10 w-10 rounded-xl bg-white/[0.05]" />}
+          {activeGuild ? (
+            <GuildAvatar guild={activeGuild} size="lg" />
+          ) : (
+            <div className="h-10 w-10 rounded-xl bg-white/[0.05]" />
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-semibold leading-tight">
               {activeGuild?.name ?? 'Нет серверов'}
@@ -128,7 +127,7 @@ function Navigation({ instance, onNavigate }: SidebarContentProps) {
                 {isActive ? (
                   <motion.span
                     layoutId={`sidebar-pill-${instance}`}
-                    className="absolute inset-0 rounded-xl bg-gradient-to-r from-accent/[0.18] via-accent/[0.12] to-accent/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                    className="absolute inset-0 rounded-xl bg-gradient-to-r from-accent/[0.20] via-accent/[0.13] to-accent/[0.07]"
                     transition={pillTransition}
                   />
                 ) : null}
@@ -141,14 +140,19 @@ function Navigation({ instance, onNavigate }: SidebarContentProps) {
                 ) : null}
                 <item.icon
                   className={cn(
-                    'relative z-10 h-[18px] w-[18px] shrink-0 transition-colors duration-150',
+                    'relative z-10 h-[18px] w-[18px] shrink-0 transition-[transform,color,filter] duration-200 group-hover:translate-x-0.5 group-hover:scale-105',
                     isActive
-                      ? 'text-accent-soft drop-shadow-[0_0_6px_rgba(102,115,255,0.35)]'
+                      ? 'scale-110 text-accent-soft drop-shadow-[0_0_8px_rgba(102,115,255,0.45)]'
                       : 'text-muted-foreground group-hover:text-foreground',
                   )}
                   strokeWidth={isActive ? 2.2 : 1.8}
                 />
-                <span className={cn('relative z-10', isActive && 'text-accent-soft')}>
+                <span
+                  className={cn(
+                    'relative z-10 transition-transform duration-200 group-hover:translate-x-0.5',
+                    isActive && 'text-accent-soft',
+                  )}
+                >
                   {item.label}
                 </span>
               </>
@@ -182,14 +186,19 @@ function SystemStatus() {
           : 'bg-muted-foreground';
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5 transition-colors duration-200 hover:border-white/[0.1] hover:bg-white/[0.035]">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Система
         </span>
         <span className={cn('flex items-center gap-1.5 text-[10px] font-semibold', toneText)}>
           <span className="relative flex h-1.5 w-1.5">
-            <span className={cn('absolute inline-flex h-full w-full animate-ping rounded-full opacity-60', toneDot)} />
+            <span
+              className={cn(
+                'absolute inline-flex h-full w-full animate-ping rounded-full opacity-60',
+                toneDot,
+              )}
+            />
             <span className={cn('relative inline-flex h-1.5 w-1.5 rounded-full', toneDot)} />
           </span>
           {tone ? 'онлайн' : 'нет данных'}
@@ -218,7 +227,10 @@ function UserCard() {
           type="button"
           className="focus-ring group flex w-full items-center gap-2.5 rounded-xl border border-transparent p-1.5 text-left transition-colors duration-150 hover:border-white/[0.07] hover:bg-white/[0.04]"
         >
-          <Avatar className="h-9 w-9 rounded-xl" aria-hidden="true">
+          <Avatar
+            className="h-9 w-9 rounded-xl transition-transform duration-200 group-hover:scale-105"
+            aria-hidden="true"
+          >
             {user?.avatarUrl ? <AvatarImage src={user.avatarUrl} alt="" /> : null}
             <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
           </Avatar>
@@ -234,7 +246,9 @@ function UserCard() {
         <DropdownMenuLabel>Аккаунт</DropdownMenuLabel>
         <div className="px-2.5 pb-2">
           <p className="truncate text-[13px] font-semibold">{displayName}</p>
-          {user ? <p className="truncate text-[11px] text-muted-foreground">@{user.username}</p> : null}
+          {user ? (
+            <p className="truncate text-[11px] text-muted-foreground">@{user.username}</p>
+          ) : null}
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem

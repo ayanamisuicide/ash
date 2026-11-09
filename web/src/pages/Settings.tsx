@@ -144,7 +144,9 @@ export function SettingsPage() {
             <span className="h-px w-5 bg-accent/70" />
             NEXUS / НАСТРОЙКИ
           </p>
-          <h1 className="mt-2 text-2xl font-bold tracking-[-0.03em] sm:text-3xl">Настройки</h1>
+          <h1 className="mt-2 text-gradient text-2xl font-bold tracking-[-0.03em] sm:text-3xl">
+            Настройки
+          </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             Модерация, логи, безопасность и сообщество.
           </p>

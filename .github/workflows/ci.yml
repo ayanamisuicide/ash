@@ -28,7 +28,7 @@ jobs:
 
       # jsdom 31 (тесты панели) требует Node ^22.22 или ^24.15, поэтому CI идёт
       # на актуальном LTS 24.x. Минимальный рантайм бота — 22.13 (node:sqlite).
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24.x'
           cache: npm

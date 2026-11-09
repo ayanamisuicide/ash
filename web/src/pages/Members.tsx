@@ -27,8 +27,9 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useGuildMeta } from '@/hooks/useGuildAccess';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { EASE_OUT_SOFT } from '@/lib/constants';
+import { createDemoMemberSearch, getDemoMemberProfile, isDemoGuildId } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
-import { useAuthStore } from '@/store/auth';
+import { selectActiveGuild, useAuthStore } from '@/store/auth';
 
 const MEMBER_PAGE_SIZE = 50;
 
@@ -91,7 +92,9 @@ export function MembersPage() {
   usePageTitle('Участники');
 
   const activeGuildId = useAuthStore((state) => state.activeGuildId);
+  const activeGuild = useAuthStore(selectActiveGuild);
   const storedAccess = useAuthStore((state) => state.access);
+  const isDemo = isDemoGuildId(activeGuildId);
   const {
     data: meta,
     isLoading: metaLoading,
@@ -145,8 +148,14 @@ export function MembersPage() {
 
   const searchQuery = useQuery({
     queryKey: ['guild', activeGuildId, 'members', 'list', searchTerm, page],
-    queryFn: ({ signal }) =>
-      searchGuildMembers(activeGuildId ?? '', searchTerm, page, MEMBER_PAGE_SIZE, signal),
+    queryFn: ({ signal }) => {
+      if (isDemo && activeGuild) {
+        return Promise.resolve(
+          createDemoMemberSearch(activeGuild.id, searchTerm, page, MEMBER_PAGE_SIZE),
+        );
+      }
+      return searchGuildMembers(activeGuildId ?? '', searchTerm, page, MEMBER_PAGE_SIZE, signal);
+    },
     enabled: Boolean(activeGuildId) && canModerate,
     placeholderData: (previousData, previousQuery) =>
       previousQuery?.queryKey[1] === activeGuildId ? previousData : undefined,
@@ -155,8 +164,13 @@ export function MembersPage() {
   });
 
   const profileQuery = useQuery({
-    queryKey: ['guild', activeGuildId, 'members', selectedId],
-    queryFn: ({ signal }) => getMemberProfile(activeGuildId ?? '', selectedId ?? '', signal),
+    queryKey: ['guild', activeGuildId, 'members', selectedId, isDemo ? 'demo' : 'live'],
+    queryFn: ({ signal }) => {
+      if (isDemo && selectedId) {
+        return Promise.resolve({ ok: true as const, member: getDemoMemberProfile(selectedId) });
+      }
+      return getMemberProfile(activeGuildId ?? '', selectedId ?? '', signal);
+    },
     enabled: Boolean(activeGuildId && selectedId),
     meta: { silent: true },
   });
@@ -419,10 +433,10 @@ export function MembersPage() {
                 <MemberProfile
                   guildId={activeGuildId}
                   profile={profile}
-                  canModerate={canModerate}
-                  canKick={canKick}
-                  canBan={canBan}
-                  canManageRoles={canManageRoles}
+                  canModerate={canModerate && !isDemo}
+                  canKick={canKick && !isDemo}
+                  canBan={canBan && !isDemo}
+                  canManageRoles={canManageRoles && !isDemo}
                   onAction={openAction}
                 />
               </>

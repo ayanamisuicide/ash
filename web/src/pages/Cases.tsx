@@ -18,9 +18,10 @@ import { useGuildAccess, useGuildMeta } from '@/hooks/useGuildAccess';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { CASE_TYPE_LABELS } from '@/lib/cases';
 import { EASE_OUT_SOFT } from '@/lib/constants';
+import { createDemoCaseList, isDemoGuildId } from '@/lib/demo-data';
 import { formatNumber, pluralizeRu } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { useAuthStore } from '@/store/auth';
+import { selectActiveGuild, useAuthStore } from '@/store/auth';
 
 const PAGE_SIZE = 25;
 
@@ -69,9 +70,11 @@ export function CasesPage() {
   usePageTitle('Кейсы');
 
   const activeGuildId = useAuthStore((state) => state.activeGuildId);
+  const activeGuild = useAuthStore(selectActiveGuild);
+  const isDemo = isDemoGuildId(activeGuildId);
   const access = useGuildAccess();
   const metaQuery = useGuildMeta();
-  const canEdit = Boolean(access?.admin || access?.moderate);
+  const canEdit = !isDemo && Boolean(access?.admin || access?.moderate);
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -99,18 +102,19 @@ export function CasesPage() {
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['guild', activeGuildId, 'cases', page, debouncedSearch, type, status],
-    queryFn: ({ signal }) =>
-      getCases(
-        activeGuildId ?? '',
-        {
-          page,
-          pageSize: PAGE_SIZE,
-          type: type || undefined,
-          active: status === '' ? undefined : status === 'active',
-          q: debouncedSearch || undefined,
-        },
-        signal,
-      ),
+    queryFn: ({ signal }) => {
+      const params = {
+        page,
+        pageSize: PAGE_SIZE,
+        type: type || undefined,
+        active: status === '' ? undefined : status === 'active',
+        q: debouncedSearch || undefined,
+      };
+      if (isDemo && activeGuild) {
+        return Promise.resolve(createDemoCaseList(activeGuild.id, params));
+      }
+      return getCases(activeGuildId ?? '', params, signal);
+    },
     enabled: Boolean(activeGuildId),
     // Держим предыдущую страницу при пагинации, но не показываем данные
     // другого сервера, пока грузится новый.
@@ -128,7 +132,7 @@ export function CasesPage() {
   const { data: profileData, isFetching: profileFetching } = useQuery({
     queryKey: ['guild', activeGuildId, 'members', caseUserId],
     queryFn: ({ signal }) => getMemberProfile(activeGuildId ?? '', caseUserId ?? '', signal),
-    enabled: Boolean(activeGuildId && caseUserId),
+    enabled: Boolean(activeGuildId && caseUserId && !isDemo),
     meta: { silent: true },
   });
 
@@ -377,7 +381,7 @@ export function CasesPage() {
         guildId={activeGuildId}
         item={selectedCase}
         canEdit={canEdit}
-        access={access}
+        access={isDemo ? null : access}
         profile={profileData?.member ?? null}
         profileLoading={profileFetching}
         onAction={handleCaseAction}

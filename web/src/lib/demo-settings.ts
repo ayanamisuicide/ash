@@ -87,6 +87,8 @@ const roles: GuildMetaRole[] = [
   },
 ];
 
+export const DEMO_ROLES = roles;
+
 const event = (categoryKey: LogCategoryKey, label: string) => ({ category: categoryKey, label });
 
 const logEvents = {
@@ -247,10 +249,10 @@ export function createDemoMeta(guild: GuildSummary): GuildMetaResponse {
       ownerId: 'demo-owner',
     },
     access: {
-      admin: true,
+      admin: guild.level === 'admin',
       moderate: true,
       kick: true,
-      ban: true,
+      ban: guild.level === 'admin',
       manageMessages: true,
       manageRoles: true,
     },

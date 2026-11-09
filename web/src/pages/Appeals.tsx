@@ -26,9 +26,10 @@ import { useGuildAccess } from '@/hooks/useGuildAccess';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { caseTypeLabel } from '@/lib/cases';
 import { EASE_OUT_SOFT } from '@/lib/constants';
+import { createDemoAppeals, isDemoGuildId } from '@/lib/demo-data';
 import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { useAuthStore } from '@/store/auth';
+import { selectActiveGuild, useAuthStore } from '@/store/auth';
 import { toast } from '@/store/ui';
 
 type AppealTab = 'pending' | 'all';
@@ -121,6 +122,8 @@ export function AppealsPage() {
 
   const queryClient = useQueryClient();
   const activeGuildId = useAuthStore((state) => state.activeGuildId);
+  const activeGuild = useAuthStore(selectActiveGuild);
+  const isDemo = isDemoGuildId(activeGuildId);
   const access = useGuildAccess();
   const canReviewAny = Boolean(access?.admin || access?.ban || access?.moderate);
 
@@ -145,8 +148,13 @@ export function AppealsPage() {
   }, [activeGuildId]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['guild', activeGuildId, 'appeals', tab],
-    queryFn: ({ signal }) => getAppeals(activeGuildId ?? '', tab, signal),
+    queryKey: ['guild', activeGuildId, 'appeals', tab, isDemo ? 'demo' : 'live'],
+    queryFn: ({ signal }) => {
+      if (isDemo && activeGuild) {
+        return Promise.resolve(createDemoAppeals(activeGuild.id, tab));
+      }
+      return getAppeals(activeGuildId ?? '', tab, signal);
+    },
     enabled: Boolean(activeGuildId),
     meta: { silent: true },
   });
@@ -316,8 +324,9 @@ export function AppealsPage() {
               <motion.div key={appeal.id} variants={itemVariants} className="h-full">
                 <AppealCard
                   appeal={appeal}
-                  canReview={canReviewAppeal(appeal)}
+                  canReview={!isDemo && canReviewAppeal(appeal)}
                   disabled={reviewMutation.isPending}
+                  demo={isDemo}
                   onReview={requestReview}
                 />
               </motion.div>

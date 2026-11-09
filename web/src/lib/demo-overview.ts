@@ -1,13 +1,6 @@
-import type {
-  CaseType,
-  GuildAccess,
-  GuildSummary,
-  OverviewResponse,
-  RecentCase,
-} from '@/api/types';
-import { caseTypeLabel } from '@/lib/cases';
+import type { GuildAccess, GuildSummary, OverviewResponse } from '@/api/types';
+import { DEMO_CASES } from '@/lib/demo-data';
 
-const now = Date.now();
 const demoAccess = (guild: GuildSummary): GuildAccess =>
   guild.level === 'admin'
     ? {
@@ -26,67 +19,6 @@ const demoAccess = (guild: GuildSummary): GuildAccess =>
         manageMessages: true,
         manageRoles: true,
       };
-
-function demoCase(
-  id: number,
-  type: CaseType,
-  user: string,
-  moderator: string,
-  reason: string,
-  createdAt: number,
-  active: boolean,
-  expiresAt: number | null = null,
-): RecentCase {
-  return {
-    id,
-    guildId: 'demo',
-    type,
-    userId: `demo-user-${id}`,
-    moderatorId: `demo-mod-${moderator}`,
-    reason,
-    createdAt,
-    expiresAt,
-    active,
-    extra: {},
-    label: caseTypeLabel(type),
-    userName: user,
-    moderatorName: moderator,
-  };
-}
-
-const recentCases: RecentCase[] = [
-  demoCase(1042, 'ban', 'Nova', 'Aya', 'Реклама сторонних сервисов', now - 12 * 60_000, true),
-  demoCase(1041, 'warn', 'Kira', 'Nova', 'Спам в #general', now - 47 * 60_000, true),
-  demoCase(
-    1040,
-    'timeout',
-    'Rin',
-    'Aya',
-    'Флуд после предупреждения',
-    now - 2 * 3_600_000,
-    true,
-    now + 10 * 3_600_000,
-  ),
-  demoCase(1039, 'kick', 'Maks', 'Nova', 'Токсичное поведение', now - 5 * 3_600_000, false),
-  demoCase(
-    1038,
-    'note',
-    'Sora',
-    'Nova',
-    'Наблюдение за поведением',
-    now - 26 * 3_600_000,
-    true,
-  ),
-  demoCase(
-    1037,
-    'mute',
-    'Vex',
-    'Aya',
-    'Нарушение правил голосовых каналов',
-    now - 2 * 86_400_000,
-    false,
-  ),
-];
 
 /**
  * Только для dev-режима: позволяет посмотреть Dashboard без запущенного бота.
@@ -121,7 +53,7 @@ export function createDemoOverview(guild: GuildSummary): OverviewResponse {
       { type: 'kick', count: 4 },
       { type: 'note', count: 2 },
     ],
-    recentCases,
+    recentCases: DEMO_CASES.slice(0, 6),
     security: {
       raid: {
         enabled: true,

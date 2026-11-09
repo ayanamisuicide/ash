@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { logout as logoutRequest } from '@/api/endpoints';
+import { isDemoGuildId } from '@/lib/demo-data';
 import { useAuthStore } from '@/store/auth';
 import { toast } from '@/store/ui';
 
@@ -11,7 +12,13 @@ export function useLogout() {
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: logoutRequest,
+    mutationFn: () => {
+      // Демо-сессия живёт только на клиенте — не дёргаем реальный /api/logout.
+      if (isDemoGuildId(useAuthStore.getState().activeGuildId)) {
+        return Promise.resolve({ ok: true as const });
+      }
+      return logoutRequest();
+    },
     onSuccess: () => {
       toast.success('Сессия завершена', 'До встречи в NEXUS.');
     },

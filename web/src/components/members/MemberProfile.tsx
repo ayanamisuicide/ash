@@ -229,6 +229,7 @@ export function MemberProfile({
   const cannotKickTarget = memberMissing || !profile.kickable;
   const cannotWarnTarget = cannotModerateTarget || profile.bot;
   const cannotBanTarget = profile.inGuild && !profile.bannable;
+  const showActions = canModerate || canKick || canBan || canManageRoles;
 
   const tabs: Array<{ key: TabKey; label: string; count: number }> = [
     { key: 'warns', label: 'Варны', count: profile.warnings.length },
@@ -349,120 +350,122 @@ export function MemberProfile({
         )}
       </section>
 
-      <section className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3.5">
-        <div className="mb-3 flex items-center gap-2">
-          <ShieldAlert className="h-3.5 w-3.5 text-accent" />
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Действия
-          </h3>
-        </div>
+      {showActions ? (
+        <section className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3.5">
+          <div className="mb-3 flex items-center gap-2">
+            <ShieldAlert className="h-3.5 w-3.5 text-accent" />
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Действия
+            </h3>
+          </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
-          {canModerate ? (
-            <ActionButton
-              icon={TriangleAlert}
-              label="Варн"
-              onClick={() => onAction('warn')}
-              disabled={cannotWarnTarget}
-              title={
-                profile.bot
-                  ? 'Ботам предупреждения не выдаются'
-                  : cannotModerateTarget
-                    ? 'Участник недоступен для модерации'
-                    : undefined
-              }
-            />
-          ) : null}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+            {canModerate ? (
+              <ActionButton
+                icon={TriangleAlert}
+                label="Варн"
+                onClick={() => onAction('warn')}
+                disabled={cannotWarnTarget}
+                title={
+                  profile.bot
+                    ? 'Ботам предупреждения не выдаются'
+                    : cannotModerateTarget
+                      ? 'Участник недоступен для модерации'
+                      : undefined
+                }
+              />
+            ) : null}
 
-          {canModerate ? (
-            timeoutActive ? (
-              <ActionButton
-                icon={TimerOff}
-                label="Снять таймаут"
-                onClick={() => onAction('untimeout')}
-                variant="success"
-                disabled={cannotModerateTarget}
-                title={cannotModerateTarget ? 'Участник недоступен для модерации' : undefined}
-              />
-            ) : (
-              <ActionButton
-                icon={Timer}
-                label="Таймаут"
-                onClick={() => onAction('timeout')}
-                disabled={cannotModerateTarget}
-                title={cannotModerateTarget ? 'Участник недоступен для модерации' : undefined}
-              />
-            )
-          ) : null}
+            {canModerate ? (
+              timeoutActive ? (
+                <ActionButton
+                  icon={TimerOff}
+                  label="Снять таймаут"
+                  onClick={() => onAction('untimeout')}
+                  variant="success"
+                  disabled={cannotModerateTarget}
+                  title={cannotModerateTarget ? 'Участник недоступен для модерации' : undefined}
+                />
+              ) : (
+                <ActionButton
+                  icon={Timer}
+                  label="Таймаут"
+                  onClick={() => onAction('timeout')}
+                  disabled={cannotModerateTarget}
+                  title={cannotModerateTarget ? 'Участник недоступен для модерации' : undefined}
+                />
+              )
+            ) : null}
 
-          {canModerate ? (
-            profile.muted ? (
-              <ActionButton
-                icon={Volume2}
-                label="Снять мут"
-                onClick={() => onAction('unmute')}
-                variant="success"
-                disabled={cannotModerateTarget}
-                title={cannotModerateTarget ? 'Участник недоступен для модерации' : undefined}
-              />
-            ) : (
-              <ActionButton
-                icon={VolumeX}
-                label="Мут"
-                onClick={() => onAction('mute')}
-                disabled={cannotModerateTarget}
-                title={cannotModerateTarget ? 'Участник недоступен для модерации' : undefined}
-              />
-            )
-          ) : null}
+            {canModerate ? (
+              profile.muted ? (
+                <ActionButton
+                  icon={Volume2}
+                  label="Снять мут"
+                  onClick={() => onAction('unmute')}
+                  variant="success"
+                  disabled={cannotModerateTarget}
+                  title={cannotModerateTarget ? 'Участник недоступен для модерации' : undefined}
+                />
+              ) : (
+                <ActionButton
+                  icon={VolumeX}
+                  label="Мут"
+                  onClick={() => onAction('mute')}
+                  disabled={cannotModerateTarget}
+                  title={cannotModerateTarget ? 'Участник недоступен для модерации' : undefined}
+                />
+              )
+            ) : null}
 
-          {canKick ? (
-            <ActionButton
-              icon={UserMinus}
-              label="Кик"
-              onClick={() => onAction('kick')}
-              variant="destructive"
-              disabled={cannotKickTarget}
-              title={cannotKickTarget ? 'Бот не может кикнуть этого участника' : undefined}
-            />
-          ) : null}
-
-          {canBan ? (
-            profile.banned ? (
+            {canKick ? (
               <ActionButton
-                icon={Undo2}
-                label="Разбан"
-                onClick={() => onAction('unban')}
-                variant="outline"
-              />
-            ) : (
-              <ActionButton
-                icon={Ban}
-                label="Бан"
-                onClick={() => onAction('ban')}
+                icon={UserMinus}
+                label="Кик"
+                onClick={() => onAction('kick')}
                 variant="destructive"
-                disabled={cannotBanTarget}
-                title={cannotBanTarget ? 'Бот не может забанить этого участника' : undefined}
+                disabled={cannotKickTarget}
+                title={cannotKickTarget ? 'Бот не может кикнуть этого участника' : undefined}
               />
-            )
-          ) : null}
+            ) : null}
 
-          {canManageRoles ? (
-            <ActionButton
-              icon={ShieldPlus}
-              label="Роль"
-              onClick={() => onAction('role')}
-              variant="outline"
-              disabled={cannotModerateTarget}
-              title={cannotModerateTarget ? 'Участник недоступен для модерации' : undefined}
-            />
-          ) : null}
+            {canBan ? (
+              profile.banned ? (
+                <ActionButton
+                  icon={Undo2}
+                  label="Разбан"
+                  onClick={() => onAction('unban')}
+                  variant="outline"
+                />
+              ) : (
+                <ActionButton
+                  icon={Ban}
+                  label="Бан"
+                  onClick={() => onAction('ban')}
+                  variant="destructive"
+                  disabled={cannotBanTarget}
+                  title={cannotBanTarget ? 'Бот не может забанить этого участника' : undefined}
+                />
+              )
+            ) : null}
 
-          {canModerate ? (
-            <ActionButton icon={StickyNote} label="Заметка" onClick={() => onAction('note')} />
-          ) : null}
-        </div>
-      </section>
+            {canManageRoles ? (
+              <ActionButton
+                icon={ShieldPlus}
+                label="Роль"
+                onClick={() => onAction('role')}
+                variant="outline"
+                disabled={cannotModerateTarget}
+                title={cannotModerateTarget ? 'Участник недоступен для модерации' : undefined}
+              />
+            ) : null}
+
+            {canModerate ? (
+              <ActionButton icon={StickyNote} label="Заметка" onClick={() => onAction('note')} />
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <section className="rounded-xl border border-white/[0.07] bg-white/[0.02]">
         <div

@@ -327,8 +327,8 @@ export function DashboardPage() {
         onOpenChange={setCaseModalOpen}
         guildId={activeGuildId}
         item={selectedCase}
-        canEdit={Boolean(data?.access.admin || data?.access.moderate)}
-        access={data?.access ?? null}
+        canEdit={!isDemo && Boolean(data?.access.admin || data?.access.moderate)}
+        access={isDemo ? null : (data?.access ?? null)}
         profile={profileData?.member ?? null}
         profileLoading={profileFetching}
         onAction={handleCaseAction}

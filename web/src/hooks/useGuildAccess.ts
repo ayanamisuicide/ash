@@ -2,15 +2,22 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getGuildMeta } from '@/api/endpoints';
 import type { GuildAccess } from '@/api/types';
-import { useAuthStore } from '@/store/auth';
+import { isDemoGuildId } from '@/lib/demo-data';
+import { createDemoMeta } from '@/lib/demo-settings';
+import { selectActiveGuild, useAuthStore } from '@/store/auth';
 
 function useGuildMetaQuery(enabled: boolean) {
   const guildId = useAuthStore((state) => state.activeGuildId);
+  const activeGuild = useAuthStore(selectActiveGuild);
   const setAccess = useAuthStore((state) => state.setAccess);
+  const isDemo = isDemoGuildId(guildId);
 
   const query = useQuery({
-    queryKey: ['guild', guildId, 'meta'],
-    queryFn: ({ signal }) => getGuildMeta(guildId ?? '', signal),
+    queryKey: ['guild', guildId, 'meta', isDemo ? 'demo' : 'live'],
+    queryFn: ({ signal }) => {
+      if (isDemo && activeGuild) return Promise.resolve(createDemoMeta(activeGuild));
+      return getGuildMeta(guildId ?? '', signal);
+    },
     enabled: Boolean(guildId) && enabled,
     staleTime: 60_000,
     meta: { silent: true },

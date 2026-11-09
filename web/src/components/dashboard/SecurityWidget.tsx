@@ -2,13 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import { ArrowUpRight, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { NukeAction, RaidAction, SecuritySettings } from '@/api/types';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
@@ -164,7 +158,7 @@ export function SecurityWidget({ security, canConfigure }: SecurityWidgetProps) 
 
         {canConfigure ? (
           <Button asChild variant="ghost" size="sm" className="mt-1 w-full justify-between">
-            <Link to="/settings">
+            <Link to="/settings?tab=security">
               Настроить защиту
               <ArrowUpRight />
             </Link>

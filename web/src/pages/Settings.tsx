@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, type Variants } from 'framer-motion';
 import {
+  FlaskConical,
   RefreshCw,
   ScrollText,
   ServerOff,
@@ -257,38 +258,50 @@ export function SettingsPage() {
             })}
           </div>
 
-          {tab === 'moderation' ? (
-            <ModerationSettings
-              key={`${activeGuildId}:moderation`}
-              guildId={activeGuildId}
-              settings={settingsQuery.data.moderation}
-              channels={meta?.channels ?? []}
-              roles={meta?.roles ?? []}
-            />
-          ) : tab === 'logs' ? (
-            <LogsSettings
-              key={`${activeGuildId}:logs`}
-              guildId={activeGuildId}
-              settings={settingsQuery.data.logs}
-              catalog={settingsQuery.data.catalog}
-              channels={meta?.channels ?? []}
-            />
-          ) : tab === 'security' ? (
-            <SecuritySettings
-              key={`${activeGuildId}:security`}
-              guildId={activeGuildId}
-              settings={settingsQuery.data.security}
-            />
-          ) : (
-            <CommunitySettings
-              key={`${activeGuildId}:community`}
-              guildId={activeGuildId}
-              guildName={meta?.guild.name ?? 'Сервер'}
-              settings={settingsQuery.data.community}
-              channels={meta?.channels ?? []}
-              roles={meta?.roles ?? []}
-            />
-          )}
+          {isDemo ? (
+            <div className="flex items-start gap-2.5 rounded-xl border border-warning/20 bg-warning/[0.06] px-4 py-3 text-xs leading-relaxed text-warning/90">
+              <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Демо-режим: настройки показаны для примера. Сохранение и применение изменений
+                отключены.
+              </span>
+            </div>
+          ) : null}
+
+          <fieldset disabled={isDemo} className="m-0 min-w-0 space-y-4 border-0 p-0">
+            {tab === 'moderation' ? (
+              <ModerationSettings
+                key={`${activeGuildId}:moderation`}
+                guildId={activeGuildId}
+                settings={settingsQuery.data.moderation}
+                channels={meta?.channels ?? []}
+                roles={meta?.roles ?? []}
+              />
+            ) : tab === 'logs' ? (
+              <LogsSettings
+                key={`${activeGuildId}:logs`}
+                guildId={activeGuildId}
+                settings={settingsQuery.data.logs}
+                catalog={settingsQuery.data.catalog}
+                channels={meta?.channels ?? []}
+              />
+            ) : tab === 'security' ? (
+              <SecuritySettings
+                key={`${activeGuildId}:security`}
+                guildId={activeGuildId}
+                settings={settingsQuery.data.security}
+              />
+            ) : (
+              <CommunitySettings
+                key={`${activeGuildId}:community`}
+                guildId={activeGuildId}
+                guildName={meta?.guild.name ?? 'Сервер'}
+                settings={settingsQuery.data.community}
+                channels={meta?.channels ?? []}
+                roles={meta?.roles ?? []}
+              />
+            )}
+          </fieldset>
 
           <div className="flex items-center justify-center gap-2 pb-2 text-[9px] uppercase tracking-[0.16em] text-white/20">
             <Settings2 className="h-3 w-3" />

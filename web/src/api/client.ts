@@ -1,3 +1,4 @@
+import { isDemoGuildId } from '@/lib/demo-data';
 import { useAuthStore } from '@/store/auth';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
@@ -127,6 +128,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     : await response.text().catch(() => null);
 
   if (!response.ok) {
+    // Истёкшую сессию не показываем как локальную ошибку раздела:
+    // сбрасываем клиентское состояние, ProtectedRoute уведёт на вход.
+    if (response.status === 401 && normalizedPath !== '/api/me') {
+      const state = useAuthStore.getState();
+      if (!isDemoGuildId(state.activeGuildId)) {
+        state.clearSession();
+        state.setSessionError('Сессия истекла. Войдите через Discord заново.');
+      }
+    }
     throw new ApiError(extractErrorMessage(payload, response.status), response.status, payload);
   }
 

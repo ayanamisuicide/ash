@@ -25,10 +25,17 @@ interface AppealCardProps {
   appeal: Appeal;
   canReview: boolean;
   disabled?: boolean;
+  demo?: boolean;
   onReview: (appeal: Appeal, approve: boolean) => void;
 }
 
-export function AppealCard({ appeal, canReview, disabled = false, onReview }: AppealCardProps) {
+export function AppealCard({
+  appeal,
+  canReview,
+  disabled = false,
+  demo = false,
+  onReview,
+}: AppealCardProps) {
   const status = STATUS_META[appeal.status];
   const requiresBan =
     !appeal.caseId ||
@@ -123,9 +130,11 @@ export function AppealCard({ appeal, canReview, disabled = false, onReview }: Ap
         </div>
       ) : appeal.status === 'pending' ? (
         <p className="mt-3 text-[10px] text-muted-foreground">
-          {requiresBan
-            ? 'Для решения нужно право «Банить участников» или «Управление сервером».'
-            : 'Для решения нужно право «Заглушать участников» или «Управление сервером».'}
+          {demo
+            ? 'Демо-режим: решения по апелляциям отключены.'
+            : requiresBan
+              ? 'Для решения нужно право «Банить участников» или «Управление сервером».'
+              : 'Для решения нужно право «Заглушать участников» или «Управление сервером».'}
         </p>
       ) : (
         <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] text-muted-foreground">

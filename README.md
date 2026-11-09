@@ -108,7 +108,9 @@ npm run ci           # всё вышеперечисленное + format:check 
 
 Те же проверки выполняет GitHub Actions (`.github/workflows/ci.yml`) на каждый
 push, PR и тег `v*`: сначала `npm ci` и `npm --prefix web ci`, затем
-`npm run ci`.
+`npm run ci`. CI работает на Node `24.x`: jsdom 31, на котором держатся тесты
+панели, требует не ниже 24.15, при этом минимальный рантайм бота остаётся
+22.13.
 
 ## Production
 

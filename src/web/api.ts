@@ -300,7 +300,8 @@ async function handleGuildRoute(
 
   if (section === 'activity' && segments.length === 1) {
     if (ctx.req.method !== 'GET') throw new HttpError(405, 'Метод не поддерживается.');
-    requireModerate(access);
+    // Доступ уже ограничен resolveGuildAccess: любой модератор сервера видит
+    // те же данные, что и на обзоре, без требования ModerateMembers.
     sendJson(ctx.res, 200, { ok: true, ...getActivityOverview(guild) });
     return;
   }

@@ -18,8 +18,11 @@ import { fileURLToPath } from 'node:url';
  *   node scripts/verify.mjs --serial  — по одному шагу (отладка);
  *   node scripts/verify.mjs --jobs=2  — ограничить число параллельных шагов.
  *
- * Результат пишется в data/verify-result.json, полный вывод — в data/verify.log;
- * прогресс дублируется в stdout, чтобы launch.ps1 мог показать его в HUD.
+ * Результат пишется в data/verify-result.json (поле durationMs — реальное время
+ * прогона, шаги содержат собственные длительности), полный вывод — в
+ * data/verify.log; прогресс дублируется в stdout, чтобы launch.ps1 мог показать
+ * его в HUD. Итог печатает реальное время и сумму работы шагов отдельно —
+ * складывать длительности параллельных шагов в «сколько всё шло» нельзя.
  */
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -65,6 +68,7 @@ fs.mkdirSync(dataDir, { recursive: true });
 fs.writeFileSync(logPath, '', 'utf8');
 
 const startedAt = new Date().toISOString();
+const runStartedMs = Date.now();
 const results = new Array(steps.length).fill(null);
 
 function log(message) {
@@ -207,12 +211,14 @@ await Promise.all(Array.from({ length: Math.min(jobs, steps.length) }, () => wor
 
 const failed = results.filter((item) => item && !item.ok);
 const failedStep = failed[0] ?? null;
+const durationMs = Date.now() - runStartedMs;
 const summary = {
   ok: failedStep === null,
   failedStep: failedStep ? failedStep.name : null,
   failedLabel: failedStep ? failedStep.label : null,
   startedAt,
   finishedAt: new Date().toISOString(),
+  durationMs,
   log: path.relative(root, logPath),
   mode: fast ? 'fast' : 'coverage',
   steps: results,
@@ -220,12 +226,21 @@ const summary = {
 
 fs.writeFileSync(resultPath, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
 
+// Шаги идут параллельно, поэтому сумма их длительностей всегда больше реального
+// времени: показываем оба числа, иначе «суммарно 40 с» вводит в заблуждение.
+const wallSeconds = (durationMs / 1000).toFixed(1);
+const workSeconds = (
+  results.reduce((sum, item) => sum + (item?.durationMs ?? 0), 0) / 1000
+).toFixed(1);
+const parallelText = jobs > 1 ? ` · шагов ${steps.length} параллельно` : '';
+
 if (summary.ok) {
-  const total = (results.reduce((sum, item) => sum + (item?.durationMs ?? 0), 0) / 1000).toFixed(1);
-  progress(`все проверки пройдены (суммарно ${total}s работы)`);
+  progress(
+    `все проверки пройдены за ${wallSeconds}s${parallelText} (сумма работы шагов ${workSeconds}s)`,
+  );
 } else {
   progress(
-    `проверки упали: ${failed.map((item) => item.label).join(', ')} · ${path.relative(root, logPath)}`,
+    `проверки упали за ${wallSeconds}s: ${failed.map((item) => item.label).join(', ')} · ${path.relative(root, logPath)}`,
   );
 }
 

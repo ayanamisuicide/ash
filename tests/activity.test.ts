@@ -14,6 +14,7 @@ process.env.SETTINGS_CACHE_TTL_MS = '0';
 const storage = await import('../src/storage/sqlite.js');
 const community = await import('../src/lib/community.js');
 const voice = await import('../src/lib/voiceStats.js');
+const communityMessages = await import('../src/lib/communityMessages.js');
 const data = await import('../src/web/data.js');
 
 const START = 1_700_000_000_000;
@@ -205,6 +206,144 @@ test('тикер: запускается и останавливается', () 
   assert.equal(voice.isVoiceTickerRunning(), true);
   voice.stopVoiceTicker();
   assert.equal(voice.isVoiceTickerRunning(), false);
+});
+
+test('голос: повышение уровня от голоса попадает в отчёт тикера', () => {
+  const guildId = 'g-voice-levelup';
+  community.updateCommunitySettings(guildId, {
+    levelingEnabled: true,
+    voiceXp: 100,
+    voiceTrackingEnabled: true,
+  });
+
+  voice.openVoiceSession(guildId, 'u1', 'ch', START);
+  const result = voice.tickVoiceSessions(START + 5 * 60_000);
+
+  assert.equal(result.levelUps.length, 1);
+  assert.equal(result.levelUps[0]?.guildId, guildId);
+  assert.equal(result.levelUps[0]?.userId, 'u1');
+  assert.equal(result.levelUps[0]?.level, 1);
+  assert.equal(result.levelUps[0]?.xp, 100);
+});
+
+test('уведомления об уровне: карточка уходит в канал уровней', async () => {
+  const guildId = 'g-level-notice';
+  const member = { id: 'u1', user: { id: 'u1', username: 'alice' }, toString: () => '<@u1>' };
+  const sent: Array<{ components: unknown[] }> = [];
+  const channel = {
+    isTextBased: () => true,
+    send: async (payload: { components: unknown[] }) => {
+      sent.push(payload);
+    },
+  };
+
+  community.updateCommunitySettings(guildId, {
+    levelupChannelId: 'levels',
+    levelupMessage: '🎉 {user} достиг уровня {level}!',
+  });
+
+  const guild = {
+    id: guildId,
+    name: 'Guild',
+    memberCount: 1,
+    channels: { cache: new Collection([['levels', channel]]) },
+    members: {
+      cache: new Collection([['u1', member]]),
+      fetch: async () => member,
+    },
+  };
+
+  await communityMessages.announceLevelUps(guild as never, [{ userId: 'u1', level: 4, xp: 620 }]);
+
+  assert.equal(sent.length, 1);
+});
+
+test('голос: закрытие при выключенном учёте не начисляет время', () => {
+  const guildId = 'g-voice-close-off';
+  community.updateCommunitySettings(guildId, { voiceTrackingEnabled: true });
+
+  voice.openVoiceSession(guildId, 'u1', 'ch', START);
+  community.updateCommunitySettings(guildId, { voiceTrackingEnabled: false });
+
+  const closed = voice.closeVoiceSession(guildId, 'u1', START + 20 * 60_000);
+  assert.equal(closed.seconds, 0);
+  assert.equal(closed.xp, 0);
+  assert.equal(voice.getOpenVoiceSession(guildId, 'u1'), null);
+  assert.equal(community.getLevelInfo(guildId, 'u1').voiceSeconds, 0);
+});
+
+test('шаблоны сообщества: welcome и goodbye уходят в канал', async () => {
+  const guildId = 'g-templates';
+  const member = {
+    id: 'u1',
+    user: { id: 'u1', username: 'alice', displayAvatarURL: () => 'https://cdn/a.png' },
+    toString: () => '<@u1>',
+  };
+  const sent: unknown[] = [];
+  const channel = {
+    isTextBased: () => true,
+    send: async (payload: unknown) => {
+      sent.push(payload);
+    },
+  };
+  const guild = {
+    id: guildId,
+    name: 'Guild',
+    memberCount: 3,
+    iconURL: () => null,
+    channels: { cache: new Collection([['general', channel]]) },
+  };
+
+  await communityMessages.sendCommunityTemplate(
+    'general',
+    guild as never,
+    'Привет, {user}!',
+    member as never,
+    'welcome',
+  );
+  await communityMessages.sendCommunityTemplate(
+    'general',
+    guild as never,
+    '{user} ушёл.',
+    member as never,
+    'goodbye',
+  );
+
+  // Без канала и с удалённым каналом отправки нет — и это не ошибка.
+  await communityMessages.sendCommunityTemplate(
+    null,
+    guild as never,
+    'текст',
+    member as never,
+    'welcome',
+  );
+  await communityMessages.sendCommunityTemplate(
+    'missing',
+    guild as never,
+    'текст',
+    member as never,
+    'welcome',
+  );
+
+  assert.equal(sent.length, 2);
+});
+
+test('уведомления об уровне: ушедший участник пропускается', async () => {
+  const guildId = 'g-level-ghost';
+  community.updateCommunitySettings(guildId, { levelupChannelId: 'levels' });
+  const sent: unknown[] = [];
+  const channel = { isTextBased: () => true, send: async (p: unknown) => sent.push(p) };
+  const guild = {
+    id: guildId,
+    channels: { cache: new Collection([['levels', channel]]) },
+    members: { cache: new Collection(), fetch: async () => null },
+  };
+
+  await communityMessages.announceLevelUps(guild as never, [
+    { userId: '100000000000000999', level: 2, xp: 220 },
+  ]);
+
+  assert.equal(sent.length, 0);
 });
 
 test('панель: сводка активности отдаёт топы и живые сессии', () => {

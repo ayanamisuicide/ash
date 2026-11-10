@@ -1,5 +1,7 @@
+import type { Client } from 'discord.js';
 import { db, ensureGuild } from '../storage/sqlite.js';
 import { addVoiceSeconds, getCommunitySettings, recordVoiceXp } from './community.js';
+import { announceLevelUps } from './communityMessages.js';
 
 /**
  * Учёт голосовой активности.
@@ -75,6 +77,8 @@ export function listOpenVoiceSessions(guildId?: string): VoiceSession[] {
 interface SettleResult {
   seconds: number;
   xp: number;
+  /** Новый уровень, если голосовой XP его поднял */
+  levelUp: { level: number; xp: number } | null;
 }
 
 /**
@@ -89,9 +93,15 @@ function settleSession(session: VoiceSession, now: number, close: boolean): Sett
   const xpPerInterval = settings.levelingEnabled ? Math.max(0, settings.voiceXp) : 0;
   const gained = intervals * xpPerInterval;
   const awarded = session.awardedIntervals + intervals;
+  let levelUp: SettleResult['levelUp'] = null;
 
   if (seconds > 0) addVoiceSeconds(session.guildId, session.userId, seconds);
-  if (gained > 0) recordVoiceXp(session.guildId, session.userId, gained);
+  if (gained > 0) {
+    const result = recordVoiceXp(session.guildId, session.userId, gained);
+    if (result.after.level > result.before.level) {
+      levelUp = { level: result.after.level, xp: result.after.xp };
+    }
+  }
 
   if (close) {
     db.prepare(
@@ -111,7 +121,7 @@ function settleSession(session: VoiceSession, now: number, close: boolean): Sett
     ).run(now, awarded, session.id);
   }
 
-  return { seconds, xp: gained };
+  return { seconds, xp: gained, levelUp };
 }
 
 /** Открывает сессию; предыдущая открытая сессия участника закрывается */
@@ -136,7 +146,7 @@ export function openVoiceSession(
 /** Закрывает сессию участника, начисляя оставшееся время и XP */
 export function closeVoiceSession(guildId: string, userId: string, now = Date.now()): SettleResult {
   const session = getOpenVoiceSession(guildId, userId);
-  if (!session) return { seconds: 0, xp: 0 };
+  if (!session) return { seconds: 0, xp: 0, levelUp: null };
 
   const settings = getCommunitySettings(guildId);
   if (!settings.voiceTrackingEnabled) {
@@ -145,23 +155,35 @@ export function closeVoiceSession(guildId: string, userId: string, now = Date.no
       now,
       session.id,
     );
-    return { seconds: 0, xp: 0 };
+    return { seconds: 0, xp: 0, levelUp: null };
   }
 
   return settleSession(session, now, true);
 }
 
-/**
- * Проходит по всем открытым сессиям: копит секунды и выдаёт XP за пятиминутки.
- * Возвращает суммарные показатели для логов и тестов.
- */
-export function tickVoiceSessions(now = Date.now()): {
+export interface VoiceLevelUp {
+  guildId: string;
+  userId: string;
+  level: number;
+  xp: number;
+}
+
+export interface VoiceTickResult {
   sessions: number;
   seconds: number;
   xp: number;
-} {
+  /** Повышения уровня, о которых нужно уведомить канал */
+  levelUps: VoiceLevelUp[];
+}
+
+/**
+ * Проходит по всем открытым сессиям: копит секунды и выдаёт XP за пятиминутки.
+ * Возвращает суммарные показатели и повышения уровня для уведомлений.
+ */
+export function tickVoiceSessions(now = Date.now()): VoiceTickResult {
   let seconds = 0;
   let xp = 0;
+  const levelUps: VoiceLevelUp[] = [];
   const sessions = listOpenVoiceSessions();
 
   for (const session of sessions) {
@@ -178,9 +200,17 @@ export function tickVoiceSessions(now = Date.now()): {
     const result = settleSession(session, now, false);
     seconds += result.seconds;
     xp += result.xp;
+    if (result.levelUp) {
+      levelUps.push({
+        guildId: session.guildId,
+        userId: session.userId,
+        level: result.levelUp.level,
+        xp: result.levelUp.xp,
+      });
+    }
   }
 
-  return { sessions: sessions.length, seconds, xp };
+  return { sessions: sessions.length, seconds, xp, levelUps };
 }
 
 /**
@@ -238,6 +268,15 @@ export function bootstrapVoiceSessions(client: VoiceClientLike, now = Date.now()
   return opened;
 }
 
+/** Отправляет уведомления о новых уровнях, заработанных в голосе */
+async function announceVoiceLevelUps(client: Client, levelUps: VoiceLevelUp[]): Promise<void> {
+  for (const item of levelUps) {
+    const guild = client.guilds.cache.get(item.guildId);
+    if (!guild) continue;
+    await announceLevelUps(guild, [{ userId: item.userId, level: item.level, xp: item.xp }]);
+  }
+}
+
 let timer: NodeJS.Timeout | null = null;
 
 /** Запускает минутный тикер учёта голоса */
@@ -254,9 +293,16 @@ export function startVoiceTicker(client?: VoiceClientLike): void {
     if (opened > 0) console.log(`[activity] восстановлено голосовых сессий: ${opened}`);
   }
 
+  const discordClient = client as unknown as Client | undefined;
+
   timer = setInterval(() => {
     try {
-      tickVoiceSessions();
+      const result = tickVoiceSessions();
+      if (discordClient && result.levelUps.length > 0) {
+        void announceVoiceLevelUps(discordClient, result.levelUps).catch((error: unknown) => {
+          console.error('[activity] не удалось отправить уведомление об уровне:', error);
+        });
+      }
     } catch (error) {
       console.error('[activity] ошибка учёта голоса:', error);
     }

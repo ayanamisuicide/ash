@@ -6,45 +6,8 @@ import {
   type Role,
 } from 'discord.js';
 import type { AnyBotEvent } from '../core/types.js';
-import { V2 } from '../lib/card.js';
-import { getCommunitySettings, recordMessage, renderTemplate } from '../lib/community.js';
-import { goodbyeMessage, levelUpMessage, welcomeMessage } from '../lib/responses.js';
-
-type TemplateKind = 'welcome' | 'goodbye' | 'levelup';
-
-async function sendTemplate(
-  channelId: string | null,
-  guild: GuildMember['guild'],
-  template: string,
-  member: GuildMember,
-  kind: TemplateKind,
-  extra: Record<string, string | number> = {},
-): Promise<void> {
-  if (!channelId) return;
-  const channel = guild.channels.cache.get(channelId);
-  if (!channel?.isTextBased()) return;
-
-  const content = renderTemplate(template, {
-    user: `${member}`,
-    guild: guild.name,
-    memberCount: guild.memberCount,
-    ...extra,
-  });
-
-  const view =
-    kind === 'welcome'
-      ? welcomeMessage(member.user, guild, guild.memberCount, content)
-      : kind === 'goodbye'
-        ? goodbyeMessage(member.user, guild, content)
-        : levelUpMessage(member.user, Number(extra.level ?? 0), Number(extra.xp ?? 0), content);
-
-  await channel
-    .send({
-      components: [view],
-      flags: V2,
-    })
-    .catch(() => undefined);
-}
+import { getCommunitySettings, recordMessage } from '../lib/community.js';
+import { sendCommunityTemplate } from '../lib/communityMessages.js';
 
 const events: AnyBotEvent[] = [
   {
@@ -68,7 +31,7 @@ const events: AnyBotEvent[] = [
         }
       }
 
-      await sendTemplate(
+      await sendCommunityTemplate(
         settings.welcomeChannelId,
         member.guild,
         settings.welcomeMessage,
@@ -81,7 +44,7 @@ const events: AnyBotEvent[] = [
     name: Events.GuildMemberRemove,
     async execute(member: GuildMember | PartialGuildMember) {
       const settings = getCommunitySettings(member.guild.id);
-      await sendTemplate(
+      await sendCommunityTemplate(
         settings.goodbyeChannelId,
         member.guild,
         settings.goodbyeMessage,
@@ -112,7 +75,7 @@ const events: AnyBotEvent[] = [
         message.member ?? (await guild.members.fetch(message.author.id).catch(() => null));
       if (!member) return;
 
-      await sendTemplate(
+      await sendCommunityTemplate(
         settings.levelupChannelId ?? message.channelId,
         guild,
         settings.levelupMessage,

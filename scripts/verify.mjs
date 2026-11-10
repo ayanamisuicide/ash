@@ -21,8 +21,8 @@ import { fileURLToPath } from 'node:url';
  * Результат пишется в data/verify-result.json (поле durationMs — реальное время
  * прогона, шаги содержат собственные длительности), полный вывод — в
  * data/verify.log; прогресс дублируется в stdout, чтобы launch.ps1 мог показать
- * его в HUD. Итог печатает реальное время и сумму работы шагов отдельно —
- * складывать длительности параллельных шагов в «сколько всё шло» нельзя.
+ * его в HUD. В итоговой строке — только реальное время: сумма длительностей
+ * параллельных шагов к нему отношения не имеет.
  */
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -226,18 +226,13 @@ const summary = {
 
 fs.writeFileSync(resultPath, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
 
-// Шаги идут параллельно, поэтому сумма их длительностей всегда больше реального
-// времени: показываем оба числа, иначе «суммарно 40 с» вводит в заблуждение.
+// В итог идёт только реальное время прогона. Сумма длительностей шагов для
+// параллельного запуска бессмысленна: она вдвое-втрое больше того, что видит
+// человек в терминале. Разбивка по шагам есть выше и в data/verify-result.json.
 const wallSeconds = (durationMs / 1000).toFixed(1);
-const workSeconds = (
-  results.reduce((sum, item) => sum + (item?.durationMs ?? 0), 0) / 1000
-).toFixed(1);
-const parallelText = jobs > 1 ? ` · шагов ${steps.length} параллельно` : '';
 
 if (summary.ok) {
-  progress(
-    `все проверки пройдены за ${wallSeconds}s${parallelText} (сумма работы шагов ${workSeconds}s)`,
-  );
+  progress(`все проверки пройдены за ${wallSeconds}s`);
 } else {
   progress(
     `проверки упали за ${wallSeconds}s: ${failed.map((item) => item.label).join(', ')} · ${path.relative(root, logPath)}`,

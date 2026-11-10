@@ -116,19 +116,29 @@ $script:liveMode = 'PRODUCTION'
 $script:checkStatus = ''
 $script:liveUrl = ''
 $script:runStart = Get-Date
+$script:botPid = $null
+$script:botMemoryMB = 0
+$script:bootReported = $false
+$script:packageVersion = $null
+
+# --- Фазовая линейка preflight ---------------------------------------------
+$script:phaseNames = @('STOP', 'TYPES', 'LINT', 'FORMAT', 'TESTS', 'BUILD', 'DEPLOY')
+if ($SkipDeploy) { $script:phaseNames = @('STOP', 'TYPES', 'LINT', 'FORMAT', 'TESTS', 'BUILD') }
+if ($StartFirst) { $script:phaseNames = @('VERIFY') }
+$script:totalSteps = $script:phaseNames.Count
 
 # --- Единая палитра оформления ---------------------------------------------
 $script:theme = @{
-    ink    = @(226, 230, 242)
-    muted  = @(138, 148, 172)
-    dim    = @(74, 84, 108)
-    line   = @(88, 104, 160)
-    accent = @(124, 140, 255)
-    cyan   = @(84, 200, 255)
-    green  = @(70, 220, 150)
-    amber  = @(255, 185, 70)
-    red    = @(255, 100, 115)
-    violet = @(190, 130, 255)
+    ink    = @(232, 236, 246)
+    muted  = @(139, 151, 180)
+    dim    = @(70, 82, 110)
+    line   = @(42, 54, 84)
+    accent = @(94, 234, 212)
+    cyan   = @(103, 232, 249)
+    green  = @(74, 222, 128)
+    amber  = @(251, 191, 36)
+    red    = @(251, 113, 133)
+    violet = @(192, 132, 252)
 }
 
 function Write-LaunchLog {
@@ -343,17 +353,6 @@ function Get-Lerp {
     return [int]($From + (($To - $From) * $T))
 }
 
-function Format-Cell {
-    param([string]$Text, [int]$Width)
-
-    if ($Width -lt 1) { return '' }
-    if ($Text.Length -gt $Width) {
-        if ($Width -le 3) { return $Text.Substring(0, $Width) }
-        return $Text.Substring(0, $Width - 3) + '...'
-    }
-    return $Text.PadRight($Width)
-}
-
 # --- Общие примитивы нового визуального слоя --------------------------------
 function Paint {
     param(
@@ -445,53 +444,6 @@ function Get-LaunchMode {
     if ($ChecksOnly) { return 'CHECKS ONLY' }
     if ($Dev) { return 'DEV · WATCH' }
     return 'PRODUCTION'
-}
-
-function Write-CardBorder {
-    param(
-        [int]$Inner,
-        [string]$Left = '╭',
-        [string]$Right = '╮',
-        [int[]]$Rgb = @(88, 104, 160)
-    )
-
-    Push-LogLine ('  ' + (Paint ($Left + ('─' * $Inner) + $Right) $Rgb))
-}
-
-function Write-CardRow {
-    param(
-        [int]$Inner,
-        [string]$Label = '',
-        [int[]]$LabelRgb = @(138, 148, 172),
-        [string]$Value = '',
-        [int[]]$ValueRgb = @(226, 230, 242),
-        [string]$Right = '',
-        [int[]]$RightRgb = @(138, 148, 172),
-        [int]$Indent = 2,
-        [int[]]$BorderRgb = @(88, 104, 160)
-    )
-
-    if ($Inner -lt 4) { return }
-    if ($Indent -lt 0) { $Indent = 0 }
-    if ($Indent -gt ($Inner - 2)) { $Indent = $Inner - 2 }
-
-    $rightText = Limit-Text -Text $Right -Width ([Math]::Max(0, $Inner - $Indent - 4))
-    $budget = $Inner - $Indent - $rightText.Length - 3
-    if ($budget -lt 0) { $budget = 0 }
-
-    $labelText = Limit-Text -Text $Label -Width $budget
-    $valueBudget = $budget - $labelText.Length
-    if ($valueBudget -lt 0) { $valueBudget = 0 }
-    $valueText = Limit-Text -Text $Value -Width $valueBudget
-
-    $plainLength = $Indent + $labelText.Length + $valueText.Length + $rightText.Length
-    $gap = $Inner - $plainLength - 2
-    if ($gap -lt 1) { $gap = 1 }
-
-    $line = '  ' + (Paint '│' $BorderRgb) +
-        (' ' * $Indent) + (Paint $labelText $LabelRgb) + (Paint $valueText $ValueRgb) +
-        (' ' * $gap) + (Paint $rightText $RightRgb) + ('  ') + (Paint '│' $BorderRgb)
-    Push-LogLine $line
 }
 
 # ANSI-последовательности в строках npm вырезаются: цвет задаёт сам раннер.
@@ -677,6 +629,33 @@ function Push-LogLine {
     }
 }
 
+function Write-SectionRule {
+    param(
+        [string]$Label = '',
+        [int[]]$Rgb = @(42, 54, 84),
+        [int]$Inner = 70,
+        [string]$Right = '',
+        [int[]]$RightRgb = @(139, 151, 180)
+    )
+
+    if ($Inner -lt 10) { $Inner = 10 }
+
+    if ([string]::IsNullOrEmpty($Label)) {
+        Push-LogLine ('  ' + (Paint ('─' * $Inner) $Rgb))
+        return
+    }
+
+    $head = '── ' + $Label + ' '
+    $tail = if ($Right) { ' ' + $Right } else { '' }
+    $fill = $Inner - $head.Length - $tail.Length
+    if ($fill -lt 2) { $fill = 2 }
+
+    Push-LogLine (
+        '  ' + (Paint $head $Rgb) + (Paint ('─' * $fill) $Rgb) +
+        (Paint $tail $RightRgb)
+    )
+}
+
 function Show-Banner {
     if ($NoBanner) { return }
 
@@ -684,145 +663,121 @@ function Show-Banner {
         try { Clear-Host } catch { }
     }
 
-    $inner = Get-InnerWidth -Preferred 66
+    $inner = Get-InnerWidth -Preferred 70
     $version = Get-PackageVersion
     $mode = Get-LaunchMode
-    $border = $script:theme.line
+    $accent = $script:theme.accent
     $muted = $script:theme.muted
     $ink = $script:theme.ink
-    $dim = $script:theme.dim
-    $accent = $script:theme.accent
-    $cyan = $script:theme.cyan
+    $line = $script:theme.line
 
-    $font = @{
-        'N' = @('█   █', '██  █', '█ █ █', '█  ██', '█   █')
-        'E' = @('█████', '█    ', '████ ', '█    ', '█████')
-        'X' = @('█   █', ' █ █ ', '  █  ', ' █ █ ', '█   █')
-        'U' = @('█   █', '█   █', '█   █', '█   █', ' ███ ')
-        'S' = @(' ████', '█    ', ' ███ ', '    █', '████ ')
+    $brand = '◈ NEXUS'
+    $section = 'release control'
+    $right = 'v' + $version
+
+    if (($brand.Length + 5 + $section.Length + 3 + $right.Length) -gt $inner) {
+        $section = 'release'
     }
-    $letterColors = @(
-        $script:theme.violet,
-        @(158, 142, 255),
-        @(112, 158, 255),
-        $cyan,
-        $script:theme.green
-    )
-    $word = 'NEXUS'
-    $markRows = @()
-    $markWidth = 29
-    $compact = ($inner -lt 35)
-    try {
-        $consoleHeight = [Console]::WindowHeight
-        if ($consoleHeight -gt 0 -and $consoleHeight -lt 18) { $compact = $true }
-    } catch { }
+    if (($brand.Length + 5 + $section.Length + 3 + $right.Length) -gt $inner) {
+        $section = ''
+    }
 
-    if (-not $compact) {
-        for ($row = 0; $row -lt 5; $row++) {
-            $parts = @()
-            for ($letter = 0; $letter -lt 5; $letter++) {
-                $glyph = $font[[string]$word[$letter]][$row]
-                $parts += (Paint $glyph $letterColors[$letter])
-            }
-            $markRows += ($parts -join ' ')
-        }
+    $leftPlain = $brand + '  /  ' + $section
+    $gap = $inner - $leftPlain.Length - $right.Length
+    if ($gap -lt 1) { $gap = 1 }
+
+    $title = '  ' + (Paint $brand $accent)
+    if ($section) {
+        $title += (Paint ('  /  ' + $section) $muted)
+    }
+    $title += (' ' * $gap) + (Paint $right $ink)
+    Push-LogLine $title
+    Push-LogLine ('  ' + (Paint ('─' * $inner) $line))
+
+    $subtitle = if ($StartOnly) {
+        'runtime only  ·  release checks skipped'
+    } elseif ($StartFirst) {
+        'runtime first  ·  checks in parallel'
+    } elseif ($ChecksOnly) {
+        'no bot start  ·  no deploy'
+    } elseif ($Dev) {
+        'tsx watch  ·  build locked'
     } else {
-        $markRows = @(Paint 'N E X U S' $accent)
-        $markWidth = 9
+        'stop → typecheck → lint → format → tests → build → deploy → launch'
     }
 
-    $meta = @(
-        @{ Text = 'DISCORD MODERATION SUITE'; Rgb = $muted },
-        @{ Text = 'RELEASE CONTROL'; Rgb = $accent },
-        @{ Text = ''; Rgb = $muted },
-        @{ Text = ('v' + $version + '  ·  ' + $mode); Rgb = $ink },
-        @{ Text = 'checks  ·  build  ·  run'; Rgb = $dim }
+    Push-LogLine (
+        '  ' + (Paint $mode $accent) +
+        (Paint ('  ·  ' + $subtitle) $muted)
     )
-
-    $lines = New-Object System.Collections.ArrayList
-    [void]$lines.Add('  ' + (Paint ('╭' + ('─' * $inner) + '╮') $border))
-
-    if ($inner -ge 62 -and $markWidth -eq 29) {
-        $rightBudget = $inner - 2 - $markWidth - 3
-        for ($row = 0; $row -lt 5; $row++) {
-            $rightText = Limit-Text -Text ([string]$meta[$row].Text) -Width $rightBudget
-            $gap = $inner - 2 - $markWidth - $rightText.Length - 2
-            if ($gap -lt 1) { $gap = 1 }
-            [void]$lines.Add(
-                '  ' + (Paint '│' $border) + '  ' + $markRows[$row] +
-                (' ' * $gap) + (Paint $rightText $meta[$row].Rgb) + '  ' + (Paint '│' $border)
-            )
-        }
-    } else {
-        foreach ($markRow in $markRows) {
-            [void]$lines.Add(
-                '  ' + (Paint '│' $border) + '  ' + $markRow +
-                (' ' * ($inner - 2 - $markWidth)) + (Paint '│' $border)
-            )
-        }
-        [void]$lines.Add('  ' + (Paint '│' $border) + (' ' * $inner) + (Paint '│' $border))
-        foreach ($item in $meta) {
-            $text = Limit-Text -Text ([string]$item.Text) -Width ($inner - 4)
-            [void]$lines.Add(
-                '  ' + (Paint '│' $border) + '  ' + (Paint $text $item.Rgb) +
-                (' ' * ($inner - 2 - $text.Length)) + (Paint '│' $border)
-            )
-        }
-    }
-
-    [void]$lines.Add('  ' + (Paint ('╰' + ('─' * $inner) + '╯') $border))
-
     Push-LogLine ''
-    foreach ($line in $lines) {
-        Push-LogLine $line
-        if ($script:interactive) { Start-Sleep -Milliseconds 12 }
+}
+
+function Get-PhaseForIndex {
+    param([int]$Index)
+
+    $names = @($script:phaseNames)
+    if ($Index -ge 1 -and $Index -le $names.Count) {
+        return [string]$names[$Index - 1]
+    }
+    return ''
+}
+
+function Get-PhaseStrip {
+    $names = @($script:phaseNames)
+    if ($names.Count -eq 0) { return '' }
+
+    $fullParts = New-Object System.Collections.ArrayList
+    $shortParts = New-Object System.Collections.ArrayList
+    $fullPlain = 0
+    $shortPlain = 0
+
+    for ($i = 0; $i -lt $names.Count; $i++) {
+        $glyph = '·'
+        $rgb = $script:theme.dim
+        if ($i -lt ($script:step - 1)) {
+            $glyph = '✓'
+            $rgb = $script:theme.green
+        } elseif ($i -eq ($script:step - 1)) {
+            $glyph = '●'
+            $rgb = $script:theme.accent
+        }
+
+        $label = [string]$names[$i]
+        [void]$fullParts.Add((Paint ($glyph + ' ' + $label) $rgb))
+        [void]$shortParts.Add((Paint $glyph $rgb))
+        $fullPlain += $glyph.Length + 1 + $label.Length
+        $shortPlain += $glyph.Length
     }
 
-    $statusLine = '  ' + (Paint '● READY' $script:theme.green)
-    if ($inner -ge 50) {
-        $statusLine += (Paint '  ·  pipeline armed  ·  Ctrl+C прерывает' $muted)
+    $fullPlain += 3 * ($names.Count - 1)
+    $shortPlain += ($names.Count - 1)
+    $available = if ($script:uiReady) { $script:uiWidth - 1 } else { 78 }
+
+    if (($fullPlain + 8) -le $available) {
+        return ($fullParts -join (Paint '   ' $script:theme.dim))
     }
-    Push-LogLine $statusLine
-    Push-LogLine ''
+    if (($shortPlain + 8) -le $available) {
+        return ($shortParts -join (Paint ' ' $script:theme.dim))
+    }
+    return ($shortParts -join '')
 }
 
 function Show-Progress {
     $filled = [Math]::Min($script:step, $script:totalSteps)
-    $percent = if ($script:totalSteps -gt 0) {
-        [int][Math]::Round(100 * $filled / $script:totalSteps)
-    } else {
-        0
-    }
-
-    $barWidth = 12
-    $filledCells = if ($script:totalSteps -gt 0) {
-        [int][Math]::Round($barWidth * $filled / $script:totalSteps)
-    } else {
-        0
-    }
-    if ($filledCells -lt 0) { $filledCells = 0 }
-    if ($filledCells -gt $barWidth) { $filledCells = $barWidth }
-
-    $done = ($script:totalSteps -gt 0 -and $filled -ge $script:totalSteps)
-    $barColor = if ($done) { $script:theme.green } else { $script:theme.cyan }
-    $bar = (Paint ('█' * $filledCells) $barColor) + (Paint ('░' * ($barWidth - $filledCells)) $script:theme.dim)
     $countText = ('{0}/{1}' -f $filled, $script:totalSteps)
+    $strip = Get-PhaseStrip
 
     if ($script:uiReady) {
-        $script:barLine = (Paint '  NEXUS' $script:theme.accent) + (Paint '  ·  ' $script:theme.dim) +
-            (Paint $script:liveMode $script:theme.cyan) + (Paint '  ·  ' $script:theme.dim) + $bar +
-            (Paint ('  ' + $countText + '  ·  ' + $percent + '%') $script:theme.muted)
+        $plainStrip = $script:ansiRegex.Replace($strip, '')
+        $gap = [Math]::Max(1, ($script:uiWidth - 3) - $plainStrip.Length - $countText.Length)
+        $script:barLine = '  ' + $strip + (' ' * $gap) + (Paint $countText $script:theme.muted)
         Refresh-Ui
         return
     }
 
     if (-not $script:interactive) { return }
-
-    $plainBar = ('#' * $filledCells) + ('.' * ($barWidth - $filledCells))
-    Line (
-        '  ' + (Paint 'PIPELINE' $script:theme.muted) + '  [' + (Paint $plainBar $script:theme.cyan) + ']  ' +
-        (Paint ($countText + '  ·  ' + $percent + '%') $script:theme.ink)
-    )
+    Line ('  ' + (Paint 'PREFLIGHT' $script:theme.muted) + '  ' + $strip + '  ' + (Paint $countText $script:theme.ink))
 }
 
 function Set-StepUi {
@@ -830,34 +785,32 @@ function Set-StepUi {
         [Parameter(Mandatory = $true)][string]$Label,
         [Parameter(Mandatory = $true)][string]$Glyph,
         [int]$ElapsedSeconds = 0,
-        [int]$R = 102,
-        [int]$G = 115,
-        [int]$B = 255
+        [int]$R = 94,
+        [int]$G = 234,
+        [int]$B = 212
     )
 
     if (-not $script:uiReady) { return }
 
     $rgb = @($R, $G, $B)
     $indexText = ('{0:D2}/{1:D2}' -f $script:step, $script:totalSteps)
+    $phase = Get-PhaseForIndex -Index $script:step
     $timeText = Format-Duration -Seconds $ElapsedSeconds
-    $prefixPlain = '  ▌ ' + $Glyph + ' ' + $indexText + '  '
+    $prefixPlain = '  ' + $Glyph + ' ' + $indexText + '  ' + $phase + '  '
     $maxWidth = $script:uiWidth - 1
 
-    $labelBudget = $maxWidth - $prefixPlain.Length - $timeText.Length - 3
+    $labelBudget = $maxWidth - $prefixPlain.Length - $timeText.Length - 4
     if ($labelBudget -lt 8) { $labelBudget = 8 }
     $labelText = Limit-Text -Text $Label -Width $labelBudget
 
-    $leaderWidth = $maxWidth - $prefixPlain.Length - $labelText.Length - $timeText.Length - 3
-    if ($leaderWidth -lt 1) { $leaderWidth = 1 }
-    $leader = if ($leaderWidth -ge 2) {
-        ' ' + (Paint ('·' * $leaderWidth) $script:theme.dim)
-    } else {
-        ' ' * ($leaderWidth + 1)
-    }
+    $gap = $maxWidth - $prefixPlain.Length - $labelText.Length - $timeText.Length - 2
+    if ($gap -lt 1) { $gap = 1 }
 
-    $script:stepLine = (Paint '  ▌' $rgb) + ' ' + (Paint $Glyph $rgb) + ' ' +
-        (Paint $indexText $script:theme.dim) + '  ' + (Paint $labelText $script:theme.ink) +
-        $leader + (Paint ('  ' + $timeText) $script:theme.muted)
+    $script:stepLine = (Paint ('  ' + $Glyph) $rgb) + ' ' +
+        (Paint $indexText $script:theme.dim) + '  ' +
+        (Paint $phase $script:theme.accent) + '  ' +
+        (Paint $labelText $script:theme.ink) + (' ' * $gap) +
+        (Paint $timeText $script:theme.muted)
     Refresh-Ui
 }
 
@@ -872,30 +825,20 @@ function Write-StepResult {
     $glyph = if ($Ok) { '✓' } else { '✕' }
     $rgb = if ($Ok) { $script:theme.green } else { $script:theme.red }
     $indexText = ('{0:D2}' -f $Index)
+    $phase = Get-PhaseForIndex -Index $Index
+    if ($phase.Length -lt 7) { $phase = $phase.PadRight(7) }
     $duration = Format-Duration -Seconds $DurationSeconds
 
-    if (-not $script:uiReady) {
-        Push-LogLine (
-            '  ' + (Paint $glyph $rgb) + '  ' + (Paint $indexText $script:theme.dim) + '  ' +
-            (Paint $Label $script:theme.ink) + (Paint ('  ' + $duration) $script:theme.muted)
-        )
-        return
-    }
-
-    $maxWidth = $script:uiWidth - 1
-    $prefixPlain = '  ' + $glyph + '  ' + $indexText + '  '
-    $labelBudget = [Math]::Max(8, $maxWidth - $prefixPlain.Length - $duration.Length - 3)
+    $maxWidth = if ($script:uiReady) { $script:uiWidth - 1 } else { 78 }
+    $prefixPlain = '  ' + $glyph + '  ' + $indexText + '  ' + $phase + '  '
+    $labelBudget = [Math]::Max(8, $maxWidth - $prefixPlain.Length - $duration.Length - 2)
     $labelText = Limit-Text -Text $Label -Width $labelBudget
-    $leaderWidth = [Math]::Max(1, $maxWidth - $prefixPlain.Length - $labelText.Length - $duration.Length - 3)
-    $leader = if ($leaderWidth -ge 2) {
-        ' ' + (Paint ('·' * $leaderWidth) $script:theme.dim)
-    } else {
-        ' ' * ($leaderWidth + 1)
-    }
+    $gap = [Math]::Max(1, $maxWidth - $prefixPlain.Length - $labelText.Length - $duration.Length)
 
     Push-LogLine (
-        (Paint ('  ' + $glyph) $rgb) + '  ' + (Paint $indexText $script:theme.dim) + '  ' +
-        (Paint $labelText $script:theme.ink) + $leader + (Paint ('  ' + $duration) $script:theme.muted)
+        '  ' + (Paint $glyph $rgb) + '  ' + (Paint $indexText $script:theme.dim) + '  ' +
+        (Paint $phase $script:theme.accent) + '  ' + (Paint $labelText $script:theme.ink) +
+        (' ' * $gap) + (Paint $duration $script:theme.muted)
     )
 }
 
@@ -941,7 +884,7 @@ function Write-StreamLine {
 
     $clean = Compress-LinePath -Text $clean
     $styleRgb = @($style.R, $style.G, $style.B)
-    $plainPrefixLength = 7
+    $plainPrefixLength = 5
 
     if ($script:uiReady) {
         $max = $script:uiWidth - $plainPrefixLength - 1
@@ -951,7 +894,7 @@ function Write-StreamLine {
         }
     }
 
-    $colored = '  ' + (Paint '│' $script:theme.dim) + ' ' + (Paint $style.Glyph $styleRgb) + '  ' +
+    $colored = '  ' + (Paint $style.Glyph $styleRgb) + '  ' +
         (Paint $clean $script:theme.ink)
     Push-LogLine $colored
 }
@@ -986,22 +929,63 @@ function Read-EnvValue {
 }
 
 function Get-PackageVersion {
+    if ($script:packageVersion) { return $script:packageVersion }
+
     $file = Join-Path $script:root 'package.json'
     if (-not (Test-Path -LiteralPath $file)) { return '0.0.0' }
 
     try {
         $obj = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json
-        if ($obj.version) { return [string]$obj.version }
+        if ($obj.version) {
+            $script:packageVersion = [string]$obj.version
+            return $script:packageVersion
+        }
     } catch { }
 
     $match = Select-String -LiteralPath $file -Pattern '"version"\s*:\s*"([^"]+)"' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($match) { return $match.Matches[0].Groups[1].Value }
+    if ($match) {
+        $script:packageVersion = $match.Matches[0].Groups[1].Value
+        return $script:packageVersion
+    }
     return '0.0.0'
 }
 
 # ===========================================================================
 # 4. HUD и итоговые боксы
 # ===========================================================================
+function Update-BotRuntimeInfo {
+    param([int]$RootPid = 0)
+
+    $portText = Read-EnvValue -Key 'WEB_PORT' -Fallback '8080'
+    $port = 8080
+    [void][int]::TryParse($portText, [ref]$port)
+    if ($port -le 0) { $port = 8080 }
+
+    $owner = Get-PortOwnerPid -Port $port
+    if ($owner -and $owner -ne $RootPid) {
+        try {
+            $procInfo = Get-Process -Id $owner -ErrorAction Stop
+            $script:botPid = $owner
+            $script:botMemoryMB = [int]($procInfo.WorkingSet64 / 1MB)
+            return
+        } catch { }
+    }
+
+    if ($RootPid -le 0) { return }
+    try {
+        $child = Get-CimInstance Win32_Process -Filter ("ParentProcessId = " + $RootPid) -ErrorAction Stop |
+            Where-Object { $_.Name -match '^node(\.exe)?$' } |
+            Select-Object -First 1
+        if ($child) {
+            $procInfo = Get-Process -Id ([int]$child.ProcessId) -ErrorAction SilentlyContinue
+            if ($procInfo) {
+                $script:botPid = [int]$child.ProcessId
+                $script:botMemoryMB = [int]($procInfo.WorkingSet64 / 1MB)
+            }
+        }
+    } catch { }
+}
+
 function Show-Hud {
     param(
         [TimeSpan]$Uptime,
@@ -1014,32 +998,27 @@ function Show-Hud {
     $pulse = if (([int]$Uptime.TotalSeconds % 2) -eq 0) {
         $script:theme.green
     } else {
-        @(124, 240, 178)
+        @(134, 239, 172)
     }
     $timeText = $Uptime.ToString('hh\:mm\:ss')
-    $memText = [string]$MemoryMB + ' MB'
-    $evtText = [string]$Events + ' events'
+    $memory = if ($script:botMemoryMB -gt 0) { $script:botMemoryMB } else { $MemoryMB }
+    $memText = if ($memory -gt 0) { [string]$memory + ' MB' } else { '— MB' }
+    $pidText = if ($script:botPid) { 'PID ' + $script:botPid } else { '' }
 
-    $script:stepLine = (Paint '  ●' $pulse) + ' ' + (Paint 'LIVE' $script:theme.green) +
-        (Paint '  │  ' $script:theme.dim) + (Paint $timeText $script:theme.ink) +
-        (Paint '  │  ' $script:theme.dim) + (Paint $memText $script:theme.muted) +
-        (Paint '  │  ' $script:theme.dim) + (Paint $evtText $script:theme.muted)
-
-    $url = [string]$script:liveUrl
-    $prefixPlain = '  NEXUS  ·  ' + $script:liveMode + '  ·  '
-    $suffixPlain = '  ·  Ctrl+C — стоп'
-    $max = $script:uiWidth - 1
-    if (($prefixPlain.Length + $url.Length + $suffixPlain.Length) -gt $max) {
-        $urlBudget = [Math]::Max(8, $max - $prefixPlain.Length - $suffixPlain.Length)
-        $url = Limit-Text -Text $url -Width $urlBudget
+    $script:stepLine = (Paint '  ● LIVE' $pulse) +
+        (Paint ('  ' + $timeText) $script:theme.ink) +
+        (Paint '  ·  ' $script:theme.dim) + (Paint $memText $script:theme.muted) +
+        (Paint '  ·  ' $script:theme.dim) + (Paint ([string]$Events + ' lines') $script:theme.muted)
+    if ($pidText) {
+        $script:stepLine += (Paint '  ·  ' $script:theme.dim) + (Paint $pidText $script:theme.muted)
     }
 
-    $script:barLine = (Paint '  NEXUS' $script:theme.accent) + (Paint '  ·  ' $script:theme.dim) +
-        (Paint $script:liveMode $script:theme.cyan)
-    if ($url.Length -gt 0) {
-        $script:barLine += (Paint '  ·  ' $script:theme.dim) + (Paint $url $script:theme.muted)
-    }
-    $script:barLine += (Paint $suffixPlain $script:theme.dim)
+    $version = Get-PackageVersion
+    $script:barLine = (Paint '  Ctrl+C stop' $script:theme.muted) +
+        (Paint '   ·   ' $script:theme.dim) +
+        (Paint 'data/launch.log' $script:theme.muted) +
+        (Paint '   ·   ' $script:theme.dim) +
+        (Paint ('NEXUS ' + $version) $script:theme.dim)
 
     Refresh-Ui
 }
@@ -1051,28 +1030,29 @@ function Show-SuccessBox {
         [object[]]$Details = @()
     )
 
-    $inner = Get-InnerWidth -Preferred 66
+    $inner = Get-InnerWidth -Preferred 70
     $green = $script:theme.green
     $elapsed = Format-Duration -Seconds ([int]((Get-Date) - $script:runStart).TotalSeconds)
 
-    Write-CardBorder -Inner $inner -Rgb $green
-    Write-CardRow -Inner $inner -Label '✓  ' -LabelRgb $green -Value $Title -ValueRgb $green -Right $elapsed -RightRgb $script:theme.muted -BorderRgb $green
-    Write-CardRow -Inner $inner -BorderRgb $green
+    Push-LogLine ''
+    Write-SectionRule -Label $Title -Rgb $green -Inner $inner -Right $elapsed -RightRgb $script:theme.muted
 
-    foreach ($line in (Split-CardText -Text $Subtitle -Width ($inner - 6))) {
-        Write-CardRow -Inner $inner -Value $line -ValueRgb $script:theme.ink -BorderRgb $green
+    foreach ($line in (Split-CardText -Text $Subtitle -Width ($inner - 4))) {
+        Push-LogLine ('  ' + (Paint $line $script:theme.ink))
     }
 
     if ($null -ne $Details -and $Details.Count -gt 0) {
-        Write-CardRow -Inner $inner -BorderRgb $green
+        Push-LogLine ''
         foreach ($detail in $Details) {
             $label = [string]$detail.Label
-            if ($label.Length -lt 9) { $label = $label.PadRight(9) }
-            Write-CardRow -Inner $inner -Label ($label + '  ') -LabelRgb $script:theme.muted -Value ([string]$detail.Value) -ValueRgb $script:theme.ink -BorderRgb $green
+            if ($label.Length -lt 8) { $label = $label.PadRight(8) }
+            Push-LogLine (
+                '  ' + (Paint $label $script:theme.muted) + '  ' +
+                (Paint ([string]$detail.Value) $script:theme.ink)
+            )
         }
     }
 
-    Write-CardBorder -Inner $inner -Left '╰' -Right '╯' -Rgb $green
     Push-LogLine ''
 }
 
@@ -1082,30 +1062,28 @@ function Show-FailureBox {
         [string]$Hint = 'Исправь ошибки и запусти npm run launch снова.'
     )
 
-    $inner = Get-InnerWidth -Preferred 66
+    $inner = Get-InnerWidth -Preferred 70
     $red = $script:theme.red
     $amber = $script:theme.amber
 
-    Write-CardBorder -Inner $inner -Rgb $red
-    Write-CardRow -Inner $inner -Label '✕  ' -LabelRgb $red -Value $Title -ValueRgb $red -BorderRgb $red
-    Write-CardRow -Inner $inner -BorderRgb $red
+    Push-LogLine ''
+    Write-SectionRule -Label $Title -Rgb $red -Inner $inner
 
     if ($script:failures.Count -eq 0) {
-        Write-CardRow -Inner $inner -Label '✕  ' -LabelRgb $red -Value 'Неизвестная ошибка' -ValueRgb $amber -BorderRgb $red
+        Push-LogLine ('  ' + (Paint '✕  Неизвестная ошибка' $amber))
     } else {
         foreach ($failure in $script:failures) {
-            $wrapped = Split-CardText -Text ([string]$failure) -Width ($inner - 9)
+            $wrapped = Split-CardText -Text ([string]$failure) -Width ($inner - 7)
             foreach ($line in $wrapped) {
-                Write-CardRow -Inner $inner -Label '✕  ' -LabelRgb $red -Value $line -ValueRgb $amber -BorderRgb $red
+                Push-LogLine ('  ' + (Paint '✕  ' $red) + (Paint $line $amber))
             }
         }
     }
 
-    Write-CardRow -Inner $inner -BorderRgb $red
-    foreach ($line in (Split-CardText -Text $Hint -Width ($inner - 6))) {
-        Write-CardRow -Inner $inner -Value $line -ValueRgb $script:theme.muted -BorderRgb $red
+    Push-LogLine ''
+    foreach ($line in (Split-CardText -Text $Hint -Width ($inner - 4))) {
+        Push-LogLine ('  ' + (Paint $line $script:theme.muted))
     }
-    Write-CardBorder -Inner $inner -Left '╰' -Right '╯' -Rgb $red
     Push-LogLine ''
 }
 
@@ -1250,6 +1228,7 @@ function Wait-NpmProcess {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     $lastSpin = Get-Date
     $lastHud = Get-Date
+    $lastRuntime = Get-Date
     $frame = 0
     $line = ''
 
@@ -1311,6 +1290,10 @@ function Wait-NpmProcess {
         }
 
         if ($Mode -eq 'Bot' -and ((Get-Date) - $lastHud).TotalMilliseconds -ge 500) {
+            if (((Get-Date) - $lastRuntime).TotalMilliseconds -ge 2500) {
+                Update-BotRuntimeInfo -RootPid $proc.Id
+                $lastRuntime = Get-Date
+            }
             $mem = 0
             try {
                 if (-not $proc.HasExited) { $mem = [int]($proc.WorkingSet64 / 1MB) }
@@ -1353,6 +1336,9 @@ function Wait-NpmProcess {
 
     $State.ExitCode = $proc.ExitCode
     $State.Duration = $sw.Elapsed
+    if ($Mode -eq 'Bot' -and -not $script:bootReported) {
+        Show-BootReport -Force
+    }
     Close-NpmProcess -State $State
 }
 
@@ -1467,9 +1453,12 @@ function Get-BotCategory {
     $clean = $Text
     $tag = ''
 
-    $tagMatch = [regex]::Match($clean, '^\s*\[(bot|web|db|err)\]\s*', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    $tagMatch = [regex]::Match($clean, '^\s*\[([a-z0-9_-]+)\]\s*', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
     if ($tagMatch.Success) {
-        $tag = $tagMatch.Groups[1].Value.ToLowerInvariant()
+        $rawTag = $tagMatch.Groups[1].Value.ToLowerInvariant()
+        if ($rawTag -eq 'bot' -or $rawTag -eq 'web' -or $rawTag -eq 'db' -or $rawTag -eq 'err') {
+            $tag = $rawTag
+        }
         $clean = $clean.Substring($tagMatch.Length)
     }
 
@@ -1491,13 +1480,449 @@ function Get-BotCategory {
     }
 
     switch ($tag) {
-        'web' { $r = 84;  $g = 184; $b = 255 }
-        'db'  { $r = 229; $g = 192; $b = 123 }
-        'err' { $r = 255; $g = 95;  $b = 109 }
-        default { $r = 61; $g = 214; $b = 140 }
+        'web' { $r = 103; $g = 232; $b = 249 }
+        'db'  { $r = 251; $g = 191; $b = 36 }
+        'err' { $r = 251; $g = 113; $b = 133 }
+        default { $r = 74; $g = 222; $b = 128 }
     }
 
     return [pscustomobject]@{ Tag = $tag; Text = $clean; R = $r; G = $g; B = $b }
+}
+
+function Reset-BootState {
+    $script:bootActive = $false
+    $script:bootGroup = ''
+    $script:bootGroups = New-Object System.Collections.ArrayList
+    $script:bootFacts = @{}
+    $script:bootCounts = @{ ok = 0; info = 0; warn = 0; error = 0 }
+    $script:bootIssues = New-Object System.Collections.ArrayList
+    $script:bootReported = $false
+    $script:botPid = $null
+    $script:botMemoryMB = 0
+}
+
+function Add-BootFact {
+    param(
+        [Parameter(Mandatory = $true)][string]$Key,
+        [AllowEmptyString()][string]$Value,
+        [string]$Status = 'ok'
+    )
+
+    if ($null -eq $script:bootFacts) { $script:bootFacts = @{} }
+    $script:bootFacts[$Key] = [pscustomobject]@{ Value = $Value; Status = $Status }
+}
+
+function Get-BootGroupEntry {
+    param([Parameter(Mandatory = $true)][string]$Name)
+
+    if ($null -eq $script:bootGroups) {
+        $script:bootGroups = New-Object System.Collections.ArrayList
+    }
+    foreach ($group in $script:bootGroups) {
+        if ($group.Name -eq $Name) { return $group }
+    }
+
+    $created = [pscustomobject]@{
+        Name   = $Name
+        Checks = New-Object System.Collections.ArrayList
+    }
+    [void]$script:bootGroups.Add($created)
+    return $created
+}
+
+function Find-BootGroup {
+    param([Parameter(Mandatory = $true)][string]$Name)
+
+    if ($null -eq $script:bootGroups) { return $null }
+    foreach ($group in $script:bootGroups) {
+        if ($group.Name -eq $Name) { return $group }
+    }
+    return $null
+}
+
+function Find-BootCheck {
+    param(
+        [Parameter(Mandatory = $true)][string]$GroupName,
+        [Parameter(Mandatory = $true)][string]$CheckName
+    )
+
+    $group = Find-BootGroup -Name $GroupName
+    if ($null -eq $group) { return $null }
+    foreach ($check in $group.Checks) {
+        if ($check.Name -eq $CheckName) { return $check }
+    }
+    return $null
+}
+
+function Get-BootStatusRank {
+    param([string]$Status)
+
+    switch ($Status) {
+        'error' { return 3 }
+        'warn'  { return 2 }
+        'info'  { return 1 }
+        default { return 0 }
+    }
+}
+
+function Get-BootGroupStatus {
+    param($Group)
+
+    $rank = 0
+    $hasOk = $false
+    $hasInfo = $false
+    foreach ($check in $Group.Checks) {
+        if ($check.Status -eq 'ok') { $hasOk = $true }
+        if ($check.Status -eq 'info') { $hasInfo = $true }
+        $current = Get-BootStatusRank -Status $check.Status
+        if ($current -gt $rank) { $rank = $current }
+    }
+    switch ($rank) {
+        3 { return 'error' }
+        2 { return 'warn' }
+        default {
+            if ($hasOk) { return 'ok' }
+            if ($hasInfo) { return 'info' }
+            return 'ok'
+        }
+    }
+}
+
+function Add-BootCheck {
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    $status = ''
+    $rest = ''
+    $marks = @(
+        @{ Code = 0x2705; Status = 'ok' },
+        @{ Code = 0x2139; Status = 'info' },
+        @{ Code = 0x26A0; Status = 'warn' },
+        @{ Code = 0x274C; Status = 'error' }
+    )
+
+    foreach ($mark in $marks) {
+        $glyph = [string][char]$mark.Code
+        if ($Text.StartsWith($glyph)) {
+            $status = $mark.Status
+            $rest = $Text.Substring($glyph.Length)
+            $rest = $rest.Replace([string][char]0xFE0F, '').Trim()
+            break
+        }
+    }
+
+    if (-not $status) { return $false }
+
+    $name = $rest
+    $detail = ''
+    $separator = $rest.IndexOf(' — ')
+    if ($separator -lt 0) { $separator = $rest.IndexOf(' - ') }
+    if ($separator -ge 0) {
+        $name = $rest.Substring(0, $separator).Trim()
+        $detail = $rest.Substring($separator + 3).Trim()
+    }
+
+    if (-not $name) { $name = 'Проверка' }
+    if (-not $script:bootGroup) { $script:bootGroup = 'Общее' }
+
+    $group = Get-BootGroupEntry -Name $script:bootGroup
+    $check = [pscustomobject]@{ Name = $name; Status = $status; Detail = $detail }
+    [void]$group.Checks.Add($check)
+    $script:bootCounts[$status] = [int]$script:bootCounts[$status] + 1
+
+    if ($status -eq 'warn' -or $status -eq 'error') {
+        [void]$script:bootIssues.Add([pscustomobject]@{
+            Group  = $script:bootGroup
+            Name   = $name
+            Status = $status
+            Detail = $detail
+        })
+    }
+
+    return $true
+}
+
+
+function Get-BootGroupLabel {
+    param([string]$Name)
+
+    switch -Regex ($Name) {
+        '^Окружение$' { return 'CORE' }
+        '^Конфигурация$' { return 'CONFIG' }
+        '^База данных$' { return 'DATA' }
+        '^Веб-панель$' { return 'PANEL' }
+        '^Команды$' { return 'COMMANDS' }
+        '^Tailscale$' { return 'NET' }
+        '^Сервер:' { return 'SERVER' }
+        default { return (Limit-Text -Text ($Name.ToUpperInvariant()) -Width 9) }
+    }
+}
+
+function Get-BootStatusStyle {
+    param([string]$Status)
+
+    switch ($Status) {
+        'error' { return [pscustomobject]@{ Glyph = '✖'; Rgb = $script:theme.red } }
+        'warn'  { return [pscustomobject]@{ Glyph = '⚠'; Rgb = $script:theme.amber } }
+        'info'  { return [pscustomobject]@{ Glyph = 'ℹ'; Rgb = $script:theme.muted } }
+        default { return [pscustomobject]@{ Glyph = '✔'; Rgb = $script:theme.green } }
+    }
+}
+
+function Get-BootGroupSummary {
+    param($Group)
+
+    $checks = @($Group.Checks)
+    switch -Regex ($Group.Name) {
+        '^Окружение$' {
+            $node = Find-BootCheck -GroupName $Group.Name -CheckName 'Node.js'
+            $intents = Find-BootCheck -GroupName $Group.Name -CheckName 'Intents'
+            $nodeText = if ($node -and $node.Detail) { $node.Detail -replace '\s*\(.*$', '' } else { 'Node ok' }
+            $intentText = if ($intents) { if ($intents.Status -eq 'ok') { 'intents ok' } else { 'intents ' + $intents.Status } } else { '' }
+            if ($intentText) { return ($nodeText + ' · ' + $intentText) }
+            return $nodeText
+        }
+        '^Конфигурация$' {
+            if ($checks.Count -eq 1) { return '1 check' }
+            return ('{0} checks' -f $checks.Count)
+        }
+        '^База данных$' {
+            $schema = Find-BootCheck -GroupName $Group.Name -CheckName 'Схема'
+            $file = Find-BootCheck -GroupName $Group.Name -CheckName 'Файл БД'
+            $backup = Find-BootCheck -GroupName $Group.Name -CheckName 'Бэкапы'
+            $parts = New-Object System.Collections.ArrayList
+            if ($schema -and $schema.Detail) {
+                [void]$parts.Add(($schema.Detail -replace 'версия\s*', 'schema '))
+            }
+            if ($file -and $file.Detail) {
+                [void]$parts.Add(($file.Detail -split ' · ')[0])
+            }
+            if ($backup) {
+                if ($backup.Detail -match '(\d+)\s*ч назад') {
+                    [void]$parts.Add('backup ' + $matches[1] + 'h')
+                } else {
+                    [void]$parts.Add('backup ' + $backup.Status)
+                }
+            }
+            if ($parts.Count -eq 0) { return 'online' }
+            return ($parts -join ' · ')
+        }
+        '^Веб-панель$' {
+            $availability = Find-BootCheck -GroupName $Group.Name -CheckName 'Доступность'
+            $parts = New-Object System.Collections.ArrayList
+            if ($script:bootFacts -and $script:bootFacts.ContainsKey('panel')) {
+                $panelUrl = [string]$script:bootFacts['panel'].Value
+                if ($panelUrl) { [void]$parts.Add((Limit-Text -Text $panelUrl -Width 24)) }
+            }
+            if ($availability -and $availability.Detail) {
+                $avail = $availability.Detail
+                $avail = $avail -replace 'локально', 'local'
+                $avail = $avail -replace 'публично недоступно', 'public failed'
+                $avail = $avail -replace 'публично доступно', 'public ok'
+                $avail = $avail -replace '\s*\(fetch failed\)', ''
+                [void]$parts.Add($avail)
+            }
+            if ($parts.Count -eq 0) { return 'disabled' }
+            return ($parts -join ' · ')
+        }
+        '^Команды$' {
+            $registration = Find-BootCheck -GroupName $Group.Name -CheckName 'Регистрация'
+            if ($registration -and $registration.Detail -match '(\d+)\s+команд') {
+                return ($matches[1] + ' commands')
+            }
+            $load = Find-BootCheck -GroupName $Group.Name -CheckName 'Загрузка'
+            if ($load -and $load.Detail -match '(\d+)\s+команд') {
+                return ($matches[1] + ' commands')
+            }
+            if ($checks.Count -eq 1) { return '1 check' }
+            return ('{0} checks' -f $checks.Count)
+        }
+        '^Tailscale$' {
+            $issues = @($checks | Where-Object { $_.Status -eq 'warn' -or $_.Status -eq 'error' })
+            if ($issues.Count -eq 0) { return 'tailnet ok' }
+            if ($issues.Count -eq 1) {
+                return ('1 issue · ' + $issues[0].Name)
+            }
+            $names = @($issues | ForEach-Object { $_.Name }) -join ', '
+            return ('{0} issues · {1}' -f $issues.Count, $names)
+        }
+        '^Сервер:' {
+            $name = $Group.Name -replace '^Сервер:\s*', ''
+            $members = Find-BootCheck -GroupName $Group.Name -CheckName 'Участники'
+            $parts = New-Object System.Collections.ArrayList
+            if ($name) { [void]$parts.Add($name) }
+            if ($members -and $members.Detail -match '(\d+)\s+на сервере') {
+                [void]$parts.Add($matches[1] + ' members')
+            }
+            return ($parts -join ' · ')
+        }
+        default {
+            if ($checks.Count -eq 1) { return '1 check' }
+            return ('{0} checks' -f $checks.Count)
+        }
+    }
+}
+
+function Show-BootReport {
+    param([switch]$Force)
+
+    if ($script:bootReported -and -not $Force) { return }
+    if ($null -eq $script:bootGroups -or $script:bootGroups.Count -eq 0) { return }
+
+    $inner = Get-InnerWidth -Preferred 70
+    Push-LogLine ''
+    Write-SectionRule -Label 'RUNTIME REPORT' -Rgb $script:theme.accent -Inner $inner -Right ('v' + (Get-PackageVersion)) -RightRgb $script:theme.muted
+
+    foreach ($group in $script:bootGroups) {
+        $status = Get-BootGroupStatus -Group $group
+        $style = Get-BootStatusStyle -Status $status
+        $label = Get-BootGroupLabel -Name $group.Name
+        if ($label.Length -lt 9) { $label = $label.PadRight(9) }
+        $detail = Get-BootGroupSummary -Group $group
+
+        $prefixPlain = '  ' + $style.Glyph + '  ' + $label + '  '
+        $detailBudget = [Math]::Max(8, $inner - $prefixPlain.Length + 2)
+        $detail = Limit-Text -Text $detail -Width $detailBudget
+        Push-LogLine (
+            '  ' + (Paint $style.Glyph $style.Rgb) + '  ' +
+            (Paint $label $script:theme.muted) + '  ' +
+            (Paint $detail $script:theme.ink)
+        )
+
+        if ($status -eq 'warn' -or $status -eq 'error') {
+            foreach ($issue in @($group.Checks | Where-Object { $_.Status -eq 'warn' -or $_.Status -eq 'error' })) {
+                $issueText = [string]$issue.Name
+                if ($issue.Detail) { $issueText += ' — ' + $issue.Detail }
+                foreach ($wrapped in (Split-CardText -Text $issueText -Width ($inner - 14))) {
+                    Push-LogLine (
+                        '  ' + (' ' * 11) + (Paint '↳ ' $style.Rgb) +
+                        (Paint $wrapped $script:theme.amber)
+                    )
+                }
+            }
+        }
+    }
+
+    $ok = [int]$script:bootCounts['ok']
+    $info = [int]$script:bootCounts['info']
+    $warn = [int]$script:bootCounts['warn']
+    $errors = [int]$script:bootCounts['error']
+    $verdict = if ($errors -gt 0) {
+        'ACTION REQUIRED'
+    } elseif ($warn -gt 0) {
+        'READY WITH WARNINGS'
+    } else {
+        'READY'
+    }
+    $verdictRgb = if ($errors -gt 0) { $script:theme.red } elseif ($warn -gt 0) { $script:theme.amber } else { $script:theme.green }
+    $summary = ('{0} ok · {1} info · {2} warn · {3} errors' -f $ok, $info, $warn, $errors)
+
+    Write-SectionRule -Inner $inner
+    $gap = [Math]::Max(2, $inner - $summary.Length - $verdict.Length - 2)
+    Push-LogLine (
+        '  ' + (Paint $summary $script:theme.muted) + (' ' * $gap) +
+        (Paint $verdict $verdictRgb)
+    )
+    Write-SectionRule -Inner $inner
+    Push-LogLine ''
+
+    $script:bootReported = $true
+    $script:bootActive = $false
+}
+
+function Test-BootLine {
+    param(
+        [AllowEmptyString()][string]$Text,
+        [switch]$IsError
+    )
+
+    if ($IsError) { return $false }
+    $raw = $Text.Trim()
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $true }
+    $t = $raw
+    $leadMarks = @('✅', 'ℹ️', 'ℹ', '⚠️', '⚠', '❌', '✔', '✓', '✖', '✕')
+    foreach ($lead in $leadMarks) {
+        if ($t.StartsWith($lead)) {
+            $t = $t.Substring($lead.Length).Trim()
+            break
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($t)) { return $true }
+
+    # Служебный шум npm / устаревший ASCII-баннер / отчёт самого бота.
+    if ($t -match '^>\s') { return $true }
+    if ($t -match '^\[predev\]') { return $true }
+    if ($t -match '^Discord moderation bot') { return $true }
+    if ($t -match '^[─━═]{5,}$') { return $true }
+    if ($t -match '█|╔|╚|║|╗|╝|╠|╣|╬') { return $true }
+    if ($t -match '^\[startup\]') { return $true }
+
+    $detail = if ($t -match ' — (.+)$') { $matches[1] } else { '' }
+
+    if ($t -match '^Конфигурация проверена') {
+        Add-BootFact -Key 'config' -Value $detail
+        return $true
+    }
+    if ($t -match '^Подключаюсь к Discord') {
+        Add-BootFact -Key 'discord' -Value $detail
+        if ($t -match 'команд:\s*(\d+)') { Add-BootFact -Key 'commands' -Value $matches[1] }
+        if ($t -match 'серверов:\s*(\d+)') { Add-BootFact -Key 'guilds' -Value $matches[1] }
+        return $true
+    }
+    if ($t -match '^Планировщик наказаний') {
+        Add-BootFact -Key 'scheduler' -Value $detail
+        return $true
+    }
+    if ($t -match '^Авто-бэкап БД') {
+        Add-BootFact -Key 'backup' -Value $detail
+        return $true
+    }
+    if ($t -match '^Запускаю веб-панель') {
+        Add-BootFact -Key 'panel' -Value $detail
+        return $true
+    }
+    if ($t -match '^https?://') {
+        Add-BootFact -Key 'panel' -Value $t
+        return $true
+    }
+    if ($t -match '^Веб-панель:\s*(.+)$') {
+        Add-BootFact -Key 'panel' -Value $matches[1]
+        return $true
+    }
+    if ($t -match '^Локально:\s*(.+)$') {
+        Add-BootFact -Key 'local' -Value $matches[1]
+        return $true
+    }
+    if ($t -match '^Остановка:') { return $true }
+    if ($t -match '^✦') { return $true }
+
+    $groups = @('Окружение', 'Конфигурация', 'База данных', 'Веб-панель', 'Команды', 'Tailscale')
+    if ($t -eq 'Окружение') {
+        $script:bootActive = $true
+        $script:bootGroup = 'Окружение'
+        return $true
+    }
+    if ($script:bootActive -and ($groups -contains $t -or $t -like 'Сервер:*')) {
+        $script:bootGroup = $t
+        return $true
+    }
+
+    if ($t -match '^Итог проверок:') {
+        Show-BootReport
+        return $true
+    }
+    if ($t -match '^Критичных ошибок') { return $true }
+    if ($t -match '^Бот готов') {
+        Show-BootReport
+        return $true
+    }
+
+    if ($script:bootActive) {
+        if (Add-BootCheck -Text $raw) { return $true }
+        if ($t -match '^STARTUP_STRICT') { return $false }
+        return $true
+    }
+
+    return $false
 }
 
 function Write-BotLine {
@@ -1511,20 +1936,63 @@ function Write-BotLine {
 
     $clean = Compress-LinePath -Text $clean
     $cat = Get-BotCategory -Text $clean -IsError:$IsError
-    $tagText = $cat.Tag.ToUpperInvariant()
+    if (Test-BootLine -Text $cat.Text -IsError:$IsError) { return }
+
+    $body = $cat.Text.Trim()
+    if ([string]::IsNullOrWhiteSpace($body)) { return }
+
+    $glyph = '·'
+    $rgb = $script:theme.dim
+    $marks = @(
+        @{ Glyph = '✅'; Status = 'ok' },
+        @{ Glyph = 'ℹ'; Status = 'info' },
+        @{ Glyph = '⚠'; Status = 'warn' },
+        @{ Glyph = '❌'; Status = 'error' },
+        @{ Glyph = '✔'; Status = 'ok' },
+        @{ Glyph = '✓'; Status = 'ok' },
+        @{ Glyph = '✖'; Status = 'error' },
+        @{ Glyph = '✕'; Status = 'error' }
+    )
+    foreach ($mark in $marks) {
+        if ($body.StartsWith($mark.Glyph)) {
+            switch ($mark.Status) {
+                'ok' { $glyph = '✔'; $rgb = $script:theme.green }
+                'info' { $glyph = 'ℹ'; $rgb = $script:theme.muted }
+                'warn' { $glyph = '⚠'; $rgb = $script:theme.amber }
+                default { $glyph = '✖'; $rgb = $script:theme.red }
+            }
+            $body = $body.Substring($mark.Glyph.Length).Replace([string][char]0xFE0F, '').Trim()
+            break
+        }
+    }
+
+    if ($IsError -or $cat.Tag -eq 'err') {
+        $glyph = '✖'
+        $rgb = $script:theme.red
+    }
+
+    $tagText = if ($cat.Tag -eq 'bot' -and -not $IsError) {
+        ''
+    } else {
+        $cat.Tag.ToUpperInvariant()
+    }
     $catRgb = @($cat.R, $cat.G, $cat.B)
-    $plainPrefixLength = 10
+    $stamp = Get-Date -Format 'HH:mm:ss'
+    $plainPrefixLength = 2 + 8 + 2 + 1 + 2
+    if ($tagText) { $plainPrefixLength += $tagText.Length + 2 }
 
     if ($script:uiReady) {
         $max = $script:uiWidth - $plainPrefixLength - 1
         if ($max -lt 20) { $max = 20 }
-        if ($cat.Text.Length -gt $max) {
-            $cat.Text = $cat.Text.Substring(0, $max - 3) + '...'
-        }
+        $body = Limit-Text -Text $body -Width $max
     }
 
-    $prefix = '  ' + (Paint '│' $script:theme.dim) + ' ' + (Paint $tagText $catRgb) + (Paint ' › ' $script:theme.dim)
-    $colored = $prefix + (Paint $cat.Text $script:theme.ink)
+    $colored = (Paint ('  ' + $stamp) $script:theme.dim) +
+        (Paint ('  ' + $glyph) $rgb)
+    if ($tagText) {
+        $colored += (Paint ('  ' + $tagText) $catRgb)
+    }
+    $colored += (Paint ('  ' + $body) $script:theme.ink)
     Push-LogLine $colored
 }
 
@@ -1535,19 +2003,30 @@ function Show-LiveBanner {
         [string]$Version
     )
 
-    $inner = Get-InnerWidth -Preferred 66
-    $border = $script:theme.cyan
+    $inner = Get-InnerWidth -Preferred 70
     $muted = $script:theme.muted
     $script:liveUrl = $Url
 
-    Write-CardBorder -Inner $inner -Rgb $border
-    Write-CardRow -Inner $inner -Label '●  ' -LabelRgb $script:theme.green -Value 'LIVE' -ValueRgb $script:theme.green -Right ('v' + $Version) -RightRgb $muted -BorderRgb $border
-    Write-CardRow -Inner $inner -BorderRgb $border
-    Write-CardRow -Inner $inner -Label 'PANEL   ' -LabelRgb $muted -Value $Url -ValueRgb $border -BorderRgb $border
-    Write-CardRow -Inner $inner -Label 'MODE    ' -LabelRgb $muted -Value $Mode -ValueRgb $script:theme.ink -BorderRgb $border
+    $left = '● LIVE'
+    $right = 'v' + $Version
+    Push-LogLine ''
+    Write-SectionRule -Label 'RUNTIME' -Rgb $script:theme.accent -Inner $inner -Right $right -RightRgb $muted
+
+    $urlText = Limit-Text -Text $Url -Width ([Math]::Max(12, $inner - 20))
+    Push-LogLine (
+        '  ' + (Paint $left $script:theme.green) + '  ' +
+        (Paint $Mode $script:theme.accent) + '  ' +
+        (Paint '·' $script:theme.dim) + '  ' +
+        (Paint $urlText $script:theme.cyan)
+    )
+
     $stream = if ($Dev) { 'npm run dev' } else { 'npm run start' }
-    Write-CardRow -Inner $inner -Label 'STREAM  ' -LabelRgb $muted -Value $stream -ValueRgb $muted -BorderRgb $border
-    Write-CardBorder -Inner $inner -Left '╰' -Right '╯' -Rgb $border
+    Push-LogLine (
+        '  ' + (Paint 'stream' $muted) + '  ' +
+        (Paint $stream $script:theme.dim) + '  ' +
+        (Paint '·' $script:theme.dim) + '  ' +
+        (Paint 'Ctrl+C to stop' $script:theme.dim)
+    )
     Push-LogLine ''
 }
 
@@ -1609,6 +2088,7 @@ function Start-Nexus {
             (Paint '  ℹ  ' $script:theme.cyan) + (Paint 'checks-only: бот не запускается.' $script:theme.muted)
         )
         Push-LogLine ''
+        Hide-Ui
         Write-LaunchLog 'checks-only mode: bot start skipped'
         return 0
     }
@@ -1616,18 +2096,11 @@ function Start-Nexus {
     $startArgs = if ($Dev) { @('run', 'dev') } else { @('run', 'start') }
     Write-LaunchLog ("starting bot: npm {0}" -f ($startArgs -join ' '))
 
+    Reset-BootState
     Show-LiveBanner -Mode $mode -Url $publicUrl -Version $version
 
     if ($script:uiReady) {
         Show-Hud -Uptime ([TimeSpan]::Zero) -MemoryMB 0 -Events 0
-    } else {
-        Push-LogLine (
-            (Paint '  ●' $script:theme.green) + ' ' + (Paint 'NEXUS LIVE' $script:theme.green) +
-            (Paint '  ·  ' $script:theme.dim) + (Paint ('panel ' + $publicUrl) $script:theme.cyan)
-        )
-        Push-LogLine (
-            (Paint '  │' $script:theme.dim) + ' ' + (Paint ('stream · ' + $mode) $script:theme.muted)
-        )
     }
 
     if (Test-Canceled) {
@@ -1639,6 +2112,7 @@ function Start-Nexus {
 
     $state = Start-NpmProcess -NpmArgs $startArgs -TimeoutSeconds 0
     Write-LaunchLog ("bot process started: pid={0}" -f $state.Process.Id)
+    Update-BotRuntimeInfo -RootPid $state.Process.Id
 
     Wait-NpmProcess -State $state -Mode Bot -TimeoutSeconds 0
 
@@ -1892,17 +2366,20 @@ if ($StartFirst) {
     }
 
     $buildNeeded = -not (Test-Path -LiteralPath (Join-Path $script:root 'dist\index.js'))
-    $script:totalSteps = if ($buildNeeded) { 2 } else { 1 }
+    $script:phaseNames = @(if ($buildNeeded) { 'BUILD'; 'VERIFY' } else { 'VERIFY' })
+    $script:totalSteps = $script:phaseNames.Count
     $script:liveMode = 'LIVE'
 
     Write-LaunchLog ("live mode: buildNeeded={0} totalSteps={1}" -f $buildNeeded, $script:totalSteps)
 
     if ($buildNeeded) {
         Push-LogLine ''
+        Write-SectionRule -Label 'PRE-BUILD' -Rgb $script:theme.amber -Inner (Get-InnerWidth -Preferred 70)
         Push-LogLine ((Paint '  ⚠  ' $script:theme.amber) + (Paint 'dist/index.js не найден — сначала соберу проект.' $script:theme.amber))
         $built = Invoke-NpmStep -Label 'Сборка · перед первым запуском' -NpmArgs @('run', 'build') -ShowOutput
         if (-not $built) {
             Show-DesktopToast -Title 'NEXUS · сборка не удалась' -Message 'Бот не запущен. Подробности в data\launch.log.' -Kind Error
+            Hide-Ui
             Show-FailureBox -Title 'BUILD FAILED' -Hint 'Сборка не прошла. Исправь ошибки и повтори npm run launch:live.'
             if ($InWindow) { Read-Host '  Нажмите Enter, чтобы закрыть окно' | Out-Null }
             exit 1
@@ -1910,6 +2387,7 @@ if ($StartFirst) {
     }
 
     Push-LogLine ''
+    Write-SectionRule -Label 'RUNTIME' -Rgb $script:theme.green -Inner (Get-InnerWidth -Preferred 70)
     Push-LogLine ((Paint '  ●  ' $script:theme.green) + (Paint 'Поднимаю бота и панель в окне NEXUS-LIVE…' $script:theme.ink))
 
     $webEnabled = (Read-EnvValue -Key 'WEB_ENABLED' -Fallback 'false') -eq 'true'
@@ -1925,6 +2403,7 @@ if ($StartFirst) {
     }
 
     Push-LogLine ''
+    Write-SectionRule -Label 'VERIFY' -Rgb $script:theme.accent -Inner (Get-InnerWidth -Preferred 70)
     $checksOk = Invoke-NpmStep -Label 'Проверки · typecheck, lint, формат, тесты' -NpmArgs @('run', 'verify') -ShowOutput
 
     $botUp = $false
@@ -1944,6 +2423,11 @@ if ($StartFirst) {
         Write-LaunchLog 'live: bot start failed or health timeout'
         Show-DesktopToast -Title 'NEXUS · бот не поднялся' -Message 'Проверь окно NEXUS-LIVE и data\launch.log.' -Kind Error
         [void]$script:failures.Add('Запуск бота и панели')
+    }
+
+    if ($checksOk -and $botUp) {
+        $script:step = $script:totalSteps + 1
+        Show-Progress
     }
 
     $summary = $null
@@ -1983,11 +2467,13 @@ if ($StartFirst) {
     }
 
     if (-not $liveOk) {
+        Hide-Ui
         Show-FailureBox -Title $failureTitle -Hint $failureHint
         if ($InWindow) { Read-Host '  Нажмите Enter, чтобы закрыть окно' | Out-Null }
         exit 1
     }
 
+    Hide-Ui
     if ($InWindow) { Read-Host '  Проверки пройдены. Enter — закрыть окно' | Out-Null }
     exit 0
 }
@@ -2029,6 +2515,11 @@ foreach ($definition in $steps) {
     if (-not $result) { $ok = $false }
 
     if ($script:canceled) { break }
+}
+
+if ($ok -and -not $script:canceled) {
+    $script:step = $script:totalSteps + 1
+    Show-Progress
 }
 
 # ===========================================================================

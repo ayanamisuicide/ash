@@ -1,6 +1,7 @@
 import { api } from './client';
 import type {
   ActionResult,
+  ActivityResponse,
   AddWarnActionInput,
   AppealListResponse,
   AppealReviewResult,
@@ -47,6 +48,13 @@ export function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
 /** Статистика, последние кейсы, безопасность и состояние бота */
 export function getOverview(guildId: string, signal?: AbortSignal): Promise<OverviewResponse> {
   return api.get<OverviewResponse>(`/api/guilds/${encodeURIComponent(guildId)}/overview`, {
+    signal,
+  });
+}
+
+/** Сводка активности: XP, сообщения, время в голосе и кто сейчас в канале */
+export function getActivity(guildId: string, signal?: AbortSignal): Promise<ActivityResponse> {
+  return api.get<ActivityResponse>(`/api/guilds/${encodeURIComponent(guildId)}/activity`, {
     signal,
   });
 }

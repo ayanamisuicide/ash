@@ -314,6 +314,19 @@ function buildProfile(seed: MemberSeed, summary: MemberSummary): MemberProfile {
       createdAt: item.createdAt,
     }));
 
+  const activitySeed = [...seed.name].reduce((total, char) => total + char.charCodeAt(0), 0);
+  const messages = seed.bot ? 0 : 40 + ((activitySeed * 7) % 900);
+  const voiceSeconds = seed.bot ? 0 : 1_200 + ((activitySeed * 13) % 40_000);
+  const xp = seed.bot ? 0 : messages * 5 + Math.floor(voiceSeconds / 300) * 10;
+  let level = 0;
+  let rest = xp;
+  let needed = 100;
+  while (rest >= needed) {
+    rest -= needed;
+    level += 1;
+    needed = 5 * level * level + 50 * level + 100;
+  }
+
   return {
     ...summary,
     inGuild,
@@ -328,6 +341,21 @@ function buildProfile(seed: MemberSeed, summary: MemberSummary): MemberProfile {
     activeCases,
     muted,
     timeoutUntil: timeoutCase?.expiresAt ?? summary.timeoutUntil,
+    activity: {
+      xp,
+      level,
+      rest,
+      needed,
+      messages,
+      voiceSeconds,
+      ranks: seed.bot
+        ? { xp: 0, messages: 0, voice: 0 }
+        : {
+            xp: 1 + (activitySeed % 12),
+            messages: 1 + (activitySeed % 9),
+            voice: 1 + (activitySeed % 7),
+          },
+    },
   };
 }
 

@@ -152,6 +152,61 @@ export interface MemberProfile extends MemberSummary {
   notes: MemberNote[];
   cases: RecentCase[];
   activeCases: RecentCase[];
+  /** Активность участника: XP, уровень, сообщения и время в голосе */
+  activity: MemberActivity;
+}
+
+/** Активность участника в профиле */
+export interface MemberActivity {
+  xp: number;
+  level: number;
+  rest: number;
+  needed: number;
+  messages: number;
+  voiceSeconds: number;
+  /** Места в топах (0 — активности ещё нет) */
+  ranks: { xp: number; messages: number; voice: number };
+}
+
+export type ActivityMetric = 'xp' | 'messages' | 'voice';
+
+export interface ActivityMemberStat {
+  userId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  level: number;
+  xp: number;
+  messages: number;
+  voiceSeconds: number;
+}
+
+export interface ActivityLiveSession {
+  userId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  channelId: string;
+  seconds: number;
+}
+
+/** GET /api/guilds/:guildId/activity */
+export interface ActivityResponse {
+  ok: true;
+  settings: {
+    levelingEnabled: boolean;
+    messageXp: number;
+    messageCooldownSec: number;
+    voiceXp: number;
+    voiceTrackingEnabled: boolean;
+  };
+  voiceIntervalMinutes: number;
+  totals: {
+    tracked: number;
+    messages: number;
+    voiceSeconds: number;
+    xp: number;
+  };
+  top: Record<ActivityMetric, ActivityMemberStat[]>;
+  live: ActivityLiveSession[];
 }
 
 /** GET /api/guilds/:guildId/members?q=&page=&pageSize= */
@@ -343,6 +398,13 @@ export interface CommunitySettings {
   levelingEnabled: boolean;
   levelupChannelId: string | null;
   levelupMessage: string;
+  /** XP за одно сообщение (0 — не начислять) */
+  messageXp: number;
+  /** Пауза между начислениями за сообщения, секунды (0 — за каждое) */
+  messageCooldownSec: number;
+  /** XP за каждые 5 минут в голосе */
+  voiceXp: number;
+  voiceTrackingEnabled: boolean;
   tempVoiceChannelId: string | null;
   ticketCategoryId: string | null;
   ticketLogChannelId: string | null;
@@ -392,6 +454,10 @@ export interface CommunitySettingsUpdate {
   levelingEnabled?: boolean;
   levelupChannelId?: string | null;
   levelupMessage?: string;
+  messageXp?: number;
+  messageCooldownSec?: number;
+  voiceXp?: number;
+  voiceTrackingEnabled?: boolean;
   tempVoiceChannelId?: string | null;
   ticketCategoryId?: string | null;
   ticketLogChannelId?: string | null;

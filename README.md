@@ -427,7 +427,12 @@ Kick/Ban/Moderate Members, Manage Messages) и участники с иммун�
 - `/welcome channel|message|goodbye_channel|goodbye_message|disable|status` —
   приветствия и прощания. Шаблоны: `{user}`, `{guild}`, `{memberCount}`.
 - `/autorole add|remove|list|clear` — роли при входе.
-- `/leveling enable|channel|message|status`, `/rank`, `/top` — XP и уровни.
+- `/leveling enable|channel|message|rates|status`, `/rank`, `/top` — XP и уровни.
+  `/leveling rates` задаёт очки за сообщение, паузу антиспама и XP за каждые
+  5 минут в голосе. `/top metric:xp|messages|voice` показывает, кто больше
+  пишет и кто дольше сидит в голосе, а `/rank` — сообщения, время в голосе и
+  место в топе участника. AFK-канал не учитывается; статистика сообщений и
+  голоса доступна в профиле участника и на обзоре панели.
 - `/tag show|list|add|remove` — теги/кастомные ответы.
 - `/reactionrole add|remove|list` — роли по реакциям.
 - `/tempvoice setup|disable|status` — временные голосовые каналы.

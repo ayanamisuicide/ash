@@ -479,6 +479,18 @@ export function updateCommunityFromPanel(
   if (body.levelupMessage !== undefined) {
     patch.levelupMessage = asText(body.levelupMessage, 'Сообщение об уровне', 1_000);
   }
+  if (body.messageXp !== undefined) {
+    patch.messageXp = asInt(body.messageXp, 'XP за сообщение', 0, 100);
+  }
+  if (body.messageCooldownSec !== undefined) {
+    patch.messageCooldownSec = asInt(body.messageCooldownSec, 'Пауза за сообщения', 0, 3_600);
+  }
+  if (body.voiceXp !== undefined) {
+    patch.voiceXp = asInt(body.voiceXp, 'XP за голос', 0, 100);
+  }
+  if (body.voiceTrackingEnabled !== undefined) {
+    patch.voiceTrackingEnabled = asBoolean(body.voiceTrackingEnabled, 'voiceTrackingEnabled');
+  }
   if (body.tempVoiceChannelId !== undefined) {
     patch.tempVoiceChannelId = voiceChannelId(
       guild,

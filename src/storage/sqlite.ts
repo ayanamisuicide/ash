@@ -293,6 +293,72 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 9,
+    up: () => {
+      // Учёт активности: сообщения и время в голосе живут рядом с XP,
+      // чтобы топы и профиль читались одним запросом по levels.
+      const levelColumns = db.prepare('PRAGMA table_info(levels)').all() as unknown as Array<{
+        name: string;
+      }>;
+      const hasLevelColumn = (name: string): boolean =>
+        levelColumns.some((column) => column.name === name);
+
+      if (!hasLevelColumn('messages')) {
+        db.exec('ALTER TABLE levels ADD COLUMN messages INTEGER NOT NULL DEFAULT 0;');
+      }
+      if (!hasLevelColumn('voice_seconds')) {
+        db.exec('ALTER TABLE levels ADD COLUMN voice_seconds INTEGER NOT NULL DEFAULT 0;');
+      }
+      if (!hasLevelColumn('last_message_at')) {
+        db.exec('ALTER TABLE levels ADD COLUMN last_message_at INTEGER NOT NULL DEFAULT 0;');
+      }
+
+      // Начисления за активность настраиваются отдельно от уровня:
+      // 0 XP — метрика считается, но очки не начисляются.
+      const communityColumns = db
+        .prepare('PRAGMA table_info(community_settings)')
+        .all() as unknown as Array<{
+        name: string;
+      }>;
+      const hasCommunityColumn = (name: string): boolean =>
+        communityColumns.some((column) => column.name === name);
+
+      if (!hasCommunityColumn('message_xp')) {
+        db.exec('ALTER TABLE community_settings ADD COLUMN message_xp INTEGER NOT NULL DEFAULT 5;');
+      }
+      if (!hasCommunityColumn('message_cooldown_sec')) {
+        db.exec(
+          'ALTER TABLE community_settings ADD COLUMN message_cooldown_sec INTEGER NOT NULL DEFAULT 0;',
+        );
+      }
+      if (!hasCommunityColumn('voice_xp')) {
+        db.exec('ALTER TABLE community_settings ADD COLUMN voice_xp INTEGER NOT NULL DEFAULT 10;');
+      }
+      if (!hasCommunityColumn('voice_tracking_enabled')) {
+        db.exec(
+          'ALTER TABLE community_settings ADD COLUMN voice_tracking_enabled INTEGER NOT NULL DEFAULT 1;',
+        );
+      }
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS voice_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL,
+          channel_id TEXT NOT NULL,
+          joined_at INTEGER NOT NULL,
+          last_tick_at INTEGER NOT NULL,
+          awarded_intervals INTEGER NOT NULL DEFAULT 0,
+          left_at INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_voice_sessions_open
+          ON voice_sessions(guild_id, left_at);
+        CREATE INDEX IF NOT EXISTS idx_voice_sessions_user
+          ON voice_sessions(guild_id, user_id, left_at);
+      `);
+    },
+  },
 ];
 
 function currentSchemaVersion(): number {

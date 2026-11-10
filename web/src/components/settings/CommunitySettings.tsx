@@ -21,7 +21,7 @@ import type {
   SettingsBundleResponse,
 } from '@/api/types';
 import { Button } from '@/components/ui/Button';
-import { Textarea } from '@/components/ui/Input';
+import { Input, Textarea } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Switch } from '@/components/ui/Switch';
@@ -30,6 +30,7 @@ import {
   SettingsChip,
   SettingsNotice,
   SettingsSection,
+  SwitchRow,
 } from '@/components/settings/SettingsSection';
 import { toast } from '@/store/ui';
 
@@ -59,6 +60,13 @@ function renderPreview(template: string, values: Record<string, string>): string
 
 function plainText(text: string): string {
   return text.replaceAll('**', '').replaceAll('__', '');
+}
+
+/** Число из input в допустимом диапазоне */
+function clampInt(value: string, min: number, max: number, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(parsed)));
 }
 
 function DiscordPreview({
@@ -116,6 +124,10 @@ export function CommunitySettings({
   const [levelingEnabled, setLevelingEnabled] = useState(settings.levelingEnabled);
   const [levelupChannelId, setLevelupChannelId] = useState(settings.levelupChannelId ?? '');
   const [levelupMessage, setLevelupMessage] = useState(settings.levelupMessage);
+  const [messageXp, setMessageXp] = useState(String(settings.messageXp));
+  const [messageCooldownSec, setMessageCooldownSec] = useState(String(settings.messageCooldownSec));
+  const [voiceXp, setVoiceXp] = useState(String(settings.voiceXp));
+  const [voiceTrackingEnabled, setVoiceTrackingEnabled] = useState(settings.voiceTrackingEnabled);
   const [tempVoiceChannelId, setTempVoiceChannelId] = useState(settings.tempVoiceChannelId ?? '');
   const [ticketCategoryId, setTicketCategoryId] = useState(settings.ticketCategoryId ?? '');
   const [ticketLogChannelId, setTicketLogChannelId] = useState(settings.ticketLogChannelId ?? '');
@@ -133,6 +145,10 @@ export function CommunitySettings({
     setLevelingEnabled(settings.levelingEnabled);
     setLevelupChannelId(settings.levelupChannelId ?? '');
     setLevelupMessage(settings.levelupMessage);
+    setMessageXp(String(settings.messageXp));
+    setMessageCooldownSec(String(settings.messageCooldownSec));
+    setVoiceXp(String(settings.voiceXp));
+    setVoiceTrackingEnabled(settings.voiceTrackingEnabled);
     setTempVoiceChannelId(settings.tempVoiceChannelId ?? '');
     setTicketCategoryId(settings.ticketCategoryId ?? '');
     setTicketLogChannelId(settings.ticketLogChannelId ?? '');
@@ -210,6 +226,10 @@ export function CommunitySettings({
       levelingEnabled,
       levelupChannelId: levelupChannelId || null,
       levelupMessage: levelupMessage.trim(),
+      messageXp: clampInt(messageXp, 0, 100, settings.messageXp),
+      messageCooldownSec: clampInt(messageCooldownSec, 0, 3_600, settings.messageCooldownSec),
+      voiceXp: clampInt(voiceXp, 0, 100, settings.voiceXp),
+      voiceTrackingEnabled,
     });
   };
 
@@ -536,6 +556,57 @@ export function CommunitySettings({
                   disabled={busy}
                 />
               </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <FieldLabel htmlFor="message-xp" hint="0 — без очков">
+                    XP за сообщение
+                  </FieldLabel>
+                  <Input
+                    id="message-xp"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={messageXp}
+                    onChange={(event) => setMessageXp(event.target.value)}
+                    disabled={busy}
+                  />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="message-cooldown" hint="0 — за каждое">
+                    Пауза, сек
+                  </FieldLabel>
+                  <Input
+                    id="message-cooldown"
+                    type="number"
+                    min={0}
+                    max={3600}
+                    value={messageCooldownSec}
+                    onChange={(event) => setMessageCooldownSec(event.target.value)}
+                    disabled={busy}
+                  />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="voice-xp" hint="каждые 5 минут">
+                    XP за голос
+                  </FieldLabel>
+                  <Input
+                    id="voice-xp"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={voiceXp}
+                    onChange={(event) => setVoiceXp(event.target.value)}
+                    disabled={busy}
+                  />
+                </div>
+              </div>
+              <SwitchRow
+                label="Считать время в голосе"
+                description="AFK-канал не учитывается, статистика видна в профиле и на обзоре"
+                checked={voiceTrackingEnabled}
+                onCheckedChange={setVoiceTrackingEnabled}
+                disabled={busy}
+              />
               <DiscordPreview
                 tone="premium"
                 title="🎉 Новый уровень!"

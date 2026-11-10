@@ -26,6 +26,10 @@ test('community settings: defaults and updates', () => {
   const defaults = community.getCommunitySettings(guildId);
   assert.equal(defaults.levelingEnabled, false);
   assert.deepEqual(defaults.autoroleIds, []);
+  assert.equal(defaults.messageXp, 5);
+  assert.equal(defaults.messageCooldownSec, 0);
+  assert.equal(defaults.voiceXp, 10);
+  assert.equal(defaults.voiceTrackingEnabled, true);
 
   community.updateCommunitySettings(guildId, {
     welcomeChannelId: 'welcome-channel',

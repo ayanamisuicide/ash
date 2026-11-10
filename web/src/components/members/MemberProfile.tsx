@@ -7,15 +7,19 @@ import {
   CalendarDays,
   Copy,
   Hammer,
+  Headphones,
   LogIn,
+  MessageSquare,
   Shield,
   ShieldAlert,
   ShieldPlus,
+  Star,
   StickyNote,
   Timer,
   TimerOff,
   Trash2,
   TriangleAlert,
+  Trophy,
   Undo2,
   UserCheck,
   UserMinus,
@@ -39,7 +43,14 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/Tooltip';
 import { RoleChip } from '@/components/members/RoleChip';
 import { caseTypeBadgeClasses, caseTypeLabel } from '@/lib/cases';
-import { formatDateTime, formatRelativeTime, getInitials, pluralizeRu } from '@/lib/format';
+import {
+  formatDateTime,
+  formatNumber,
+  formatRelativeTime,
+  formatUptime,
+  getInitials,
+  pluralizeRu,
+} from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { toast } from '@/store/ui';
 
@@ -311,6 +322,41 @@ export function MemberProfile({
             'кейса',
             'кейсов',
           )}`}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <Detail
+          icon={Star}
+          label="Уровень"
+          value={`${profile.activity.level} · ${formatNumber(profile.activity.xp)} XP`}
+          hint={`${profile.activity.rest}/${profile.activity.needed} до следующего`}
+        />
+        <Detail
+          icon={MessageSquare}
+          label="Сообщений"
+          value={formatNumber(profile.activity.messages)}
+          hint={
+            profile.activity.ranks.messages > 0
+              ? `#${profile.activity.ranks.messages} в топе`
+              : 'нет в топе'
+          }
+        />
+        <Detail
+          icon={Headphones}
+          label="В голосе"
+          value={formatUptime(profile.activity.voiceSeconds)}
+          hint={
+            profile.activity.ranks.voice > 0
+              ? `#${profile.activity.ranks.voice} в топе`
+              : 'нет в топе'
+          }
+        />
+        <Detail
+          icon={Trophy}
+          label="Место по XP"
+          value={profile.activity.ranks.xp > 0 ? `#${profile.activity.ranks.xp}` : '—'}
+          hint={`${formatNumber(profile.activity.messages)} сообщений`}
         />
       </div>
 

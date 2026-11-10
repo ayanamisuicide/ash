@@ -14,9 +14,10 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { getErrorMessage } from '@/api/client';
-import { getMemberProfile, getOverview } from '@/api/endpoints';
+import { getActivity, getMemberProfile, getOverview } from '@/api/endpoints';
 import type { MemberActionType, RecentCase } from '@/api/types';
 import { EditCaseModal } from '@/components/cases/EditCaseModal';
+import { ActivityWidget } from '@/components/dashboard/ActivityWidget';
 import { BotInfo } from '@/components/dashboard/BotInfo';
 import { ChartCardSkeleton, DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { RecentCasesTable } from '@/components/dashboard/RecentCasesTable';
@@ -27,7 +28,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useGuildMeta } from '@/hooks/useGuildAccess';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import { createDemoOverview } from '@/lib/demo-overview';
+import { createDemoActivity, createDemoOverview } from '@/lib/demo-overview';
 import { formatTime } from '@/lib/format';
 import { selectActiveGuild, useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -154,6 +155,17 @@ export function DashboardPage() {
   useEffect(() => {
     if (data) setAccess(data.access);
   }, [data, setAccess]);
+
+  const activityQuery = useQuery({
+    queryKey: ['guild', activeGuildId, 'activity'],
+    queryFn: ({ signal }) => {
+      if (isDemo) return Promise.resolve(createDemoActivity());
+      return getActivity(activeGuildId ?? '', signal);
+    },
+    enabled: Boolean(activeGuildId),
+    refetchInterval: 60_000,
+    meta: { silent: true },
+  });
 
   const caseUserId = caseModalOpen && !isDemo ? (selectedCase?.userId ?? null) : null;
   const { data: profileData, isFetching: profileFetching } = useQuery({
@@ -321,6 +333,7 @@ export function DashboardPage() {
               className="grid min-w-0 items-start gap-4 self-start md:grid-cols-2 xl:grid-cols-1"
             >
               <SecurityWidget security={data.security} canConfigure={data.access.admin} />
+              <ActivityWidget activity={activityQuery.data ?? null} />
               <BotInfo bot={data.bot} />
             </motion.div>
           </motion.div>

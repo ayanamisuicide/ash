@@ -7,7 +7,7 @@ import {
 } from 'discord.js';
 import type { AnyBotEvent } from '../core/types.js';
 import { V2 } from '../lib/card.js';
-import { addXp, getCommunitySettings, renderTemplate } from '../lib/community.js';
+import { getCommunitySettings, recordMessage, renderTemplate } from '../lib/community.js';
 import { goodbyeMessage, levelUpMessage, welcomeMessage } from '../lib/responses.js';
 
 type TemplateKind = 'welcome' | 'goodbye' | 'levelup';
@@ -97,13 +97,13 @@ const events: AnyBotEvent[] = [
       if (!guild || message.author.bot) return;
 
       const settings = getCommunitySettings(guild.id);
-      if (!settings.levelingEnabled) return;
 
-      const gained = addXp(
+      // Статистика сообщений ведётся всегда, XP — только по настройкам уровней.
+      const gained = recordMessage(
         guild.id,
         message.author.id,
-        15 + Math.floor(Math.random() * 11),
-        60_000,
+        settings.levelingEnabled ? settings.messageXp : 0,
+        Math.max(0, settings.messageCooldownSec) * 1_000,
       );
       if (!gained.gained) return;
       if (gained.after.level <= gained.before.level) return;

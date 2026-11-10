@@ -1,4 +1,4 @@
-import type { GuildAccess, GuildSummary, OverviewResponse } from '@/api/types';
+import type { ActivityResponse, GuildAccess, GuildSummary, OverviewResponse } from '@/api/types';
 import { DEMO_CASES } from '@/lib/demo-data';
 
 const demoAccess = (guild: GuildSummary): GuildAccess =>
@@ -79,5 +79,85 @@ export function createDemoOverview(guild: GuildSummary): OverviewResponse {
       uptime: 98_765,
       guilds: 2,
     },
+  };
+}
+
+/** Демо-данные виджета активности для dev-панели */
+export function createDemoActivity(): ActivityResponse {
+  const members = [
+    {
+      userId: 'demo-1',
+      name: 'Kirito',
+      xp: 12_480,
+      level: 24,
+      messages: 3_420,
+      voiceSeconds: 184_000,
+    },
+    {
+      userId: 'demo-2',
+      name: 'Asuna',
+      xp: 9_860,
+      level: 21,
+      messages: 2_910,
+      voiceSeconds: 152_000,
+    },
+    {
+      userId: 'demo-3',
+      name: 'Sinon',
+      xp: 7_240,
+      level: 18,
+      messages: 1_870,
+      voiceSeconds: 96_400,
+    },
+    {
+      userId: 'demo-4',
+      name: 'Leafa',
+      xp: 4_180,
+      level: 14,
+      messages: 1_240,
+      voiceSeconds: 63_200,
+    },
+    { userId: 'demo-5', name: 'Klein', xp: 2_360, level: 10, messages: 860, voiceSeconds: 28_800 },
+  ];
+
+  const sorted = (key: 'xp' | 'messages' | 'voiceSeconds') =>
+    [...members]
+      .sort((a, b) => b[key] - a[key])
+      .map((member) => ({
+        ...member,
+        avatarUrl: null,
+      }));
+
+  return {
+    ok: true,
+    settings: {
+      levelingEnabled: true,
+      messageXp: 5,
+      messageCooldownSec: 0,
+      voiceXp: 10,
+      voiceTrackingEnabled: true,
+    },
+    voiceIntervalMinutes: 5,
+    totals: {
+      tracked: 128,
+      messages: 24_680,
+      voiceSeconds: 1_842_000,
+      xp: 96_420,
+    },
+    top: {
+      xp: sorted('xp'),
+      messages: sorted('messages'),
+      voice: sorted('voiceSeconds'),
+    },
+    live: [
+      {
+        userId: 'demo-1',
+        name: 'Kirito',
+        avatarUrl: null,
+        channelId: 'demo-voice',
+        seconds: 4_320,
+      },
+      { userId: 'demo-3', name: 'Sinon', avatarUrl: null, channelId: 'demo-voice', seconds: 1_260 },
+    ],
   };
 }

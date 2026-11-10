@@ -126,6 +126,12 @@ test('api: без сессии закрытые маршруты отдают 40
     path: '/api/guilds/123456789012345678/cases',
   });
   assert.equal(guild.status, 401);
+
+  const activity = await callApi({
+    method: 'GET',
+    path: '/api/guilds/123456789012345678/activity',
+  });
+  assert.equal(activity.status, 401);
 });
 
 test('api: /api/status не раскрывает данные бота без сессии', async () => {

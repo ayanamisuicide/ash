@@ -5,6 +5,7 @@ import {
   getCommunitySettings,
   getLevelInfo,
   updateCommunitySettings,
+  type CommunitySettings,
 } from '../../lib/community.js';
 
 export default {
@@ -37,6 +38,35 @@ export default {
             .setDescription('Шаблон: {user}, {level}, {xp}')
             .setRequired(true)
             .setMaxLength(500),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName('rates')
+        .setDescription('Сколько очков давать за активность')
+        .addIntegerOption((option) =>
+          option
+            .setName('message_xp')
+            .setDescription('XP за сообщение (0 — не начислять)')
+            .setMinValue(0)
+            .setMaxValue(100),
+        )
+        .addIntegerOption((option) =>
+          option
+            .setName('message_cooldown')
+            .setDescription('Пауза между начислениями за сообщения, сек (0 — за каждое)')
+            .setMinValue(0)
+            .setMaxValue(3_600),
+        )
+        .addIntegerOption((option) =>
+          option
+            .setName('voice_xp')
+            .setDescription('XP за каждые 5 минут в голосе')
+            .setMinValue(0)
+            .setMaxValue(100),
+        )
+        .addBooleanOption((option) =>
+          option.setName('voice_tracking').setDescription('Считать время в голосовых каналах'),
         ),
     )
     .addSubcommand((sub) => sub.setName('status').setDescription('Показать настройки'))
@@ -86,6 +116,41 @@ export default {
       return;
     }
 
+    if (sub === 'rates') {
+      const messageXp = interaction.options.getInteger('message_xp');
+      const messageCooldownSec = interaction.options.getInteger('message_cooldown');
+      const voiceXp = interaction.options.getInteger('voice_xp');
+      const voiceTrackingEnabled = interaction.options.getBoolean('voice_tracking');
+
+      const patch: Partial<CommunitySettings> = {};
+      if (messageXp !== null) patch.messageXp = messageXp;
+      if (messageCooldownSec !== null) patch.messageCooldownSec = messageCooldownSec;
+      if (voiceXp !== null) patch.voiceXp = voiceXp;
+      if (voiceTrackingEnabled !== null) patch.voiceTrackingEnabled = voiceTrackingEnabled;
+
+      if (Object.keys(patch).length === 0) {
+        await interaction.editReply({
+          components: [errorCard('Укажите хотя бы один параметр.')],
+          flags: V2,
+        });
+        return;
+      }
+
+      const next = updateCommunitySettings(guildId, patch);
+      await interaction.editReply({
+        components: [
+          successCard(
+            '📊 Очки за активность',
+            `${next.messageXp} XP за сообщение · пауза ${next.messageCooldownSec} с · ` +
+              `${next.voiceXp} XP за 5 минут в голосе · ` +
+              (next.voiceTrackingEnabled ? 'учёт голоса включён' : 'учёт голоса выключен'),
+          ),
+        ],
+        flags: V2,
+      });
+      return;
+    }
+
     const settings = getCommunitySettings(guildId);
     const info = getLevelInfo(guildId, interaction.user.id);
     await interaction.editReply({
@@ -101,6 +166,22 @@ export default {
               block: false,
             },
             { label: 'Шаблон', value: `\`${settings.levelupMessage}\``, block: true },
+            {
+              label: 'За сообщение',
+              value:
+                `${settings.messageXp} XP` +
+                (settings.messageCooldownSec > 0
+                  ? ` · пауза ${settings.messageCooldownSec} с`
+                  : ''),
+              block: false,
+            },
+            {
+              label: 'В голосе',
+              value: settings.voiceTrackingEnabled
+                ? `${settings.voiceXp} XP за 5 минут`
+                : 'учёт выключен',
+              block: false,
+            },
             {
               label: 'Ваш уровень',
               value: `${info.level} · ${info.rest}/${info.needed} XP`,

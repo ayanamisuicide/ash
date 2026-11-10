@@ -5,6 +5,7 @@ import type { BotClient } from './core/client.js';
 import { createConsoleUi } from './lib/console-ui.js';
 import { startScheduler, stopScheduler } from './lib/scheduler.js';
 import { runStartupChecks } from './lib/startup.js';
+import { startVoiceTicker, stopVoiceTicker } from './lib/voiceStats.js';
 import { closeDatabase, startDatabaseBackups, stopDatabaseBackups } from './storage/sqlite.js';
 
 const SHUTDOWN_TIMEOUT_MS = 5_000;
@@ -60,6 +61,9 @@ async function main(): Promise<void> {
   startScheduler(client);
   ui.stage('ok', 'SCHEDULER', 'Планировщик наказаний', 'запущен');
 
+  startVoiceTicker(client);
+  ui.stage('ok', 'ACTIVITY', 'Учёт активности', 'сообщения и голос');
+
   startDatabaseBackups();
   ui.stage('ok', 'BACKUP', 'Авто-бэкап БД', 'запущен');
 
@@ -91,6 +95,7 @@ async function main(): Promise<void> {
     ui.stage('info', 'STOP', 'Остановка', signal);
 
     stopScheduler();
+    stopVoiceTicker();
     stopDatabaseBackups();
     await closeHttpServer(webServer);
 
@@ -153,6 +158,7 @@ async function main(): Promise<void> {
 main().catch((error: unknown) => {
   console.error('[bot] фатальная ошибка запуска:', error);
   stopScheduler();
+  stopVoiceTicker();
   stopDatabaseBackups();
   closeDatabase();
   process.exit(1);

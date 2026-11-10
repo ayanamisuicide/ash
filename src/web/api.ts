@@ -27,7 +27,13 @@ import {
   resolveGuildAccess,
   type GuildAccess,
 } from './auth.js';
-import { getBotInfo, getMemberProfile, getOverview, searchMembers } from './data.js';
+import {
+  getActivityOverview,
+  getBotInfo,
+  getMemberProfile,
+  getOverview,
+  searchMembers,
+} from './data.js';
 import { avatarUrl, guildIconUrl } from './discord.js';
 import { HttpError, clearCookie, readJson, sendError, sendJson } from './http.js';
 import { csrfMatches, type Session, type SessionStore } from './sessions.js';
@@ -290,6 +296,13 @@ async function handleGuildRoute(
     }
 
     throw new HttpError(405, 'Метод не поддерживается.');
+  }
+
+  if (section === 'activity' && segments.length === 1) {
+    if (ctx.req.method !== 'GET') throw new HttpError(405, 'Метод не поддерживается.');
+    requireModerate(access);
+    sendJson(ctx.res, 200, { ok: true, ...getActivityOverview(guild) });
+    return;
   }
 
   if (section === 'members') {

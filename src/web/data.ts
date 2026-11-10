@@ -1,9 +1,18 @@
 import type { Guild, GuildMember, User } from 'discord.js';
 import { searchCases, type ModCase, type CaseType } from '../lib/cases.js';
+import {
+  getCommunitySettings,
+  getLeaderboard,
+  getLevelInfo,
+  getMemberRanks,
+  type LeaderboardMetric,
+  type LeaderboardRow,
+} from '../lib/community.js';
 import { findMuteRole } from '../lib/moderation.js';
 import { getNotes } from '../lib/notes.js';
 import { getSecuritySettings } from '../lib/modSettings.js';
 import { getWarns } from '../lib/warns.js';
+import { listOpenVoiceSessions, VOICE_XP_INTERVAL_MS } from '../lib/voiceStats.js';
 import { db } from '../storage/sqlite.js';
 import { avatarUrl } from './discord.js';
 import { HttpError } from './http.js';
@@ -96,6 +105,121 @@ export function getOverview(guild: Guild, client: Parameters<typeof getBotInfo>[
     recentCases: searchCases(guild.id, { pageSize: 6 }).items,
     security: getSecuritySettings(guild.id),
     bot: getBotInfo(client),
+  };
+}
+
+export interface ActivityMemberStat {
+  userId: string;
+  /** Имя из кэша; null — участник уже не на сервере */
+  name: string | null;
+  avatarUrl: string | null;
+  level: number;
+  xp: number;
+  messages: number;
+  voiceSeconds: number;
+}
+
+export interface ActivityLiveSession {
+  userId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  channelId: string;
+  seconds: number;
+}
+
+/** GET /api/guilds/:guildId/activity — сводка по сообщениям и голосу */
+export interface ActivityOverview {
+  settings: {
+    levelingEnabled: boolean;
+    messageXp: number;
+    messageCooldownSec: number;
+    voiceXp: number;
+    voiceTrackingEnabled: boolean;
+  };
+  /** Сколько XP даётся за одну пятиминутку в голосе */
+  voiceIntervalMinutes: number;
+  totals: {
+    tracked: number;
+    messages: number;
+    voiceSeconds: number;
+    xp: number;
+  };
+  top: Record<LeaderboardMetric, ActivityMemberStat[]>;
+  live: ActivityLiveSession[];
+}
+
+function memberIdentity(
+  guild: Guild,
+  userId: string,
+): { name: string | null; avatarUrl: string | null } {
+  const member = guild.members.cache.get(userId);
+  const user = member?.user ?? guild.client.users.cache.get(userId);
+  if (!user) return { name: null, avatarUrl: null };
+  return {
+    name: member?.displayName ?? user.username,
+    avatarUrl: avatarUrl(userToDiscordUser(user), 64),
+  };
+}
+
+function activityStat(guild: Guild, row: LeaderboardRow): ActivityMemberStat {
+  return {
+    userId: row.userId,
+    ...memberIdentity(guild, row.userId),
+    level: row.level,
+    xp: row.xp,
+    messages: row.messages,
+    voiceSeconds: row.voiceSeconds,
+  };
+}
+
+export function getActivityOverview(guild: Guild, now = Date.now()): ActivityOverview {
+  const settings = getCommunitySettings(guild.id);
+  const totalsRow = db
+    .prepare(
+      `
+      SELECT
+        COUNT(*) AS tracked,
+        COALESCE(SUM(messages), 0) AS messages,
+        COALESCE(SUM(voice_seconds), 0) AS voice,
+        COALESCE(SUM(xp), 0) AS xp
+      FROM levels
+      WHERE guild_id = ? AND (messages > 0 OR voice_seconds > 0 OR xp > 0)
+    `,
+    )
+    .get(guild.id) as { tracked: number; messages: number; voice: number; xp: number } | undefined;
+
+  const top: Record<LeaderboardMetric, ActivityMemberStat[]> = {
+    xp: getLeaderboard(guild.id, 5, 'xp').map((row) => activityStat(guild, row)),
+    messages: getLeaderboard(guild.id, 5, 'messages').map((row) => activityStat(guild, row)),
+    voice: getLeaderboard(guild.id, 5, 'voice').map((row) => activityStat(guild, row)),
+  };
+
+  const live = listOpenVoiceSessions(guild.id)
+    .map((session) => ({
+      userId: session.userId,
+      ...memberIdentity(guild, session.userId),
+      channelId: session.channelId,
+      seconds: Math.max(0, Math.floor((now - session.joinedAt) / 1_000)),
+    }))
+    .sort((a, b) => b.seconds - a.seconds);
+
+  return {
+    settings: {
+      levelingEnabled: settings.levelingEnabled,
+      messageXp: settings.messageXp,
+      messageCooldownSec: settings.messageCooldownSec,
+      voiceXp: settings.voiceXp,
+      voiceTrackingEnabled: settings.voiceTrackingEnabled,
+    },
+    voiceIntervalMinutes: Math.round(VOICE_XP_INTERVAL_MS / 60_000),
+    totals: {
+      tracked: Number(totalsRow?.tracked ?? 0),
+      messages: Number(totalsRow?.messages ?? 0),
+      voiceSeconds: Number(totalsRow?.voice ?? 0),
+      xp: Number(totalsRow?.xp ?? 0),
+    },
+    top,
+    live,
   };
 }
 
@@ -273,6 +397,16 @@ export interface MemberProfile extends MemberSummary {
   notes: Array<{ id: string; text: string; authorId: string; createdAt: number }>;
   cases: ModCase[];
   activeCases: ModCase[];
+  /** Активность участника: XP, уровень, сообщения и время в голосе */
+  activity: {
+    xp: number;
+    level: number;
+    rest: number;
+    needed: number;
+    messages: number;
+    voiceSeconds: number;
+    ranks: { xp: number; messages: number; voice: number };
+  };
 }
 
 export async function getMemberProfile(guild: Guild, userId: string): Promise<MemberProfile> {
@@ -295,6 +429,8 @@ export async function getMemberProfile(guild: Guild, userId: string): Promise<Me
   const muteRole = member ? await findMuteRole(guild) : null;
 
   const cases = searchCases(guild.id, { userId, pageSize: 100 }).items;
+  const level = getLevelInfo(guild.id, userId);
+  const ranks = getMemberRanks(guild.id, userId);
 
   return {
     ...(member
@@ -333,5 +469,14 @@ export async function getMemberProfile(guild: Guild, userId: string): Promise<Me
     notes: getNotes(guild.id, userId),
     cases,
     activeCases: cases.filter((item) => item.active),
+    activity: {
+      xp: level.xp,
+      level: level.level,
+      rest: level.rest,
+      needed: level.needed,
+      messages: level.messages,
+      voiceSeconds: level.voiceSeconds,
+      ranks,
+    },
   };
 }

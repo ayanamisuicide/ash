@@ -9,6 +9,14 @@ export interface CommunitySettings {
   levelingEnabled: boolean;
   levelupChannelId: string | null;
   levelupMessage: string;
+  /** XP за одно сообщение (0 — не начислять, статистика всё равно считается) */
+  messageXp: number;
+  /** Минимальная пауза между начислениями за сообщения, секунды (0 — за каждое) */
+  messageCooldownSec: number;
+  /** XP за каждые 5 минут в голосовом канале */
+  voiceXp: number;
+  /** Считать время в голосовых каналах */
+  voiceTrackingEnabled: boolean;
   tempVoiceChannelId: string | null;
   ticketCategoryId: string | null;
   ticketLogChannelId: string | null;
@@ -24,6 +32,10 @@ export const DEFAULT_COMMUNITY_SETTINGS: CommunitySettings = {
   levelingEnabled: false,
   levelupChannelId: null,
   levelupMessage: '🎉 {user} достиг уровня {level}!',
+  messageXp: 5,
+  messageCooldownSec: 0,
+  voiceXp: 10,
+  voiceTrackingEnabled: true,
   tempVoiceChannelId: null,
   ticketCategoryId: null,
   ticketLogChannelId: null,
@@ -40,6 +52,10 @@ interface CommunityRow {
   leveling_enabled: number;
   levelup_channel_id: string | null;
   levelup_message: string;
+  message_xp: number | null;
+  message_cooldown_sec: number | null;
+  voice_xp: number | null;
+  voice_tracking_enabled: number | null;
   temp_voice_channel_id: string | null;
   ticket_category_id: string | null;
   ticket_log_channel_id: string | null;
@@ -87,6 +103,16 @@ export function getCommunitySettings(guildId: string): CommunitySettings {
     levelingEnabled: Number(row?.leveling_enabled ?? 0) === 1,
     levelupChannelId: row?.levelup_channel_id ?? null,
     levelupMessage: row?.levelup_message ?? DEFAULT_COMMUNITY_SETTINGS.levelupMessage,
+    messageXp: Math.max(0, Number(row?.message_xp ?? DEFAULT_COMMUNITY_SETTINGS.messageXp)),
+    messageCooldownSec: Math.max(
+      0,
+      Number(row?.message_cooldown_sec ?? DEFAULT_COMMUNITY_SETTINGS.messageCooldownSec),
+    ),
+    voiceXp: Math.max(0, Number(row?.voice_xp ?? DEFAULT_COMMUNITY_SETTINGS.voiceXp)),
+    voiceTrackingEnabled:
+      Number(
+        row?.voice_tracking_enabled ?? (DEFAULT_COMMUNITY_SETTINGS.voiceTrackingEnabled ? 1 : 0),
+      ) === 1,
     tempVoiceChannelId: row?.temp_voice_channel_id ?? null,
     ticketCategoryId: row?.ticket_category_id ?? null,
     ticketLogChannelId: row?.ticket_log_channel_id ?? null,
@@ -116,6 +142,10 @@ export function updateCommunitySettings(
       leveling_enabled = ?,
       levelup_channel_id = ?,
       levelup_message = ?,
+      message_xp = ?,
+      message_cooldown_sec = ?,
+      voice_xp = ?,
+      voice_tracking_enabled = ?,
       temp_voice_channel_id = ?,
       ticket_category_id = ?,
       ticket_log_channel_id = ?,
@@ -131,6 +161,10 @@ export function updateCommunitySettings(
     next.levelingEnabled ? 1 : 0,
     next.levelupChannelId,
     next.levelupMessage,
+    Math.max(0, Math.floor(next.messageXp)),
+    Math.max(0, Math.floor(next.messageCooldownSec)),
+    Math.max(0, Math.floor(next.voiceXp)),
+    next.voiceTrackingEnabled ? 1 : 0,
     next.tempVoiceChannelId,
     next.ticketCategoryId,
     next.ticketLogChannelId,
@@ -173,12 +207,22 @@ export interface LevelInfo {
   rest: number;
   needed: number;
   lastXpAt: number;
+  lastMessageAt: number;
+  /** Сколько сообщений написал участник */
+  messages: number;
+  /** Сколько секунд провёл в голосовых каналах */
+  voiceSeconds: number;
 }
 
-export function getLevelInfo(guildId: string, userId: string): LevelInfo {
-  const row = db
-    .prepare('SELECT xp, last_xp_at FROM levels WHERE guild_id = ? AND user_id = ?')
-    .get(guildId, userId) as { xp: number; last_xp_at: number } | undefined;
+interface LevelRow {
+  xp: number;
+  last_xp_at: number;
+  messages: number | null;
+  voice_seconds: number | null;
+  last_message_at: number | null;
+}
+
+function levelInfoFromRow(row: LevelRow | undefined): LevelInfo {
   const xp = Number(row?.xp ?? 0);
   const info = levelFromXp(xp);
   return {
@@ -187,6 +231,80 @@ export function getLevelInfo(guildId: string, userId: string): LevelInfo {
     rest: info.rest,
     needed: xpNeeded(info.level),
     lastXpAt: Number(row?.last_xp_at ?? 0),
+    lastMessageAt: Number(row?.last_message_at ?? 0),
+    messages: Number(row?.messages ?? 0),
+    voiceSeconds: Number(row?.voice_seconds ?? 0),
+  };
+}
+
+export function getLevelInfo(guildId: string, userId: string): LevelInfo {
+  const row = db
+    .prepare(
+      `SELECT xp, last_xp_at, messages, voice_seconds, last_message_at
+       FROM levels WHERE guild_id = ? AND user_id = ?`,
+    )
+    .get(guildId, userId) as LevelRow | undefined;
+  return levelInfoFromRow(row);
+}
+
+export interface ActivityResult {
+  /** Начислены ли очки: кулдаун или нулевая ставка могут отменить начисление */
+  gained: boolean;
+  before: LevelInfo;
+  after: LevelInfo;
+}
+
+function ensureLevelRow(guildId: string, userId: string): void {
+  ensureGuild(guildId);
+  db.prepare('INSERT OR IGNORE INTO levels (guild_id, user_id) VALUES (?, ?)').run(guildId, userId);
+}
+
+/**
+ * Начисляет XP и при необходимости увеличивает счётчик сообщений.
+ * Счётчик растёт всегда, даже когда очки не начисляются из-за кулдауна:
+ * статистика активности не должна зависеть от антиспам-настроек.
+ */
+function grantXp(
+  guildId: string,
+  userId: string,
+  amount: number,
+  cooldownMs: number,
+  countMessage: boolean,
+): ActivityResult {
+  ensureLevelRow(guildId, userId);
+  const before = getLevelInfo(guildId, userId);
+  const now = Date.now();
+  const value = Math.max(0, Math.floor(amount));
+  const gained = value > 0 && (cooldownMs <= 0 || now - before.lastXpAt >= cooldownMs);
+  const xp = before.xp + (gained ? value : 0);
+  const lastXpAt = gained ? now : before.lastXpAt;
+  const lastMessageAt = countMessage ? now : before.lastMessageAt;
+
+  db.prepare(
+    `
+    UPDATE levels SET
+      xp = ?,
+      last_xp_at = ?,
+      messages = messages + ?,
+      last_message_at = ?
+    WHERE guild_id = ? AND user_id = ?
+  `,
+  ).run(xp, lastXpAt, countMessage ? 1 : 0, lastMessageAt, guildId, userId);
+
+  const info = levelFromXp(xp);
+  return {
+    gained,
+    before,
+    after: {
+      xp,
+      level: info.level,
+      rest: info.rest,
+      needed: xpNeeded(info.level),
+      lastXpAt,
+      lastMessageAt,
+      messages: before.messages + (countMessage ? 1 : 0),
+      voiceSeconds: before.voiceSeconds,
+    },
   };
 }
 
@@ -195,62 +313,118 @@ export function addXp(
   userId: string,
   amount: number,
   cooldownMs: number,
-): { gained: boolean; before: LevelInfo; after: LevelInfo } {
-  ensureGuild(guildId);
-  const before = getLevelInfo(guildId, userId);
-  const now = Date.now();
-  if (before.lastXpAt > 0 && now - before.lastXpAt < cooldownMs) {
-    return { gained: false, before, after: before };
-  }
+): ActivityResult {
+  return grantXp(guildId, userId, amount, cooldownMs, false);
+}
 
-  const xp = before.xp + Math.max(0, Math.floor(amount));
+/** Учитывает сообщение: счётчик растёт всегда, XP — по ставке и кулдауну из настроек */
+export function recordMessage(
+  guildId: string,
+  userId: string,
+  xpAmount: number,
+  cooldownMs: number,
+): ActivityResult {
+  return grantXp(guildId, userId, xpAmount, cooldownMs, true);
+}
+
+/** Начисляет XP за голос без счётчика сообщений */
+export function recordVoiceXp(guildId: string, userId: string, amount: number): ActivityResult {
+  return grantXp(guildId, userId, amount, 0, false);
+}
+
+/** Прибавляет секунды в голосовых каналах */
+export function addVoiceSeconds(guildId: string, userId: string, seconds: number): void {
+  const value = Math.floor(seconds);
+  if (!Number.isFinite(value) || value <= 0) return;
+
+  ensureGuild(guildId);
   db.prepare(
     `
-    INSERT INTO levels (guild_id, user_id, xp, last_xp_at)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO levels (guild_id, user_id, voice_seconds)
+    VALUES (?, ?, ?)
     ON CONFLICT(guild_id, user_id) DO UPDATE SET
-      xp = excluded.xp,
-      last_xp_at = excluded.last_xp_at
+      voice_seconds = levels.voice_seconds + excluded.voice_seconds
   `,
-  ).run(guildId, userId, xp, now);
-
-  const info = levelFromXp(xp);
-  return {
-    gained: true,
-    before,
-    after: {
-      xp,
-      level: info.level,
-      rest: info.rest,
-      needed: xpNeeded(info.level),
-      lastXpAt: now,
-    },
-  };
+  ).run(guildId, userId, value);
 }
+
+export type LeaderboardMetric = 'xp' | 'messages' | 'voice';
 
 export interface LeaderboardRow {
   userId: string;
   xp: number;
   level: number;
+  messages: number;
+  voiceSeconds: number;
 }
 
-export function getLeaderboard(guildId: string, limit = 10): LeaderboardRow[] {
+const LEADERBOARD_COLUMNS: Record<LeaderboardMetric, string> = {
+  xp: 'xp',
+  messages: 'messages',
+  voice: 'voice_seconds',
+};
+
+/** Топ участников по XP, сообщениям или времени в голосе */
+export function getLeaderboard(
+  guildId: string,
+  limit = 10,
+  metric: LeaderboardMetric = 'xp',
+): LeaderboardRow[] {
+  const column = LEADERBOARD_COLUMNS[metric] ?? 'xp';
   const rows = db
     .prepare(
       `
-      SELECT user_id, xp FROM levels
-      WHERE guild_id = ?
-      ORDER BY xp DESC
+      SELECT user_id, xp, messages, voice_seconds FROM levels
+      WHERE guild_id = ? AND ${column} > 0
+      ORDER BY ${column} DESC, xp DESC, user_id ASC
       LIMIT ?
     `,
     )
-    .all(guildId, limit) as unknown as Array<{ user_id: string; xp: number }>;
+    .all(guildId, limit) as unknown as Array<{
+    user_id: string;
+    xp: number;
+    messages: number;
+    voice_seconds: number;
+  }>;
 
   return rows.map((row) => ({
     userId: row.user_id,
     xp: Number(row.xp),
     level: levelFromXp(Number(row.xp)).level,
+    messages: Number(row.messages),
+    voiceSeconds: Number(row.voice_seconds),
   }));
+}
+
+export interface MemberRanks {
+  /** Место в топе по XP (0 — активности ещё нет) */
+  xp: number;
+  messages: number;
+  voice: number;
+}
+
+/** Места участника в топах по каждой метрике */
+export function getMemberRanks(guildId: string, userId: string): MemberRanks {
+  const stats = getLevelInfo(guildId, userId);
+
+  const rankOf = (column: 'xp' | 'messages' | 'voice_seconds', value: number): number => {
+    if (value <= 0) return 0;
+    const row = db
+      .prepare(
+        `
+        SELECT COUNT(*) AS count FROM levels
+        WHERE guild_id = ? AND (${column} > ? OR (${column} = ? AND user_id < ?))
+      `,
+      )
+      .get(guildId, value, value, userId) as { count: number } | undefined;
+    return 1 + Number(row?.count ?? 0);
+  };
+
+  return {
+    xp: rankOf('xp', stats.xp),
+    messages: rankOf('messages', stats.messages),
+    voice: rankOf('voice_seconds', stats.voiceSeconds),
+  };
 }
 
 // ---------------------------------------------------------------------------

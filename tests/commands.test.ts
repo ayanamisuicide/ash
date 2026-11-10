@@ -179,3 +179,20 @@ test('commands: role and voice commands have expected subcommands', () => {
     ['kick', 'move', 'mute', 'unmute', 'deafen', 'undeafen'],
   );
 });
+
+test('commands: activity options for /top and /leveling', () => {
+  const top = byName.get('top')?.data.toJSON() as {
+    options?: Array<{ name: string; choices?: Array<{ value: string }> }>;
+  };
+  const metric = (top.options ?? []).find((option) => option.name === 'metric');
+  assert.deepEqual(
+    (metric?.choices ?? []).map((choice) => choice.value),
+    ['xp', 'messages', 'voice'],
+  );
+
+  const leveling = byName.get('leveling')?.data.toJSON() as {
+    options?: Array<{ name: string }>;
+  };
+  const subcommands = (leveling.options ?? []).map((option) => option.name);
+  assert.ok(subcommands.includes('rates'), 'missing /leveling rates');
+});

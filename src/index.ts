@@ -29,7 +29,9 @@ async function main(): Promise<void> {
   await ui.banner();
 
   assertConfig();
-  ui.ok(
+  ui.stage(
+    'ok',
+    'CONFIG',
     'Конфигурация проверена',
     config.web.enabled ? `веб-панель ${config.web.publicUrl}` : 'веб-панель выключена',
   );
@@ -38,7 +40,7 @@ async function main(): Promise<void> {
     console.error('[bot] необработанный rejected промис:', reason);
   });
 
-  const login = ui.spinner('Подключаюсь к Discord');
+  const login = ui.spinner('Подключаюсь к Discord', 'DISCORD');
   let client: BotClient;
   try {
     client = await startBot({
@@ -56,15 +58,15 @@ async function main(): Promise<void> {
   login.succeed(`вошёл как ${client.user?.tag ?? '?'} · серверов: ${client.guilds.cache.size}`);
 
   startScheduler(client);
-  ui.ok('Планировщик наказаний', 'запущен');
+  ui.stage('ok', 'SCHEDULER', 'Планировщик наказаний', 'запущен');
 
   startDatabaseBackups();
-  ui.ok('Авто-бэкап БД', 'запущен');
+  ui.stage('ok', 'BACKUP', 'Авто-бэкап БД', 'запущен');
 
   let webServer: Server | null = null;
   let localPanel: string | null = null;
   if (config.web.enabled) {
-    const panelStep = ui.spinner('Запускаю веб-панель');
+    const panelStep = ui.spinner('Запускаю веб-панель', 'PANEL');
     try {
       const { startWebPanel, listeningPort } = await import('./web/server.js');
       webServer = await startWebPanel(client, config.web.port, config.web.host);
@@ -86,7 +88,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string, exitCode = 0): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
-    ui.info('Остановка', signal);
+    ui.stage('info', 'STOP', 'Остановка', signal);
 
     stopScheduler();
     stopDatabaseBackups();

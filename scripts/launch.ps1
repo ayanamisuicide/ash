@@ -1597,8 +1597,12 @@ function Add-BootCheck {
     $rest = ''
     $marks = @(
         @{ Code = 0x2705; Status = 'ok' },
+        @{ Code = 0x2714; Status = 'ok' }
+        @{ Code = 0x2713; Status = 'ok' }
         @{ Code = 0x2139; Status = 'info' },
         @{ Code = 0x26A0; Status = 'warn' },
+        @{ Code = 0x2716; Status = 'error' }
+        @{ Code = 0x2715; Status = 'error' }
         @{ Code = 0x274C; Status = 'error' }
     )
 
@@ -1841,7 +1845,7 @@ function Test-BootLine {
     $raw = $Text.Trim()
     if ([string]::IsNullOrWhiteSpace($raw)) { return $true }
     $t = $raw
-    $leadMarks = @('✅', 'ℹ️', 'ℹ', '⚠️', '⚠', '❌', '✔', '✓', '✖', '✕')
+    $leadMarks = @('✅', 'ℹ️', 'ℹ', '⚠️', '⚠', '❌', '✔', '✓', '✖', '✕', '☞')
     foreach ($lead in $leadMarks) {
         if ($t.StartsWith($lead)) {
             $t = $t.Substring($lead.Length).Trim()
@@ -1849,6 +1853,17 @@ function Test-BootLine {
         }
     }
     if ([string]::IsNullOrWhiteSpace($t)) { return $true }
+
+    # Баннер и подзаголовок бота отсекаем до разбора колонок этапов.
+    if ($t -match '^◈\s*NEXUS') { return $true }
+    if ($t -match '^(DEV|PROD|LAUNCH)\s{2,}·') { return $true }
+    if ($t -match '^── ') { return $true }
+
+    # Строки этапов бота: «01  CONFIG    Конфигурация проверена — …».
+    # Отбрасываем колонки номера и фазы, дальше строка разбирается как обычная.
+    if ($t -match '^(?:\d{2}\s+)?([A-Z][A-Z0-9]{1,9})\s{2,}(\S.*)$') {
+        $t = $matches[2].Trim()
+    }
 
     # Служебный шум npm / устаревший ASCII-баннер / отчёт самого бота.
     if ($t -match '^>\s') { return $true }
@@ -1898,9 +1913,25 @@ function Test-BootLine {
     if ($t -match '^✦') { return $true }
 
     $groups = @('Окружение', 'Конфигурация', 'База данных', 'Веб-панель', 'Команды', 'Tailscale')
-    if ($t -eq 'Окружение') {
+    if ($t -eq 'Окружение' -or $t -eq 'CORE') {
         $script:bootActive = $true
         $script:bootGroup = 'Окружение'
+        return $true
+    }
+    # Английские бейджи разделов в выводе бота: CORE / CONFIG / DATA / …
+    $groupAliases = @{
+        'CONFIG'   = 'Конфигурация'
+        'DATA'     = 'База данных'
+        'PANEL'    = 'Веб-панель'
+        'COMMANDS' = 'Команды'
+        'NET'      = 'Tailscale'
+    }
+    if ($script:bootActive -and $groupAliases.ContainsKey($t)) {
+        $script:bootGroup = $groupAliases[$t]
+        return $true
+    }
+    if ($script:bootActive -and $t -match '^SERVER\s*·\s*(.+)$') {
+        $script:bootGroup = 'Сервер: ' + $matches[1].Trim()
         return $true
     }
     if ($script:bootActive -and ($groups -contains $t -or $t -like 'Сервер:*')) {

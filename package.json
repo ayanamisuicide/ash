@@ -1,6 +1,6 @@
 {
   "name": "probot-style-bot",
-  "version": "3.6.2",
+  "version": "3.7.0",
   "description": "Discord-бот в стиле ProBot: модерация, логирование, веб-панель модератора",
   "type": "module",
   "main": "dist/index.js",
@@ -23,7 +23,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"web/src/**/*.{ts,tsx,css}\" \"*.{json,md,yml}\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"web/src/**/*.{ts,tsx,css}\" \"*.{json,md,yml}\"",
     "test": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx --test tests/*.test.ts",
-    "test:coverage": "node --experimental-test-coverage --test-coverage-lines=57 --test-coverage-branches=78 --test-coverage-functions=74 --import=tsx --test \"tests/*.test.ts\"",
+    "test:coverage": "node --experimental-test-coverage --test-coverage-lines=57 --test-coverage-branches=79 --test-coverage-functions=75 --import=tsx --test \"tests/*.test.ts\"",
     "test:panel": "npm --prefix web run test",
     "test:panel:coverage": "npm --prefix web run test:coverage",
     "verify": "node scripts/verify.mjs",

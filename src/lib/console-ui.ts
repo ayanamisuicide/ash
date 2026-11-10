@@ -17,21 +17,28 @@ export interface ConsoleUiOptions {
 
 type Rgb = readonly [number, number, number];
 
+/** Та же палитра, что в launch.ps1: один визуальный язык у бота и лаунчера */
 const PALETTE = {
-  accent: [56, 189, 248] as Rgb,
-  accent2: [168, 85, 247] as Rgb,
+  accent: [94, 234, 212] as Rgb,
+  violet: [192, 132, 252] as Rgb,
   ok: [74, 222, 128] as Rgb,
-  info: [148, 163, 184] as Rgb,
-  warn: [250, 204, 21] as Rgb,
-  error: [248, 113, 113] as Rgb,
-  text: [226, 232, 240] as Rgb,
+  info: [139, 151, 180] as Rgb,
+  warn: [251, 191, 36] as Rgb,
+  error: [251, 113, 133] as Rgb,
+  text: [232, 236, 246] as Rgb,
+  dim: [70, 82, 110] as Rgb,
+  line: [42, 54, 84] as Rgb,
 };
 
+/**
+ * Маркеры без эмодзи: лаунчер разбирает эти строки (`scripts/launch.ps1`),
+ * поэтому набор символов должен совпадать с тем, что он понимает.
+ */
 const STATUS_MARK: Record<CheckStatus, string> = {
-  ok: '✅',
-  info: 'ℹ️',
-  warn: '⚠️',
-  error: '❌',
+  ok: '✔',
+  info: 'ℹ',
+  warn: '⚠',
+  error: '✖',
 };
 
 const STATUS_COLOR: Record<CheckStatus, Rgb> = {
@@ -41,18 +48,41 @@ const STATUS_COLOR: Record<CheckStatus, Rgb> = {
   error: PALETTE.error,
 };
 
+/** Бейджи разделов отчёта — как в RUNTIME REPORT лаунчера */
+const GROUP_BADGE: Record<string, string> = {
+  Окружение: 'CORE',
+  Конфигурация: 'CONFIG',
+  'База данных': 'DATA',
+  'Веб-панель': 'PANEL',
+  Команды: 'COMMANDS',
+  Tailscale: 'NET',
+};
+
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
-const BANNER = [
-  '  ██████╗ ██████╗  ██████╗ ██████╗  ██████╗ ████████╗',
-  '  ██╔══██╗██╔══██╗██╔═══██╗██╔══██╗██╔═══██╗╚══██╔══╝',
-  '  ██████╔╝██████╔╝██║   ██║██████╔╝██║   ██║   ██║',
-  '  ██╔═══╝ ██╔══██╗██║   ██║██╔══██╗██║   ██║   ██║',
-  '  ██║     ██║  ██║╚██████╔╝██████╔╝╚██████╔╝   ██║',
-  '  ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝',
-];
+/** Ширина рабочей области: совпадает с лаунчером */
+const INNER = 70;
 
-const RULE = '─'.repeat(58);
+/** Колонка имени проверки в отчёте */
+const MARK_COLUMN = 26;
+
+function formatSeconds(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+/** Бейдж группы: `CORE`, `SERVER · название` */
+function groupBadge(group: string): string {
+  if (group.startsWith('Сервер:')) {
+    return `SERVER · ${group.slice('Сервер:'.length).trim()}`;
+  }
+  return GROUP_BADGE[group] ?? group.toUpperCase();
+}
+
+/** dev-режим запускается из .ts через tsx, production — из собранного .js */
+function detectMode(): 'dev' | 'production' {
+  const entry = process.argv[1] ?? '';
+  return /\.(ts|mts|cts)$/.test(entry) ? 'dev' : 'production';
+}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -94,6 +124,7 @@ export class ConsoleUi {
   private activeSpinners = 0;
   private cursorHidden = false;
   private cleanupRegistered = false;
+  private stageIndex = 0;
 
   constructor(options: ConsoleUiOptions = {}) {
     this.stream = options.stream ?? process.stdout;
@@ -177,37 +208,73 @@ export class ConsoleUi {
     return this.color ? `\x1b[1m${text}\x1b[0m` : text;
   }
 
-  /** Заголовок с логотипом, версией и платформой */
+  /** Секция вида `── RUNTIME ────── 41 checks` */
+  sectionRule(label: string, right = ''): void {
+    const head = `── ${label} `;
+    const fill = Math.max(2, INNER - head.length - right.length - 1);
+    this.writeLine(
+      `  ${this.paint(PALETTE.line, head + '─'.repeat(fill))}${right ? ` ${this.dim(right)}` : ''}`,
+    );
+  }
+
+  /** Заголовок: карточка NEXUS в стиле лаунчера, без ASCII-арта */
   async banner(
-    meta: { version?: string; node?: string; platform?: string; pid?: number } = {},
+    meta: {
+      version?: string;
+      node?: string;
+      platform?: string;
+      pid?: number;
+      mode?: 'dev' | 'production';
+    } = {},
   ): Promise<void> {
     const version = meta.version ?? readPackageVersion();
-    const subtitle = [
-      'Discord moderation bot',
-      version ? `v${version}` : '',
-      `Node ${meta.node ?? process.version}`,
-      meta.platform ?? `${process.platform}/${process.arch}`,
-      `PID ${meta.pid ?? process.pid}`,
-    ]
-      .filter(Boolean)
-      .join(' · ');
+    const mode = meta.mode ?? detectMode();
+    const brand = '◈ NEXUS';
+    const section = '  /  runtime';
+    const right = version ? `v${version}` : '';
+    const gap = Math.max(1, INNER - brand.length - section.length - right.length);
+    const hint = mode === 'dev' ? 'tsx watch' : 'node dist';
+    const subtitle =
+      `${mode.toUpperCase()}  ·  ${hint}  ·  Node ${meta.node ?? process.version}` +
+      `  ·  ${meta.platform ?? `${process.platform}/${process.arch}`}  ·  PID ${meta.pid ?? process.pid}`;
 
     this.writeLine();
-    for (const line of BANNER) {
-      this.writeLine(this.gradient(line, PALETTE.accent, PALETTE.accent2));
-      if (this.animated) await delay(38);
-    }
-    this.writeLine(`  ${this.dim(subtitle)}`);
-    this.writeLine(`  ${this.dim(RULE)}`);
+    this.writeLine(
+      `  ${this.gradient(brand, PALETTE.accent, PALETTE.violet)}` +
+        `${this.paint(PALETTE.info, section)}${' '.repeat(gap)}${this.paint(PALETTE.text, right)}`,
+    );
+    this.writeLine(`  ${this.paint(PALETTE.line, '─'.repeat(INNER))}`);
+    this.writeLine(
+      `  ${this.paint(PALETTE.accent, mode.toUpperCase())}${this.dim(subtitle.slice(mode.length))}`,
+    );
     this.writeLine();
+    if (this.animated) await delay(30);
+  }
+
+  /** Строка этапа: `✓  01  CONFIG  Конфигурация проверена — …   0.4s` */
+  stage(status: CheckStatus, phase: string, label: string, detail = '', elapsedMs?: number): void {
+    this.stageIndex += 1;
+    const index = String(this.stageIndex).padStart(2, '0');
+    const glyph = STATUS_MARK[status];
+    const phaseText = phase.padEnd(9);
+    const plainHead = `  ${glyph}  ${index}  ${phaseText}  `;
+    const plainBody = `${label}${detail ? ` — ${detail}` : ''}`;
+    const time = elapsedMs === undefined ? '' : formatSeconds(elapsedMs);
+    const gap = Math.max(1, INNER + 2 - plainHead.length - plainBody.length - time.length);
+
+    this.writeLine(
+      `  ${this.paint(STATUS_COLOR[status], glyph)}  ${this.dim(index)}  ` +
+        `${this.paint(PALETTE.accent, phaseText)}  ${this.paint(PALETTE.text, label)}` +
+        `${detail ? this.dim(` — ${detail}`) : ''}` +
+        `${' '.repeat(gap)}${time ? this.paint(PALETTE.info, time) : ''}`,
+    );
   }
 
   /** Строка-статус с галочкой/предупреждением/ошибкой */
   line(status: CheckStatus, label: string, detail = ''): void {
-    const mark = STATUS_MARK[status];
-    const title = this.paint(STATUS_COLOR[status], label);
+    const mark = this.paint(STATUS_COLOR[status], STATUS_MARK[status]);
     const tail = detail ? this.dim(` — ${detail}`) : '';
-    this.writeLine(`  ${mark} ${title}${tail}`);
+    this.writeLine(`  ${mark}  ${this.paint(PALETTE.text, label)}${tail}`);
   }
 
   ok(label: string, detail = ''): void {
@@ -231,17 +298,19 @@ export class ConsoleUi {
   }
 
   /** Спиннер для длительной операции: `update`, `succeed`, `fail`, `stop` */
-  spinner(label: string): Spinner {
-    return new Spinner(this, label);
+  spinner(label: string, phase?: string): Spinner {
+    return new Spinner(this, label, phase);
   }
 
   /** Анимированно печатает отчёт проверок и итог */
   async revealReport(report: StartupReport): Promise<void> {
+    this.sectionRule('RUNTIME', `${report.checks.length} checks`);
+
     let currentGroup = '';
     for (const check of report.checks) {
       if (check.group !== currentGroup) {
         if (currentGroup) this.writeLine();
-        this.writeLine(`  ${this.bold(check.group)}`);
+        this.writeLine(`    ${this.paint(PALETTE.accent, groupBadge(check.group))}`);
         currentGroup = check.group;
       }
       if (this.animated) {
@@ -256,22 +325,24 @@ export class ConsoleUi {
     const okCount = report.checks.filter((check) => check.status === 'ok').length;
     const infoCount = report.checks.filter((check) => check.status === 'info').length;
     const summary =
-      `${this.paint(PALETTE.ok, `✅ ${okCount}`)}, ` +
-      `${this.paint(PALETTE.info, `ℹ️ ${infoCount}`)}, ` +
-      `${this.paint(PALETTE.warn, `⚠️ ${report.warnings}`)}, ` +
-      `${this.paint(PALETTE.error, `❌ ${report.errors}`)}`;
-    this.writeLine(`  ${this.bold('Итог проверок:')} ${summary}`);
+      `${this.paint(PALETTE.ok, `${STATUS_MARK.ok} ${okCount}`)}  ·  ` +
+      `${this.paint(PALETTE.info, `${STATUS_MARK.info} ${infoCount}`)}  ·  ` +
+      `${this.paint(PALETTE.warn, `${STATUS_MARK.warn} ${report.warnings}`)}  ·  ` +
+      `${this.paint(PALETTE.error, `${STATUS_MARK.error} ${report.errors}`)}`;
+    this.writeLine(`  ${this.paint(PALETTE.text, 'Итог проверок:')} ${summary}`);
     if (report.ok) {
       this.writeLine(`  ${this.paint(PALETTE.ok, 'Критичных ошибок не найдено.')}`);
     } else {
-      this.writeLine(`  ${this.paint(PALETTE.error, 'Есть ошибки — исправьте пункты с ❌.')}`);
+      this.writeLine(`  ${this.paint(PALETTE.error, 'Есть ошибки — исправьте пункты с ✖.')}`);
     }
   }
 
   private formatCheck(check: StartupCheck): string {
-    const title = this.paint(STATUS_COLOR[check.status], check.name);
+    const mark = this.paint(STATUS_COLOR[check.status], STATUS_MARK[check.status]);
+    const name = check.name.length >= MARK_COLUMN ? check.name : check.name.padEnd(MARK_COLUMN);
+    const title = this.paint(PALETTE.text, name);
     const tail = check.detail ? this.dim(` — ${check.detail}`) : '';
-    return `    ${STATUS_MARK[check.status]} ${title}${tail}`;
+    return `    ${mark} ${title}${tail}`;
   }
 
   /** Финальный блок «бот готов» */
@@ -282,21 +353,24 @@ export class ConsoleUi {
     local?: string | null;
   }): void {
     this.blank();
-    this.writeLine(`  ${this.dim(RULE)}`);
-    const parts = [
-      `${this.paint(PALETTE.ok, 'Бот готов')}`,
-      `серверов: ${this.bold(String(meta.guilds))}`,
-      `команд: ${this.bold(String(meta.commands))}`,
-    ];
-    this.writeLine(`  ✦ ${parts.join(' · ')}`);
+    this.sectionRule(
+      'READY',
+      `${meta.guilds} ${meta.guilds === 1 ? 'сервер' : 'серверов'} · ${meta.commands} команд`,
+    );
+    this.writeLine(
+      `  ${this.paint(PALETTE.ok, STATUS_MARK.ok)}  ${this.paint(PALETTE.text, 'Бот готов')}` +
+        this.dim(` · серверов: ${this.bold(String(meta.guilds))}`) +
+        this.dim(` · команд: ${this.bold(String(meta.commands))}`),
+    );
     if (meta.panel) {
-      this.writeLine(`  ✦ Веб-панель: ${this.paint(PALETTE.accent, meta.panel)}`);
+      this.writeLine(
+        `  ${this.dim('☞')}  ${this.dim('Веб-панель:')} ${this.paint(PALETTE.accent, meta.panel)}`,
+      );
     }
     if (meta.local) {
-      this.writeLine(`  ✦ Локально: ${this.dim(meta.local)}`);
+      this.writeLine(`  ${this.dim('☞')}  ${this.dim('Локально:')} ${this.dim(meta.local)}`);
     }
-    this.writeLine(`  ✦ Остановка: ${this.dim('Ctrl+C')}`);
-    this.writeLine(`  ${this.dim(RULE)}`);
+    this.writeLine(`  ${this.dim('☞')}  ${this.dim('Остановка:')} ${this.dim('Ctrl+C')}`);
     this.blank();
   }
 }
@@ -307,10 +381,12 @@ export class Spinner {
   private timer: NodeJS.Timeout | null = null;
   private label: string;
   private finished = false;
+  private readonly startedMs = Date.now();
 
   constructor(
     private readonly ui: ConsoleUi,
     label: string,
+    private readonly phase?: string,
   ) {
     this.label = label;
     if (ui.animated) {
@@ -325,7 +401,7 @@ export class Spinner {
     if (this.finished) return;
     const frame = SPINNER_FRAMES[this.index % SPINNER_FRAMES.length] ?? '⠋';
     this.index += 1;
-    this.ui.renderLine(`  ${this.ui.paint([56, 189, 248], frame)} ${this.label}`);
+    this.ui.renderLine(`  ${this.ui.paint([94, 234, 212], frame)} ${this.label}`);
   }
 
   update(label: string): void {
@@ -352,17 +428,21 @@ export class Spinner {
   succeed(detail = ''): void {
     if (this.finished) return;
     const label = this.label;
+    const elapsed = Date.now() - this.startedMs;
     this.stopTimer();
     this.ui.endSpinner();
-    this.ui.ok(label, detail);
+    if (this.phase) this.ui.stage('ok', this.phase, label, detail, elapsed);
+    else this.ui.ok(label, detail);
   }
 
   fail(detail = ''): void {
     if (this.finished) return;
     const label = this.label;
+    const elapsed = Date.now() - this.startedMs;
     this.stopTimer();
     this.ui.endSpinner();
-    this.ui.error(label, detail);
+    if (this.phase) this.ui.stage('error', this.phase, label, detail, elapsed);
+    else this.ui.error(label, detail);
   }
 }
 

@@ -7,7 +7,7 @@
     NEXUS release pipeline для Windows PowerShell 5.1+.
 
 .DESCRIPTION
-    Премиальная консольная обёртка над npm-скриптами проекта NEXUS:
+    Консольная панель управления релизами NEXUS:
     stop -> typecheck -> lint -> format:check -> test -> build -> deploy.
 
     Шаги выполняются через System.Diagnostics.Process с асинхронным
@@ -27,6 +27,13 @@
 .PARAMETER ChecksOnly
     Прогнать проверки и сборку, но не запускать бота.
 
+.PARAMETER StartFirst
+    Сразу поднять бота и панель в отдельном окне, затем прогнать проверки
+    в текущем окне и показать уведомление при ошибке. Бот продолжает работать.
+
+.PARAMETER StartOnly
+    Внутренний режим: только запустить бота (используется launch:live).
+
 .PARAMETER NoNewWindow
     Не открывать новое окно, работать в текущем.
 
@@ -40,6 +47,9 @@
     npm run launch:dev
 
 .EXAMPLE
+    npm run launch:live
+
+.EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts/launch.ps1 -ChecksOnly -SkipDeploy -NoNewWindow -NoBanner
 #>
 param(
@@ -47,6 +57,8 @@ param(
     [switch]$Dev,
     [switch]$SkipDeploy,
     [switch]$ChecksOnly,
+    [switch]$StartFirst,
+    [switch]$StartOnly,
     [switch]$NoNewWindow,
     [switch]$NoBanner
 )
@@ -63,6 +75,9 @@ $script:root = if ($PSScriptRoot) {
 }
 if (-not $script:root) { $script:root = (Get-Location).Path }
 Set-Location -LiteralPath $script:root
+
+$script:scriptPath = if ($PSCommandPath) { $PSCommandPath } else { $MyInvocation.MyCommand.Path }
+$script:toastIcon = $null
 
 $script:launchLog = Join-Path $script:root 'data\launch.log'
 $script:step = 0
@@ -98,6 +113,23 @@ $script:barLine = ''
 $script:lastStepDraw = ''
 $script:lastBarDraw = ''
 $script:liveMode = 'PRODUCTION'
+$script:checkStatus = ''
+$script:liveUrl = ''
+$script:runStart = Get-Date
+
+# --- Единая палитра оформления ---------------------------------------------
+$script:theme = @{
+    ink    = @(226, 230, 242)
+    muted  = @(138, 148, 172)
+    dim    = @(74, 84, 108)
+    line   = @(88, 104, 160)
+    accent = @(124, 140, 255)
+    cyan   = @(84, 200, 255)
+    green  = @(70, 220, 150)
+    amber  = @(255, 185, 70)
+    red    = @(255, 100, 115)
+    violet = @(190, 130, 255)
+}
 
 function Write-LaunchLog {
     param([string]$Message)
@@ -255,7 +287,7 @@ function Test-Canceled {
 }
 
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
-try { $Host.UI.RawUI.WindowTitle = 'NEXUS // RELEASE PIPELINE' } catch { }
+try { $Host.UI.RawUI.WindowTitle = 'NEXUS · Release Control' } catch { }
 Write-LaunchLog ("console: interactive={0} truecolor={1} color={2} interrupt={3}" -f $script:interactive, $script:useTrueColor, $script:colorEnabled, $script:interruptSupported)
 
 # ===========================================================================
@@ -320,6 +352,146 @@ function Format-Cell {
         return $Text.Substring(0, $Width - 3) + '...'
     }
     return $Text.PadRight($Width)
+}
+
+# --- Общие примитивы нового визуального слоя --------------------------------
+function Paint {
+    param(
+        [AllowEmptyString()][string]$Text,
+        [int[]]$Rgb = @(255, 255, 255)
+    )
+
+    if ([string]::IsNullOrEmpty($Text)) { return '' }
+    return (C $Text $Rgb[0] $Rgb[1] $Rgb[2])
+}
+
+function Format-Duration {
+    param([int]$Seconds)
+
+    if ($Seconds -lt 0) { $Seconds = 0 }
+    if ($Seconds -ge 3600) {
+        return ('{0}h {1:D2}m' -f [int]($Seconds / 3600), [int](($Seconds % 3600) / 60))
+    }
+    if ($Seconds -ge 60) {
+        return ('{0}m {1:D2}s' -f [int]($Seconds / 60), ($Seconds % 60))
+    }
+    return ([string]$Seconds + 's')
+}
+
+function Limit-Text {
+    param([string]$Text, [int]$Width)
+
+    if ($Width -lt 1) { return '' }
+    if ([string]::IsNullOrEmpty($Text)) { return '' }
+    if ($Text.Length -le $Width) { return $Text }
+    if ($Width -le 3) { return $Text.Substring(0, $Width) }
+    return $Text.Substring(0, $Width - 3) + '...'
+}
+
+function Get-InnerWidth {
+    param([int]$Preferred = 62)
+
+    $width = $Preferred
+    try {
+        $consoleWidth = [Console]::WindowWidth
+        if ($consoleWidth -gt 0) {
+            $width = [Math]::Min($Preferred, $consoleWidth - 4)
+        }
+    } catch { }
+
+    if ($script:uiReady -and $script:uiWidth -gt 0) {
+        $width = [Math]::Min($width, $script:uiWidth - 4)
+    }
+    if ($width -lt 30) { $width = 30 }
+    return $width
+}
+
+function Split-CardText {
+    param([string]$Text, [int]$Width)
+
+    if ($Width -lt 4) { $Width = 4 }
+    $lines = New-Object System.Collections.ArrayList
+
+    foreach ($paragraph in ([string]$Text -split "`r?`n")) {
+        $line = ''
+        foreach ($word in ($paragraph -split '\s+')) {
+            if ([string]::IsNullOrWhiteSpace($word)) { continue }
+
+            $candidate = if ($line.Length -eq 0) { $word } else { $line + ' ' + $word }
+            if ($candidate.Length -le $Width) {
+                $line = $candidate
+                continue
+            }
+
+            if ($line.Length -gt 0) {
+                [void]$lines.Add($line)
+                $line = ''
+            }
+            while ($word.Length -gt $Width) {
+                [void]$lines.Add($word.Substring(0, $Width))
+                $word = $word.Substring($Width)
+            }
+            $line = $word
+        }
+        if ($line.Length -gt 0) { [void]$lines.Add($line) }
+    }
+
+    if ($lines.Count -eq 0) { [void]$lines.Add('') }
+    return $lines.ToArray()
+}
+
+function Get-LaunchMode {
+    if ($StartFirst) { return 'LIVE' }
+    if ($ChecksOnly) { return 'CHECKS ONLY' }
+    if ($Dev) { return 'DEV · WATCH' }
+    return 'PRODUCTION'
+}
+
+function Write-CardBorder {
+    param(
+        [int]$Inner,
+        [string]$Left = '╭',
+        [string]$Right = '╮',
+        [int[]]$Rgb = @(88, 104, 160)
+    )
+
+    Push-LogLine ('  ' + (Paint ($Left + ('─' * $Inner) + $Right) $Rgb))
+}
+
+function Write-CardRow {
+    param(
+        [int]$Inner,
+        [string]$Label = '',
+        [int[]]$LabelRgb = @(138, 148, 172),
+        [string]$Value = '',
+        [int[]]$ValueRgb = @(226, 230, 242),
+        [string]$Right = '',
+        [int[]]$RightRgb = @(138, 148, 172),
+        [int]$Indent = 2,
+        [int[]]$BorderRgb = @(88, 104, 160)
+    )
+
+    if ($Inner -lt 4) { return }
+    if ($Indent -lt 0) { $Indent = 0 }
+    if ($Indent -gt ($Inner - 2)) { $Indent = $Inner - 2 }
+
+    $rightText = Limit-Text -Text $Right -Width ([Math]::Max(0, $Inner - $Indent - 4))
+    $budget = $Inner - $Indent - $rightText.Length - 3
+    if ($budget -lt 0) { $budget = 0 }
+
+    $labelText = Limit-Text -Text $Label -Width $budget
+    $valueBudget = $budget - $labelText.Length
+    if ($valueBudget -lt 0) { $valueBudget = 0 }
+    $valueText = Limit-Text -Text $Value -Width $valueBudget
+
+    $plainLength = $Indent + $labelText.Length + $valueText.Length + $rightText.Length
+    $gap = $Inner - $plainLength - 2
+    if ($gap -lt 1) { $gap = 1 }
+
+    $line = '  ' + (Paint '│' $BorderRgb) +
+        (' ' * $Indent) + (Paint $labelText $LabelRgb) + (Paint $valueText $ValueRgb) +
+        (' ' * $gap) + (Paint $rightText $RightRgb) + ('  ') + (Paint '│' $BorderRgb)
+    Push-LogLine $line
 }
 
 # ANSI-последовательности в строках npm вырезаются: цвет задаёт сам раннер.
@@ -505,86 +677,6 @@ function Push-LogLine {
     }
 }
 
-# Write-Animated: проигрывает готовые кадры в одной строке (fade-in/fade-out).
-# В неинтерактивном режиме печатает только финальный кадр.
-function Write-Animated {
-    param(
-        [Parameter(Mandatory = $true)][string[]]$Frames,
-        [int]$DelayMs = 30,
-        [int]$Row = -1
-    )
-
-    if ($Frames.Count -eq 0) { return }
-
-    if (-not $script:interactive) {
-        Write-Host $Frames[$Frames.Count - 1]
-        return
-    }
-
-    foreach ($frame in $Frames) {
-        if ($Row -ge 0) {
-            try { [Console]::SetCursorPosition(0, $Row) } catch { }
-        }
-        Write-Host $frame
-        if ($DelayMs -gt 0) { Start-Sleep -Milliseconds $DelayMs }
-    }
-}
-
-function Write-Typewriter {
-    param(
-        [Parameter(Mandatory = $true)][string]$Text,
-        [string]$Prefix = '',
-        [string]$Suffix = '',
-        [int]$DelayMs = 30,
-        [int]$R = 179,
-        [int]$G = 136,
-        [int]$B = 255
-    )
-
-    if ([string]::IsNullOrEmpty($Text)) { return }
-
-    if (-not $script:interactive) {
-        Push-LogLine ($Prefix + $Text + $Suffix)
-        return
-    }
-
-    if (-not $script:uiReady) {
-        [Console]::Write($Prefix)
-        foreach ($ch in $Text.ToCharArray()) {
-            [Console]::Write((C ([string]$ch) $R $G $B))
-            Start-Sleep -Milliseconds $DelayMs
-        }
-        Write-Host $Suffix
-        return
-    }
-
-    if (-not (Sync-UiMetrics)) {
-        Push-LogLine ($Prefix + $Text + $Suffix)
-        return
-    }
-    if ($script:logRow -ge $script:stepRow) { Scroll-LogArea }
-
-    $row = $script:logRow
-    $max = $script:uiWidth - $Prefix.Length - $Suffix.Length
-    if ($max -lt 1) { $max = 1 }
-    $length = [Math]::Min($Text.Length, $max)
-
-    for ($i = 1; $i -le $length; $i++) {
-        $partial = $Text.Substring(0, $i)
-        try {
-            [Console]::SetCursorPosition(0, $row)
-            [Console]::Write((' ' * ($script:uiWidth - 1)) + "`r")
-            [Console]::SetCursorPosition(0, $row)
-            [Console]::Write($Prefix + (C $partial $R $G $B) + $Suffix)
-            [Console]::Out.Flush()
-        } catch { }
-        Start-Sleep -Milliseconds $DelayMs
-    }
-
-    $script:logRow += 1
-    Refresh-Ui
-}
-
 function Show-Banner {
     if ($NoBanner) { return }
 
@@ -592,71 +684,145 @@ function Show-Banner {
         try { Clear-Host } catch { }
     }
 
-    $lines = @(
-        '  ███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗',
-        '  ████╗  ██║██╔════╝╚██╗██╔╝██║   ██║██╔════╝',
-        '  ██╔██╗ ██║█████╗   ╚███╔╝ ██║   ██║███████╗',
-        '  ██║╚██╗██║██╔══╝   ██╔██╗ ██║   ██║╚════██║',
-        '  ██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║',
-        '  ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝'
-    )
-    $colors = @(
-        @(179, 136, 255),
-        @(148, 145, 255),
-        @(102, 115, 255),
-        @( 84, 184, 255),
-        @( 61, 214, 140),
-        @( 61, 214, 140)
-    )
+    $inner = Get-InnerWidth -Preferred 66
+    $version = Get-PackageVersion
+    $mode = Get-LaunchMode
+    $border = $script:theme.line
+    $muted = $script:theme.muted
+    $ink = $script:theme.ink
+    $dim = $script:theme.dim
+    $accent = $script:theme.accent
+    $cyan = $script:theme.cyan
 
-    $startRow = 0
-    if ($script:interactive) {
-        try { $startRow = [Console]::CursorTop } catch { }
+    $font = @{
+        'N' = @('█   █', '██  █', '█ █ █', '█  ██', '█   █')
+        'E' = @('█████', '█    ', '████ ', '█    ', '█████')
+        'X' = @('█   █', ' █ █ ', '  █  ', ' █ █ ', '█   █')
+        'U' = @('█   █', '█   █', '█   █', '█   █', ' ███ ')
+        'S' = @(' ████', '█    ', ' ███ ', '    █', '████ ')
     }
+    $letterColors = @(
+        $script:theme.violet,
+        @(158, 142, 255),
+        @(112, 158, 255),
+        $cyan,
+        $script:theme.green
+    )
+    $word = 'NEXUS'
+    $markRows = @()
+    $markWidth = 29
+    $compact = ($inner -lt 35)
+    try {
+        $consoleHeight = [Console]::WindowHeight
+        if ($consoleHeight -gt 0 -and $consoleHeight -lt 18) { $compact = $true }
+    } catch { }
 
-    Line ''
-    if ($script:interactive) {
-        for ($i = 0; $i -lt $lines.Count; $i++) {
-            $lineText = $lines[$i]
-            $target = $colors[$i]
-            $frames = @()
-            for ($f = 1; $f -le 5; $f++) {
-                $t = $f / 5.0
-                $r = Get-Lerp -From 30 -To $target[0] -T $t
-                $g = Get-Lerp -From 34 -To $target[1] -T $t
-                $b = Get-Lerp -From 48 -To $target[2] -T $t
-                $frames += (C $lineText $r $g $b)
+    if (-not $compact) {
+        for ($row = 0; $row -lt 5; $row++) {
+            $parts = @()
+            for ($letter = 0; $letter -lt 5; $letter++) {
+                $glyph = $font[[string]$word[$letter]][$row]
+                $parts += (Paint $glyph $letterColors[$letter])
             }
-            Write-Animated -Frames $frames -DelayMs 25 -Row ($startRow + 1 + $i)
-            Start-Sleep -Milliseconds 50
+            $markRows += ($parts -join ' ')
         }
-        try { [Console]::SetCursorPosition(0, $startRow + 1 + $lines.Count) } catch { }
     } else {
-        for ($i = 0; $i -lt $lines.Count; $i++) {
-            $color = $colors[$i]
-            Line (C $lines[$i] $color[0] $color[1] $color[2])
+        $markRows = @(Paint 'N E X U S' $accent)
+        $markWidth = 9
+    }
+
+    $meta = @(
+        @{ Text = 'DISCORD MODERATION SUITE'; Rgb = $muted },
+        @{ Text = 'RELEASE CONTROL'; Rgb = $accent },
+        @{ Text = ''; Rgb = $muted },
+        @{ Text = ('v' + $version + '  ·  ' + $mode); Rgb = $ink },
+        @{ Text = 'checks  ·  build  ·  run'; Rgb = $dim }
+    )
+
+    $lines = New-Object System.Collections.ArrayList
+    [void]$lines.Add('  ' + (Paint ('╭' + ('─' * $inner) + '╮') $border))
+
+    if ($inner -ge 62 -and $markWidth -eq 29) {
+        $rightBudget = $inner - 2 - $markWidth - 3
+        for ($row = 0; $row -lt 5; $row++) {
+            $rightText = Limit-Text -Text ([string]$meta[$row].Text) -Width $rightBudget
+            $gap = $inner - 2 - $markWidth - $rightText.Length - 2
+            if ($gap -lt 1) { $gap = 1 }
+            [void]$lines.Add(
+                '  ' + (Paint '│' $border) + '  ' + $markRows[$row] +
+                (' ' * $gap) + (Paint $rightText $meta[$row].Rgb) + '  ' + (Paint '│' $border)
+            )
+        }
+    } else {
+        foreach ($markRow in $markRows) {
+            [void]$lines.Add(
+                '  ' + (Paint '│' $border) + '  ' + $markRow +
+                (' ' * ($inner - 2 - $markWidth)) + (Paint '│' $border)
+            )
+        }
+        [void]$lines.Add('  ' + (Paint '│' $border) + (' ' * $inner) + (Paint '│' $border))
+        foreach ($item in $meta) {
+            $text = Limit-Text -Text ([string]$item.Text) -Width ($inner - 4)
+            [void]$lines.Add(
+                '  ' + (Paint '│' $border) + '  ' + (Paint $text $item.Rgb) +
+                (' ' * ($inner - 2 - $text.Length)) + (Paint '│' $border)
+            )
         }
     }
 
-    Line ''
-    Line ('  ' + (C 'DISCORD MODERATION SUITE' 141 150 180) + (C '  ·  ' 70 78 102) + (C 'RELEASE PIPELINE' 84 184 255))
-    Line ('  ' + (C ('─' * 62) 54 62 86))
-    Line ''
+    [void]$lines.Add('  ' + (Paint ('╰' + ('─' * $inner) + '╯') $border))
+
+    Push-LogLine ''
+    foreach ($line in $lines) {
+        Push-LogLine $line
+        if ($script:interactive) { Start-Sleep -Milliseconds 12 }
+    }
+
+    $statusLine = '  ' + (Paint '● READY' $script:theme.green)
+    if ($inner -ge 50) {
+        $statusLine += (Paint '  ·  pipeline armed  ·  Ctrl+C прерывает' $muted)
+    }
+    Push-LogLine $statusLine
+    Push-LogLine ''
 }
 
 function Show-Progress {
     $filled = [Math]::Min($script:step, $script:totalSteps)
-    $empty = [Math]::Max(0, $script:totalSteps - $filled)
+    $percent = if ($script:totalSteps -gt 0) {
+        [int][Math]::Round(100 * $filled / $script:totalSteps)
+    } else {
+        0
+    }
+
+    $barWidth = 12
+    $filledCells = if ($script:totalSteps -gt 0) {
+        [int][Math]::Round($barWidth * $filled / $script:totalSteps)
+    } else {
+        0
+    }
+    if ($filledCells -lt 0) { $filledCells = 0 }
+    if ($filledCells -gt $barWidth) { $filledCells = $barWidth }
+
+    $done = ($script:totalSteps -gt 0 -and $filled -ge $script:totalSteps)
+    $barColor = if ($done) { $script:theme.green } else { $script:theme.cyan }
+    $bar = (Paint ('█' * $filledCells) $barColor) + (Paint ('░' * ($barWidth - $filledCells)) $script:theme.dim)
+    $countText = ('{0}/{1}' -f $filled, $script:totalSteps)
 
     if ($script:uiReady) {
-        $bar = ('█' * $filled) + ('░' * $empty)
-        $script:barLine = '  ' + (C 'PIPELINE' 141 150 180) + '  ' + (C $bar 102 115 255) + '  ' + (C "$filled/$($script:totalSteps)" 84 184 255)
+        $script:barLine = (Paint '  NEXUS' $script:theme.accent) + (Paint '  ·  ' $script:theme.dim) +
+            (Paint $script:liveMode $script:theme.cyan) + (Paint '  ·  ' $script:theme.dim) + $bar +
+            (Paint ('  ' + $countText + '  ·  ' + $percent + '%') $script:theme.muted)
         Refresh-Ui
         return
     }
 
-    $plainBar = ('#' * $filled) + ('.' * $empty)
-    Line ('  ' + (C 'PIPELINE' 141 150 180) + '  [' + (C $plainBar 102 115 255) + ']  ' + (C "$filled/$($script:totalSteps)" 84 184 255))
+    if (-not $script:interactive) { return }
+
+    $plainBar = ('#' * $filledCells) + ('.' * ($barWidth - $filledCells))
+    Line (
+        '  ' + (Paint 'PIPELINE' $script:theme.muted) + '  [' + (Paint $plainBar $script:theme.cyan) + ']  ' +
+        (Paint ($countText + '  ·  ' + $percent + '%') $script:theme.ink)
+    )
 }
 
 function Set-StepUi {
@@ -671,15 +837,66 @@ function Set-StepUi {
 
     if (-not $script:uiReady) { return }
 
-    $timeText = [string]$ElapsedSeconds + 's'
-    $maxLabel = $script:uiWidth - 6 - $timeText.Length
-    if ($maxLabel -lt 10) { $maxLabel = 10 }
-    if ($Label.Length -gt $maxLabel) {
-        $Label = $Label.Substring(0, $maxLabel - 3) + '...'
+    $rgb = @($R, $G, $B)
+    $indexText = ('{0:D2}/{1:D2}' -f $script:step, $script:totalSteps)
+    $timeText = Format-Duration -Seconds $ElapsedSeconds
+    $prefixPlain = '  ▌ ' + $Glyph + ' ' + $indexText + '  '
+    $maxWidth = $script:uiWidth - 1
+
+    $labelBudget = $maxWidth - $prefixPlain.Length - $timeText.Length - 3
+    if ($labelBudget -lt 8) { $labelBudget = 8 }
+    $labelText = Limit-Text -Text $Label -Width $labelBudget
+
+    $leaderWidth = $maxWidth - $prefixPlain.Length - $labelText.Length - $timeText.Length - 3
+    if ($leaderWidth -lt 1) { $leaderWidth = 1 }
+    $leader = if ($leaderWidth -ge 2) {
+        ' ' + (Paint ('·' * $leaderWidth) $script:theme.dim)
+    } else {
+        ' ' * ($leaderWidth + 1)
     }
 
-    $script:stepLine = '  ' + (C $Glyph $R $G $B) + ' ' + (C $Label 210 214 230) + '  ' + (C $timeText 141 150 180)
+    $script:stepLine = (Paint '  ▌' $rgb) + ' ' + (Paint $Glyph $rgb) + ' ' +
+        (Paint $indexText $script:theme.dim) + '  ' + (Paint $labelText $script:theme.ink) +
+        $leader + (Paint ('  ' + $timeText) $script:theme.muted)
     Refresh-Ui
+}
+
+function Write-StepResult {
+    param(
+        [int]$Index,
+        [string]$Label,
+        [int]$DurationSeconds,
+        [bool]$Ok
+    )
+
+    $glyph = if ($Ok) { '✓' } else { '✕' }
+    $rgb = if ($Ok) { $script:theme.green } else { $script:theme.red }
+    $indexText = ('{0:D2}' -f $Index)
+    $duration = Format-Duration -Seconds $DurationSeconds
+
+    if (-not $script:uiReady) {
+        Push-LogLine (
+            '  ' + (Paint $glyph $rgb) + '  ' + (Paint $indexText $script:theme.dim) + '  ' +
+            (Paint $Label $script:theme.ink) + (Paint ('  ' + $duration) $script:theme.muted)
+        )
+        return
+    }
+
+    $maxWidth = $script:uiWidth - 1
+    $prefixPlain = '  ' + $glyph + '  ' + $indexText + '  '
+    $labelBudget = [Math]::Max(8, $maxWidth - $prefixPlain.Length - $duration.Length - 3)
+    $labelText = Limit-Text -Text $Label -Width $labelBudget
+    $leaderWidth = [Math]::Max(1, $maxWidth - $prefixPlain.Length - $labelText.Length - $duration.Length - 3)
+    $leader = if ($leaderWidth -ge 2) {
+        ' ' + (Paint ('·' * $leaderWidth) $script:theme.dim)
+    } else {
+        ' ' * ($leaderWidth + 1)
+    }
+
+    Push-LogLine (
+        (Paint ('  ' + $glyph) $rgb) + '  ' + (Paint $indexText $script:theme.dim) + '  ' +
+        (Paint $labelText $script:theme.ink) + $leader + (Paint ('  ' + $duration) $script:theme.muted)
+    )
 }
 
 # --- Категоризация строк пайплайна -----------------------------------------
@@ -717,19 +934,25 @@ function Write-StreamLine {
     $clean = (Strip-Ansi $Text).Replace("`r", '').TrimEnd()
     if ([string]::IsNullOrWhiteSpace($clean)) { return }
 
-    $clean = Compress-LinePath -Text $clean
     $style = Parse-LogPrefix -Text $clean -IsError:$IsError
-    $prefix = '  ' + $style.Glyph + '  '
+    # npm-тесты сами печатают ✔/✖ в начале строки — не дублируем глиф.
+    $clean = $clean -replace '^\s*[✔✓✖✕]\s+', ''
+    if ([string]::IsNullOrWhiteSpace($clean)) { return }
+
+    $clean = Compress-LinePath -Text $clean
+    $styleRgb = @($style.R, $style.G, $style.B)
+    $plainPrefixLength = 7
 
     if ($script:uiReady) {
-        $max = $script:uiWidth - $prefix.Length - 1
+        $max = $script:uiWidth - $plainPrefixLength - 1
         if ($max -lt 20) { $max = 20 }
         if ($clean.Length -gt $max) {
             $clean = $clean.Substring(0, $max - 3) + '...'
         }
     }
 
-    $colored = (C $prefix $style.R $style.G $style.B) + (C $clean 180 188 210)
+    $colored = '  ' + (Paint '│' $script:theme.dim) + ' ' + (Paint $style.Glyph $styleRgb) + '  ' +
+        (Paint $clean $script:theme.ink)
     Push-LogLine $colored
 }
 
@@ -788,68 +1011,101 @@ function Show-Hud {
 
     if (-not $script:uiReady) { return }
 
+    $pulse = if (([int]$Uptime.TotalSeconds % 2) -eq 0) {
+        $script:theme.green
+    } else {
+        @(124, 240, 178)
+    }
     $timeText = $Uptime.ToString('hh\:mm\:ss')
     $memText = [string]$MemoryMB + ' MB'
     $evtText = [string]$Events + ' events'
 
-    $script:stepLine = '  ' + (C '●' 61 214 140) + ' ' + (C $timeText 210 214 230) +
-        '   ' + (C '▸' 84 184 255) + ' ' + (C $memText 141 150 180) +
-        '   ' + (C '◈' 179 136 255) + ' ' + (C $evtText 141 150 180)
+    $script:stepLine = (Paint '  ●' $pulse) + ' ' + (Paint 'LIVE' $script:theme.green) +
+        (Paint '  │  ' $script:theme.dim) + (Paint $timeText $script:theme.ink) +
+        (Paint '  │  ' $script:theme.dim) + (Paint $memText $script:theme.muted) +
+        (Paint '  │  ' $script:theme.dim) + (Paint $evtText $script:theme.muted)
 
-    $script:barLine = '  ' + (C 'NEXUS · LIVE' 61 214 140) + '  ' + (C '·' 70 78 102) + '  ' +
-        (C $script:liveMode 84 184 255) + '  ' + (C '·' 70 78 102) + '  ' +
-        (C 'Ctrl+C — остановить' 141 150 180)
+    $url = [string]$script:liveUrl
+    $prefixPlain = '  NEXUS  ·  ' + $script:liveMode + '  ·  '
+    $suffixPlain = '  ·  Ctrl+C — стоп'
+    $max = $script:uiWidth - 1
+    if (($prefixPlain.Length + $url.Length + $suffixPlain.Length) -gt $max) {
+        $urlBudget = [Math]::Max(8, $max - $prefixPlain.Length - $suffixPlain.Length)
+        $url = Limit-Text -Text $url -Width $urlBudget
+    }
+
+    $script:barLine = (Paint '  NEXUS' $script:theme.accent) + (Paint '  ·  ' $script:theme.dim) +
+        (Paint $script:liveMode $script:theme.cyan)
+    if ($url.Length -gt 0) {
+        $script:barLine += (Paint '  ·  ' $script:theme.dim) + (Paint $url $script:theme.muted)
+    }
+    $script:barLine += (Paint $suffixPlain $script:theme.dim)
 
     Refresh-Ui
 }
 
 function Show-SuccessBox {
-    param([string]$Subtitle = 'Проверки, сборка и деплой завершены.')
+    param(
+        [string]$Title = 'PIPELINE COMPLETE',
+        [string]$Subtitle = 'Проверки, сборка и деплой завершены.',
+        [object[]]$Details = @()
+    )
 
-    $inner = 62
-    if ($script:uiReady) {
-        $inner = [Math]::Min(62, $script:uiWidth - 4)
+    $inner = Get-InnerWidth -Preferred 66
+    $green = $script:theme.green
+    $elapsed = Format-Duration -Seconds ([int]((Get-Date) - $script:runStart).TotalSeconds)
+
+    Write-CardBorder -Inner $inner -Rgb $green
+    Write-CardRow -Inner $inner -Label '✓  ' -LabelRgb $green -Value $Title -ValueRgb $green -Right $elapsed -RightRgb $script:theme.muted -BorderRgb $green
+    Write-CardRow -Inner $inner -BorderRgb $green
+
+    foreach ($line in (Split-CardText -Text $Subtitle -Width ($inner - 6))) {
+        Write-CardRow -Inner $inner -Value $line -ValueRgb $script:theme.ink -BorderRgb $green
     }
-    if ($inner -lt 20) { $inner = 20 }
 
-    $green = @(61, 214, 140)
-    $blank = ''.PadRight($inner)
+    if ($null -ne $Details -and $Details.Count -gt 0) {
+        Write-CardRow -Inner $inner -BorderRgb $green
+        foreach ($detail in $Details) {
+            $label = [string]$detail.Label
+            if ($label.Length -lt 9) { $label = $label.PadRight(9) }
+            Write-CardRow -Inner $inner -Label ($label + '  ') -LabelRgb $script:theme.muted -Value ([string]$detail.Value) -ValueRgb $script:theme.ink -BorderRgb $green
+        }
+    }
 
-    Push-LogLine ('  ' + (C ('┌' + ('─' * $inner) + '┐') $green[0] $green[1] $green[2]))
-    Push-LogLine ('  ' + (C '│' $green[0] $green[1] $green[2]) + (C (Format-Cell '  ✔  RELEASE READY' $inner) $green[0] $green[1] $green[2]) + (C '│' $green[0] $green[1] $green[2]))
-    Push-LogLine ('  ' + (C '│' $green[0] $green[1] $green[2]) + (C $blank $green[0] $green[1] $green[2]) + (C '│' $green[0] $green[1] $green[2]))
-    Push-LogLine ('  ' + (C '│' $green[0] $green[1] $green[2]) + (C (Format-Cell ('  ' + $Subtitle) $inner) 180 188 210) + (C '│' $green[0] $green[1] $green[2]))
-    Push-LogLine ('  ' + (C ('└' + ('─' * $inner) + '┘') $green[0] $green[1] $green[2]))
+    Write-CardBorder -Inner $inner -Left '╰' -Right '╯' -Rgb $green
     Push-LogLine ''
 }
 
 function Show-FailureBox {
-    $inner = 62
-    if ($script:uiReady) {
-        $inner = [Math]::Min(62, $script:uiWidth - 4)
-    }
-    if ($inner -lt 20) { $inner = 20 }
+    param(
+        [string]$Title = 'PIPELINE FAILED',
+        [string]$Hint = 'Исправь ошибки и запусти npm run launch снова.'
+    )
 
-    $red = @(255, 95, 109)
-    $blank = ''.PadRight($inner)
-    $hint = '  Исправь ошибки и запусти npm run launch снова.'
+    $inner = Get-InnerWidth -Preferred 66
+    $red = $script:theme.red
+    $amber = $script:theme.amber
 
-    Push-LogLine ('  ' + (C ('┌' + ('─' * $inner) + '┐') $red[0] $red[1] $red[2]))
-    Push-LogLine ('  ' + (C '│' $red[0] $red[1] $red[2]) + (C (Format-Cell '  ✖  PIPELINE FAILED' $inner) $red[0] $red[1] $red[2]) + (C '│' $red[0] $red[1] $red[2]))
-    Push-LogLine ('  ' + (C '│' $red[0] $red[1] $red[2]) + (C $blank $red[0] $red[1] $red[2]) + (C '│' $red[0] $red[1] $red[2]))
+    Write-CardBorder -Inner $inner -Rgb $red
+    Write-CardRow -Inner $inner -Label '✕  ' -LabelRgb $red -Value $Title -ValueRgb $red -BorderRgb $red
+    Write-CardRow -Inner $inner -BorderRgb $red
 
     if ($script:failures.Count -eq 0) {
-        Push-LogLine ('  ' + (C '│' $red[0] $red[1] $red[2]) + (C (Format-Cell '  ✖ Неизвестная ошибка' $inner) 255 176 32) + (C '│' $red[0] $red[1] $red[2]))
+        Write-CardRow -Inner $inner -Label '✕  ' -LabelRgb $red -Value 'Неизвестная ошибка' -ValueRgb $amber -BorderRgb $red
     } else {
         foreach ($failure in $script:failures) {
-            $text = Format-Cell ('  ✖ ' + [string]$failure) $inner
-            Push-LogLine ('  ' + (C '│' $red[0] $red[1] $red[2]) + (C $text 255 176 32) + (C '│' $red[0] $red[1] $red[2]))
+            $wrapped = Split-CardText -Text ([string]$failure) -Width ($inner - 9)
+            foreach ($line in $wrapped) {
+                Write-CardRow -Inner $inner -Label '✕  ' -LabelRgb $red -Value $line -ValueRgb $amber -BorderRgb $red
+            }
         }
     }
 
-    Push-LogLine ('  ' + (C '│' $red[0] $red[1] $red[2]) + (C $blank $red[0] $red[1] $red[2]) + (C '│' $red[0] $red[1] $red[2]))
-    Push-LogLine ('  ' + (C '│' $red[0] $red[1] $red[2]) + (C (Format-Cell $hint $inner) 180 188 210) + (C '│' $red[0] $red[1] $red[2]))
-    Push-LogLine ('  ' + (C ('└' + ('─' * $inner) + '┘') $red[0] $red[1] $red[2]))
+    Write-CardRow -Inner $inner -BorderRgb $red
+    foreach ($line in (Split-CardText -Text $Hint -Width ($inner - 6))) {
+        Write-CardRow -Inner $inner -Value $line -ValueRgb $script:theme.muted -BorderRgb $red
+    }
+    Write-CardBorder -Inner $inner -Left '╰' -Right '╯' -Rgb $red
     Push-LogLine ''
 }
 
@@ -1112,7 +1368,7 @@ function Invoke-NpmStep {
 
     $script:step += 1
     $index = $script:step
-    $labelText = "[$index/$($script:totalSteps)] $Label"
+    $labelText = $Label
 
     Write-LaunchLog ("step {0}/{1} start: {2} | npm {3}" -f $index, $script:totalSteps, $Label, ($NpmArgs -join ' '))
     Show-Progress
@@ -1177,14 +1433,12 @@ function Invoke-NpmStep {
     }
 
     if ($success) {
-        $final = '  ' + (C '✔' 61 214 140) + ' ' + (C $labelText 210 214 230) + '  ' + (C ([string]$duration + 's') 141 150 180)
-        Push-LogLine $final
+        Write-StepResult -Index $index -Label $Label -DurationSeconds $duration -Ok $true
         Write-LaunchLog ("step ok: {0} ({1}s)" -f $Label, $duration)
         return $true
     }
 
-    $final = '  ' + (C '✖' 255 95 109) + ' ' + (C $labelText 210 214 230) + '  ' + (C ([string]$duration + 's') 141 150 180)
-    Push-LogLine $final
+    Write-StepResult -Index $index -Label $Label -DurationSeconds $duration -Ok $false
     Write-LaunchLog ("step failed: {0} | exit={1} timedOut={2} canceled={3} | {4}" -f $Label, $state.ExitCode, $state.TimedOut, $state.Canceled, $reason)
 
     if (-not $ShowOutput -and $state.Tail.Count -gt 0) {
@@ -1195,7 +1449,9 @@ function Invoke-NpmStep {
         }
     }
     if ($reason) {
-        Push-LogLine ('  ' + (C ('↳ ' + $reason) 255 95 109))
+        Push-LogLine (
+            (Paint '     ↳ ' $script:theme.red) + (Paint $reason $script:theme.red)
+        )
     }
 
     [void]$script:failures.Add($Label)
@@ -1203,7 +1459,7 @@ function Invoke-NpmStep {
 }
 
 # ===========================================================================
-# 7. Бот: категории вывода, typewriter-баннер, HUD
+# 7. Бот: категории вывода, live-карточка, HUD
 # ===========================================================================
 function Get-BotCategory {
     param([string]$Text, [switch]$IsError)
@@ -1255,7 +1511,9 @@ function Write-BotLine {
 
     $clean = Compress-LinePath -Text $clean
     $cat = Get-BotCategory -Text $clean -IsError:$IsError
-    $plainPrefixLength = 7 + $cat.Tag.Length
+    $tagText = $cat.Tag.ToUpperInvariant()
+    $catRgb = @($cat.R, $cat.G, $cat.B)
+    $plainPrefixLength = 10
 
     if ($script:uiReady) {
         $max = $script:uiWidth - $plainPrefixLength - 1
@@ -1265,8 +1523,8 @@ function Write-BotLine {
         }
     }
 
-    $prefix = '  ' + (C '│' 54 62 86) + ' ' + (C ('[' + $cat.Tag + ']') $cat.R $cat.G $cat.B) + ' '
-    $colored = $prefix + (C $cat.Text 190 196 214)
+    $prefix = '  ' + (Paint '│' $script:theme.dim) + ' ' + (Paint $tagText $catRgb) + (Paint ' › ' $script:theme.dim)
+    $colored = $prefix + (Paint $cat.Text $script:theme.ink)
     Push-LogLine $colored
 }
 
@@ -1277,26 +1535,20 @@ function Show-LiveBanner {
         [string]$Version
     )
 
-    $inner = 62
-    if ($script:uiReady) {
-        $inner = [Math]::Min(62, $script:uiWidth - 4)
-    }
-    if ($inner -lt 20) { $inner = 20 }
+    $inner = Get-InnerWidth -Preferred 66
+    $border = $script:theme.cyan
+    $muted = $script:theme.muted
+    $script:liveUrl = $Url
 
-    $border = @(84, 184, 255)
-    Push-LogLine ('  ' + (C ('╭' + ('─' * $inner) + '╮') $border[0] $border[1] $border[2]))
-
-    $title = 'N E X U S   ·   L I V E'
-    $side = [Math]::Max(0, $inner - 4 - $title.Length)
-    $suffix = (' ' * $side) + '  │'
-    Write-Typewriter -Text $title -Prefix '  │  ' -Suffix $suffix -DelayMs 30 -R 179 -G 136 -B 255
-
-    $meta1 = Format-Cell ('  ' + $Mode + '  ·  v' + $Version) $inner
-    $meta2 = Format-Cell ('  ' + $Url) $inner
-    Push-LogLine ('  ' + (C '│' $border[0] $border[1] $border[2]) + (C $meta1 141 150 180) + (C '│' $border[0] $border[1] $border[2]))
-    Push-LogLine ('  ' + (C '│' $border[0] $border[1] $border[2]) + (C $meta2 $border[0] $border[1] $border[2]) + (C '│' $border[0] $border[1] $border[2]))
-    Push-LogLine ('  ' + (C ('╰' + ('─' * $inner) + '╯') $border[0] $border[1] $border[2]))
-    Push-LogLine ('  ' + (C '●' 61 214 140) + ' ' + (C 'NEXUS LIVE' 61 214 140) + (C '  ·  ' 70 78 102) + (C ('панель: ' + $Url) 84 184 255))
+    Write-CardBorder -Inner $inner -Rgb $border
+    Write-CardRow -Inner $inner -Label '●  ' -LabelRgb $script:theme.green -Value 'LIVE' -ValueRgb $script:theme.green -Right ('v' + $Version) -RightRgb $muted -BorderRgb $border
+    Write-CardRow -Inner $inner -BorderRgb $border
+    Write-CardRow -Inner $inner -Label 'PANEL   ' -LabelRgb $muted -Value $Url -ValueRgb $border -BorderRgb $border
+    Write-CardRow -Inner $inner -Label 'MODE    ' -LabelRgb $muted -Value $Mode -ValueRgb $script:theme.ink -BorderRgb $border
+    $stream = if ($Dev) { 'npm run dev' } else { 'npm run start' }
+    Write-CardRow -Inner $inner -Label 'STREAM  ' -LabelRgb $muted -Value $stream -ValueRgb $muted -BorderRgb $border
+    Write-CardBorder -Inner $inner -Left '╰' -Right '╯' -Rgb $border
+    Push-LogLine ''
 }
 
 function Hide-LiveUi {
@@ -1304,11 +1556,12 @@ function Hide-LiveUi {
         # Плавное затухание HUD перед выходом.
         for ($i = 4; $i -ge 0; $i--) {
             $t = $i / 4.0
-            $r = Get-Lerp -From 34 -To 61 -T $t
-            $g = Get-Lerp -From 40 -To 214 -T $t
-            $b = Get-Lerp -From 52 -To 140 -T $t
-            $script:stepLine = '  ' + (C '●' $r $g $b) + ' ' + (C 'NEXUS LIVE' $r $g $b)
-            $script:barLine = '  ' + (C 'NEXUS · LIVE' $r $g $b)
+            $r = Get-Lerp -From 74 -To 70 -T $t
+            $g = Get-Lerp -From 84 -To 220 -T $t
+            $b = Get-Lerp -From 108 -To 150 -T $t
+            $rgb = @($r, $g, $b)
+            $script:stepLine = (Paint '  ●' $rgb) + ' ' + (Paint 'LIVE' $rgb)
+            $script:barLine = (Paint '  NEXUS' $rgb) + (Paint '  ·  ' $script:theme.dim) + (Paint $script:liveMode $rgb)
             Refresh-Ui
             Start-Sleep -Milliseconds 60
         }
@@ -1325,13 +1578,7 @@ function Start-Nexus {
     $localUrl = "http://127.0.0.1:$port"
     if ([string]::IsNullOrWhiteSpace($publicUrl)) { $publicUrl = $localUrl }
 
-    $mode = if ($ChecksOnly) {
-        'CHECKS ONLY'
-    } elseif ($Dev) {
-        'DEV · WATCH'
-    } else {
-        'PRODUCTION'
-    }
+    $mode = Get-LaunchMode
     $script:liveMode = $mode
 
     $subtitle = if ($SkipDeploy) {
@@ -1342,35 +1589,25 @@ function Start-Nexus {
         'Проверки, сборка и деплой завершены.'
     }
 
-    Show-SuccessBox -Subtitle $subtitle
-
-    $infoLines = @(
-        @{ Label = 'VERSION'; Value = 'v' + $version },
-        @{ Label = 'MODE'; Value = $mode },
-        @{ Label = 'PANEL'; Value = $publicUrl },
-        @{ Label = 'LOCAL'; Value = $localUrl },
-        @{ Label = 'STOP'; Value = 'Ctrl+C' }
-    )
-    foreach ($info in $infoLines) {
-        $labelText = '  ' + $info.Label.PadRight(9) + ' '
-        $valueText = [string]$info.Value
-        if ($script:uiReady) {
-            $maxValue = $script:uiWidth - $labelText.Length - 1
-            if ($maxValue -lt 8) { $maxValue = 8 }
-            if ($valueText.Length -gt $maxValue) {
-                $valueText = $valueText.Substring(0, $maxValue - 3) + '...'
-            }
+    if (-not $StartOnly) {
+        $details = @(
+            @{ Label = 'VERSION'; Value = 'v' + $version },
+            @{ Label = 'MODE'; Value = $mode },
+            @{ Label = 'PANEL'; Value = $publicUrl },
+            @{ Label = 'LOCAL'; Value = $localUrl }
+        )
+        if (-not $ChecksOnly) {
+            $details += @{ Label = 'STOP'; Value = 'Ctrl+C' }
         }
-        Push-LogLine ((C $labelText 141 150 180) + (C $valueText 210 214 230))
+
+        $title = if ($ChecksOnly) { 'CHECKS COMPLETE' } else { 'PIPELINE COMPLETE' }
+        Show-SuccessBox -Title $title -Subtitle $subtitle -Details $details
     }
 
-    $ruleWidth = 62
-    if ($script:uiReady) { $ruleWidth = [Math]::Min(62, $script:uiWidth - 2) }
-    Push-LogLine ('  ' + (C ('─' * $ruleWidth) 54 62 86))
-    Push-LogLine ''
-
     if ($ChecksOnly) {
-        Push-LogLine ('  ' + (C 'ℹ Checks-only: бот не запускается.' 120 130 150))
+        Push-LogLine (
+            (Paint '  ℹ  ' $script:theme.cyan) + (Paint 'checks-only: бот не запускается.' $script:theme.muted)
+        )
         Push-LogLine ''
         Write-LaunchLog 'checks-only mode: bot start skipped'
         return 0
@@ -1384,14 +1621,19 @@ function Start-Nexus {
     if ($script:uiReady) {
         Show-Hud -Uptime ([TimeSpan]::Zero) -MemoryMB 0 -Events 0
     } else {
-        Push-LogLine ('  ' + (C '●' 61 214 140) + ' ' + (C 'NEXUS LIVE' 61 214 140) + (C '  ·  ' 70 78 102) + (C ('панель: ' + $publicUrl) 84 184 255))
-        Push-LogLine ('  ' + (C '│' 54 62 86) + ' ' + (C ('поток процесса · ' + $mode) 70 78 102))
+        Push-LogLine (
+            (Paint '  ●' $script:theme.green) + ' ' + (Paint 'NEXUS LIVE' $script:theme.green) +
+            (Paint '  ·  ' $script:theme.dim) + (Paint ('panel ' + $publicUrl) $script:theme.cyan)
+        )
+        Push-LogLine (
+            (Paint '  │' $script:theme.dim) + ' ' + (Paint ('stream · ' + $mode) $script:theme.muted)
+        )
     }
 
     if (Test-Canceled) {
         $script:canceled = $true
         Hide-LiveUi
-        Push-LogLine ('  ' + (C '■  Запуск отменён пользователем.' 255 176 32))
+        Push-LogLine ((Paint '  ■  Запуск отменён пользователем.' $script:theme.amber))
         return 130
     }
 
@@ -1408,21 +1650,177 @@ function Start-Nexus {
     Push-LogLine ''
 
     if ($state.Canceled) {
-        Push-LogLine ('  ' + (C '◦ NEXUS остановлен.' 141 150 180))
-        Push-LogLine ('  ' + (C 'Завершение по Ctrl+C — процесс остановлен корректно.' 120 130 150))
+        Push-LogLine ((Paint '  ■  NEXUS остановлен.' $script:theme.muted))
+        Push-LogLine ((Paint '  Завершение по Ctrl+C — процесс остановлен корректно.' $script:theme.dim))
         return 130
     }
 
     if ($code -ne 0) {
-        Push-LogLine ('  ' + (C "Процесс завершился с кодом $code." 255 95 109))
+        Push-LogLine ((Paint ("  ✕  Процесс завершился с кодом $code.") $script:theme.red))
         if ($InWindow) {
             Read-Host '  Нажмите Enter, чтобы закрыть окно' | Out-Null
         }
         return [int]$code
     }
 
-    Push-LogLine ('  ' + (C 'NEXUS остановлен.' 141 150 180))
+    Push-LogLine ((Paint '  ■  NEXUS остановлен.' $script:theme.muted))
     return 0
+}
+
+# ===========================================================================
+# 7a. Уведомления и режим launch:live
+# ===========================================================================
+function Show-DesktopToast {
+    param(
+        [Parameter(Mandatory = $true)][string]$Title,
+        [Parameter(Mandatory = $true)][string]$Message,
+        [ValidateSet('Info', 'Error')][string]$Kind = 'Info'
+    )
+
+    $text = $Message
+    if ($text.Length -gt 250) { $text = $text.Substring(0, 247) + '...' }
+
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+        Add-Type -AssemblyName System.Drawing
+
+        if (-not $script:toastIcon) {
+            $script:toastIcon = New-Object System.Windows.Forms.NotifyIcon
+            $script:toastIcon.Text = 'NEXUS'
+            $script:toastIcon.Visible = $true
+        }
+
+        if ($Kind -eq 'Error') {
+            $script:toastIcon.Icon = [System.Drawing.SystemIcons]::Error
+            $script:toastIcon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Error
+        } else {
+            $script:toastIcon.Icon = [System.Drawing.SystemIcons]::Information
+            $script:toastIcon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+        }
+
+        $script:toastIcon.BalloonTipTitle = $Title
+        $script:toastIcon.BalloonTipText = $text
+        $script:toastIcon.ShowBalloonTip(10000)
+        Write-LaunchLog ("toast [{0}] {1} | {2}" -f $Kind, $Title, $text)
+    } catch {
+        Write-LaunchLog ("toast failed: " + $_.Exception.Message)
+    }
+
+    try {
+        if ($Kind -eq 'Error') {
+            [Console]::Beep(880, 180)
+            [Console]::Beep(660, 320)
+        } else {
+            [Console]::Beep(1046, 180)
+        }
+    } catch { }
+}
+
+function Get-PortOwnerPid {
+    param([int]$Port)
+
+    try {
+        $lines = netstat -ano -p tcp
+        foreach ($line in $lines) {
+            if ($line -match (':' + $Port + '\s+\S+\s+LISTENING\s+(\d+)')) {
+                return [int]$matches[1]
+            }
+        }
+    } catch { }
+
+    try {
+        $ownerPid = Get-NetTCPConnection -LocalPort $Port -ErrorAction Stop |
+            Where-Object { $_.OwningProcess -gt 0 } |
+            Select-Object -First 1 -ExpandProperty OwningProcess
+        if ($ownerPid) { return [int]$ownerPid }
+    } catch { }
+
+    return $null
+}
+
+function Wait-PanelHealth {
+    param(
+        [int]$TimeoutSeconds = 60,
+        [int]$ExpectPidChangeFrom = 0
+    )
+
+    $portText = Read-EnvValue -Key 'WEB_PORT' -Fallback '8080'
+    if ([string]::IsNullOrWhiteSpace($portText)) { $portText = '8080' }
+    $port = [int]$portText
+    $url = "http://127.0.0.1:$port/health"
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+
+    while ((Get-Date) -lt $deadline) {
+        if (Test-Canceled) { return $false }
+        try {
+            $response = Invoke-RestMethod -Uri $url -TimeoutSec 2
+            if ($response -and $response.ok) {
+                if ($ExpectPidChangeFrom -gt 0) {
+                    $owner = Get-PortOwnerPid -Port $port
+                    if ($owner -and $owner -eq $ExpectPidChangeFrom) {
+                        # Отвечает прошлый экземпляр — новый ещё не поднялся.
+                        Start-Sleep -Milliseconds 700
+                        continue
+                    }
+                }
+                Write-LaunchLog ("live: panel healthy at {0} (version {1})" -f $url, $response.version)
+                return $true
+            }
+        } catch { }
+        Start-Sleep -Milliseconds 700
+    }
+
+    Write-LaunchLog ("live: panel health timeout at {0}" -f $url)
+    return $false
+}
+
+function Start-BotWindow {
+    $arguments = @(
+        '-NoLogo',
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', ('"' + $script:scriptPath + '"'),
+        '-StartOnly'
+    )
+    if ($Dev) { $arguments += '-Dev' }
+
+    $spawned = $false
+    $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
+
+    if ($wt) {
+        try {
+            $wtArgs = @('-w', '-1', 'new-tab', '--title', 'NEXUS-LIVE', 'powershell.exe') + $arguments
+            Start-Process -FilePath $wt.Source -ArgumentList $wtArgs -ErrorAction Stop | Out-Null
+            Write-LaunchLog 'live: spawned Windows Terminal tab NEXUS-LIVE'
+            $spawned = $true
+        } catch {
+            Write-LaunchLog ("live: wt.exe failed: " + $_.Exception.Message)
+        }
+    }
+
+    if (-not $spawned) {
+        try {
+            Start-Process -FilePath 'powershell.exe' -ArgumentList $arguments -ErrorAction Stop | Out-Null
+            Write-LaunchLog 'live: spawned powershell.exe window NEXUS-LIVE'
+            $spawned = $true
+        } catch {
+            Write-LaunchLog ("live: powershell.exe failed: " + $_.Exception.Message)
+        }
+    }
+
+    return $spawned
+}
+
+if ($StartOnly) {
+    $InWindow = $true
+    Show-Banner
+    Initialize-Ui
+    $code = Start-Nexus
+    if ($null -eq $code) { $code = 1 }
+    if ($code -ne 0 -and $code -ne 130 -and $script:interactive) {
+        Read-Host '  Нажмите Enter, чтобы закрыть окно' | Out-Null
+    }
+    exit $code
 }
 
 # ===========================================================================
@@ -1430,7 +1828,8 @@ function Start-Nexus {
 # ===========================================================================
 if (-not $InWindow -and -not $NoNewWindow) {
     Write-Host ''
-    Write-Host ('  ' + (C 'NEXUS' 102 115 255) + '  ' + (C 'открываю release pipeline в новом окне…' 141 150 180))
+    Write-Host ('  ' + (Paint 'NEXUS' $script:theme.violet) + (Paint '  ·  release control' $script:theme.muted))
+    Write-Host ('  ' + (Paint 'открываю новое окно…' $script:theme.dim))
     Write-Host ''
 
     $relaunchArgs = @(
@@ -1476,8 +1875,121 @@ if (-not $InWindow -and -not $NoNewWindow) {
         exit 0
     }
 
-    Write-Host ('  ' + (C 'Не удалось открыть новое окно — продолжаю в текущем.' 255 176 32))
+    Write-Host ((Paint '  ⚠  Не удалось открыть новое окно — продолжаю в текущем.' $script:theme.amber))
     Start-Sleep -Milliseconds 500
+}
+
+# ===========================================================================
+# 8a. launch:live — сначала бот и панель, потом проверки
+# ===========================================================================
+if ($StartFirst) {
+    Show-Banner
+    Initialize-Ui
+
+    $resultFile = Join-Path $script:root 'data\verify-result.json'
+    if (Test-Path -LiteralPath $resultFile) {
+        Remove-Item -LiteralPath $resultFile -Force -ErrorAction SilentlyContinue
+    }
+
+    $buildNeeded = -not (Test-Path -LiteralPath (Join-Path $script:root 'dist\index.js'))
+    $script:totalSteps = if ($buildNeeded) { 2 } else { 1 }
+    $script:liveMode = 'LIVE'
+
+    Write-LaunchLog ("live mode: buildNeeded={0} totalSteps={1}" -f $buildNeeded, $script:totalSteps)
+
+    if ($buildNeeded) {
+        Push-LogLine ''
+        Push-LogLine ((Paint '  ⚠  ' $script:theme.amber) + (Paint 'dist/index.js не найден — сначала соберу проект.' $script:theme.amber))
+        $built = Invoke-NpmStep -Label 'Сборка · перед первым запуском' -NpmArgs @('run', 'build') -ShowOutput
+        if (-not $built) {
+            Show-DesktopToast -Title 'NEXUS · сборка не удалась' -Message 'Бот не запущен. Подробности в data\launch.log.' -Kind Error
+            Show-FailureBox -Title 'BUILD FAILED' -Hint 'Сборка не прошла. Исправь ошибки и повтори npm run launch:live.'
+            if ($InWindow) { Read-Host '  Нажмите Enter, чтобы закрыть окно' | Out-Null }
+            exit 1
+        }
+    }
+
+    Push-LogLine ''
+    Push-LogLine ((Paint '  ●  ' $script:theme.green) + (Paint 'Поднимаю бота и панель в окне NEXUS-LIVE…' $script:theme.ink))
+
+    $webEnabled = (Read-EnvValue -Key 'WEB_ENABLED' -Fallback 'false') -eq 'true'
+    $portText = Read-EnvValue -Key 'WEB_PORT' -Fallback '8080'
+    if ([string]::IsNullOrWhiteSpace($portText)) { $portText = '8080' }
+    $panelUrl = Read-EnvValue -Key 'WEB_PUBLIC_URL' -Fallback ''
+    if ([string]::IsNullOrWhiteSpace($panelUrl)) { $panelUrl = "http://127.0.0.1:$portText" }
+    $beforeOwner = if ($webEnabled) { Get-PortOwnerPid -Port ([int]$portText) } else { $null }
+
+    $spawned = Start-BotWindow
+    if ($spawned) {
+        Push-LogLine ((Paint '  ·  ' $script:theme.dim) + (Paint 'Проверки идут параллельно с запуском бота.' $script:theme.muted))
+    }
+
+    Push-LogLine ''
+    $checksOk = Invoke-NpmStep -Label 'Проверки · typecheck, lint, формат, тесты' -NpmArgs @('run', 'verify') -ShowOutput
+
+    $botUp = $false
+    if ($spawned) {
+        if ($webEnabled) {
+            Push-LogLine ((Paint '  ·  ' $script:theme.dim) + (Paint 'Жду /health панели (до 60 с)…' $script:theme.muted))
+            $expectedFrom = if ($beforeOwner) { [int]$beforeOwner } else { 0 }
+            $botUp = Wait-PanelHealth -TimeoutSeconds 60 -ExpectPidChangeFrom $expectedFrom
+        } else {
+            $botUp = $true
+            Push-LogLine ((Paint '  ·  ' $script:theme.dim) + (Paint 'WEB_ENABLED=false — панель не проверяю.' $script:theme.muted))
+        }
+    }
+
+    if (-not $botUp) {
+        Push-LogLine ((Paint '  ✕  ' $script:theme.red) + (Paint 'Бот или панель не поднялись — смотри окно NEXUS-LIVE.' $script:theme.amber))
+        Write-LaunchLog 'live: bot start failed or health timeout'
+        Show-DesktopToast -Title 'NEXUS · бот не поднялся' -Message 'Проверь окно NEXUS-LIVE и data\launch.log.' -Kind Error
+        [void]$script:failures.Add('Запуск бота и панели')
+    }
+
+    $summary = $null
+    if (Test-Path -LiteralPath $resultFile) {
+        try {
+            $summary = Get-Content -LiteralPath $resultFile -Raw | ConvertFrom-Json
+        } catch {
+            Write-LaunchLog ("live: cannot read verify result: " + $_.Exception.Message)
+        }
+    }
+
+    $liveOk = $checksOk -and $botUp
+    $failureTitle = 'BOT NOT READY'
+    $failureHint = 'Проверь окно NEXUS-LIVE и data\launch.log. Проверки уже зелёные.'
+
+    Push-LogLine ''
+    if ($checksOk -and $botUp) {
+        $panelValue = if ($webEnabled) { $panelUrl } else { 'WEB_ENABLED=false' }
+        $details = @(
+            @{ Label = 'PANEL'; Value = $panelValue },
+            @{ Label = 'STATUS'; Value = 'бот и панель работают' },
+            @{ Label = 'NEXT'; Value = 'перезапуск после npm run build' }
+        )
+        Show-SuccessBox -Title 'CHECKS PASSED · BOT LIVE' -Subtitle 'TypeScript, ESLint, Prettier и тесты зелёные.' -Details $details
+        Show-DesktopToast -Title 'NEXUS · проверки прошли' -Message 'TypeScript, ESLint, Prettier и тесты зелёные. Бот работает.' -Kind Info
+        Write-LaunchLog 'live: checks passed'
+    } elseif (-not $checksOk) {
+        $detail = if ($summary -and $summary.failedLabel) { [string]$summary.failedLabel } else { 'см. data\verify.log' }
+        Push-LogLine ((Paint '  ✕  ' $script:theme.red) + (Paint ('Проверки упали: ' + $detail) $script:theme.red))
+        Push-LogLine ((Paint '  Бот не останавливается. Исправь ошибки и повтори npm run launch:live.' $script:theme.muted))
+        Show-DesktopToast -Title 'NEXUS · проверки упали' -Message ("Шаг: $detail. Подробности: data\verify.log") -Kind Error
+        Write-LaunchLog ("live: checks failed at {0}" -f $detail)
+        $failureTitle = 'CHECKS FAILED'
+        $failureHint = 'Исправь ошибки и повтори npm run launch:live. Подробности: data\verify.log.'
+    } else {
+        Push-LogLine ((Paint '  ⚠  ' $script:theme.amber) + (Paint 'Проверки прошли, но бот/панель не поднялись.' $script:theme.amber))
+    }
+
+    if (-not $liveOk) {
+        Show-FailureBox -Title $failureTitle -Hint $failureHint
+        if ($InWindow) { Read-Host '  Нажмите Enter, чтобы закрыть окно' | Out-Null }
+        exit 1
+    }
+
+    if ($InWindow) { Read-Host '  Проверки пройдены. Enter — закрыть окно' | Out-Null }
+    exit 0
 }
 
 # ===========================================================================
@@ -1508,7 +2020,7 @@ foreach ($definition in $steps) {
 
     if ($definition.Deploy -and -not $ok) {
         Write-LaunchLog 'deploy skipped: previous steps failed'
-        Push-LogLine ('  ' + (C '⚠ Deploy пропущен: сначала исправь ошибки выше.' 255 176 32))
+        Push-LogLine ((Paint '  ⚠  Deploy пропущен: сначала исправь ошибки выше.' $script:theme.amber))
         Push-LogLine ''
         continue
     }
@@ -1525,8 +2037,8 @@ foreach ($definition in $steps) {
 if ($script:canceled) {
     Hide-Ui
     Push-LogLine ''
-    Push-LogLine ('  ' + (C '■  Остановлено пользователем (Ctrl+C).' 255 176 32))
-    Push-LogLine ('  ' + (C 'Пайплайн прерван, дочерние процессы остановлены.' 120 130 150))
+    Push-LogLine ((Paint '  ■  Остановлено пользователем (Ctrl+C).' $script:theme.amber))
+    Push-LogLine ((Paint '  Пайплайн прерван, дочерние процессы остановлены.' $script:theme.muted))
     Push-LogLine ''
     Write-LaunchLog 'pipeline canceled by user (Ctrl+C)'
     exit 130

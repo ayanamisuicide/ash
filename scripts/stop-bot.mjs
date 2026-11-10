@@ -94,6 +94,20 @@ function isSupervisor(item) {
   return command.includes('tsx') || command.includes('cross-env');
 }
 
+/**
+ * Бот, запущенный через `npm run start`, имеет в командной строке
+ * относительный путь (`node dist/index.js`), поэтому корня проекта там нет.
+ * Такой процесс безопасно добивать только если он держит наш WEB_PORT.
+ */
+function isBotEntry(item) {
+  if (!item.name.toLowerCase().includes('node')) return false;
+  const command = item.command.toLowerCase().replace(/\\/g, '/');
+  return (
+    /(^|[\s"'])dist\/index\.js(["'\s]|$)/.test(command) ||
+    /(^|[\s"'])src\/index\.ts(["'\s]|$)/.test(command)
+  );
+}
+
 async function portBusy(port) {
   return new Promise((resolve) => {
     const server = net.createServer();
@@ -107,6 +121,27 @@ async function portBusy(port) {
 
 function portOwner(port) {
   if (isWindows) {
+    // Get-NetTCPConnection на некоторых системах не отдаёт владельца порта,
+    // поэтому сначала смотрим netstat (он есть везде).
+    try {
+      const raw = execFileSync('netstat', ['-ano'], {
+        encoding: 'utf8',
+        windowsHide: true,
+      });
+      for (const line of raw.split('\n')) {
+        const parts = line.trim().split(/\s+/);
+        if (
+          parts.length >= 5 &&
+          parts[1]?.endsWith(`:${port}`) &&
+          parts[parts.length - 2] === 'LISTENING'
+        ) {
+          return Number(parts[parts.length - 1]);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     try {
       const raw = execFileSync(
         'powershell',
@@ -114,7 +149,7 @@ function portOwner(port) {
           '-NoProfile',
           '-NonInteractive',
           '-Command',
-          `Get-NetTCPConnection -State Listen -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty OwningProcess`,
+          `Get-NetTCPConnection -LocalPort ${port} -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -gt 0 } | Select-Object -First 1 -ExpandProperty OwningProcess`,
         ],
         { encoding: 'utf8', windowsHide: true },
       ).trim();
@@ -153,7 +188,11 @@ for (let round = 0; round < 4; round += 1) {
   const ownerPid = await portBusy(port).then((busy) => (busy ? portOwner(port) : null));
   if (ownerPid && ownerPid !== process.pid && !ancestors.has(ownerPid)) {
     const owner = byPid.get(ownerPid);
-    if (owner && isOurInstance(owner) && !targets.some((item) => item.pid === owner.pid)) {
+    if (
+      owner &&
+      (isOurInstance(owner) || isBotEntry(owner)) &&
+      !targets.some((item) => item.pid === owner.pid)
+    ) {
       targets.push(owner);
     }
   }

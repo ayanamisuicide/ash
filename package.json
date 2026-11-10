@@ -1,6 +1,6 @@
 {
   "name": "probot-style-bot",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "description": "Discord-бот в стиле ProBot: модерация, логирование, веб-панель модератора",
   "type": "module",
   "main": "dist/index.js",
@@ -10,6 +10,7 @@
     "launch": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1",
     "launch:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1 -Dev",
     "launch:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1 -ChecksOnly -SkipDeploy -NoNewWindow -NoBanner",
+    "launch:live": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1 -StartFirst -NoNewWindow",
     "stop": "node scripts/stop-bot.mjs",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "build": "npm run clean && tsc && npm run build:panel && npm run copy-assets",
@@ -25,6 +26,7 @@
     "test:coverage": "node --experimental-test-coverage --test-coverage-lines=57 --test-coverage-branches=77 --test-coverage-functions=73 --import=tsx --test \"tests/*.test.ts\"",
     "test:panel": "npm --prefix web run test",
     "test:panel:coverage": "npm --prefix web run test:coverage",
+    "verify": "node scripts/verify.mjs",
     "ci": "npm run typecheck && npm run lint && npm run format:check && npm run test:coverage && npm run test:panel:coverage && npm run build",
     "health": "cross-env NODE_OPTIONS=--disable-warning=ExperimentalWarning node scripts/healthcheck.mjs",
     "restore": "node scripts/restore.mjs",

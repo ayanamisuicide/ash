@@ -9,9 +9,10 @@
      `package-lock.json`, `web/package.json` и `web/src/lib/constants.ts`;
   2. запись в `CHANGELOG.md` и `web/src/lib/release-notes.ts`;
   3. `npm --prefix web ci` (если зависимости панели ещё не установлены);
-  4. `npm run ci` (typecheck бота и тестов, lint, format, тесты бота и панели,
-     строгая сборка панели);
+  4. `npm run ci` — параллельные проверки (`npm run verify`: типы бота, тестов и
+     панели, ESLint, Prettier, тесты бота и панели) и строгая сборка панели;
   5. коммит и annotated-тег `vX.Y.Z`;
   6. перезапуск production-панели и проверку `/health`.
-- GitHub Actions (`.github/workflows/ci.yml`) прогоняет те же проверки на push,
-  PR и тег — локальный `npm run ci` должен быть зелёным до пуша.
+- GitHub Actions (`.github/workflows/ci.yml`) прогоняет те же проверки на push в
+  `main`, в pull request и на тег `v*` — локальный `npm run ci` должен быть
+  зелёным до пуша.

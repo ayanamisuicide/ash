@@ -8,7 +8,7 @@
 
 .DESCRIPTION
     Консольная панель управления релизами NEXUS:
-    stop -> typecheck -> lint -> format:check -> test -> build -> deploy.
+    stop -> checks (параллельно) -> build -> deploy.
 
     Шаги выполняются через System.Diagnostics.Process с асинхронным
     чтением stdout/stderr (OutputDataReceived / ErrorDataReceived).
@@ -122,8 +122,10 @@ $script:bootReported = $false
 $script:packageVersion = $null
 
 # --- Фазовая линейка preflight ---------------------------------------------
-$script:phaseNames = @('STOP', 'TYPES', 'LINT', 'FORMAT', 'TESTS', 'BUILD', 'DEPLOY')
-if ($SkipDeploy) { $script:phaseNames = @('STOP', 'TYPES', 'LINT', 'FORMAT', 'TESTS', 'BUILD') }
+# Проверки — один параллельный прогон (scripts/verify.mjs): типы бота и тестов,
+# типы панели, ESLint, Prettier, тесты. Последовательные шаги стоили ~45 с.
+$script:phaseNames = @('STOP', 'CHECKS', 'BUILD', 'DEPLOY')
+if ($SkipDeploy) { $script:phaseNames = @('STOP', 'CHECKS', 'BUILD') }
 if ($StartFirst) { $script:phaseNames = @('VERIFY') }
 $script:totalSteps = $script:phaseNames.Count
 
@@ -703,7 +705,7 @@ function Show-Banner {
     } elseif ($Dev) {
         'tsx watch  ·  build locked'
     } else {
-        'stop → typecheck → lint → format → tests → build → deploy → launch'
+        'stop → проверки (параллельно) → build → deploy → launch'
     }
 
     Push-LogLine (
@@ -2487,10 +2489,9 @@ Show-Progress
 
 $steps = New-Object System.Collections.ArrayList
 [void]$steps.Add([pscustomobject]@{ Label = 'Останавливаю прошлый экземпляр'; Args = @('run', 'stop'); Show = $false; Deploy = $false })
-[void]$steps.Add([pscustomobject]@{ Label = 'TypeScript · строгая проверка типов'; Args = @('run', 'typecheck'); Show = $false; Deploy = $false })
-[void]$steps.Add([pscustomobject]@{ Label = 'ESLint · правила кода'; Args = @('run', 'lint'); Show = $false; Deploy = $false })
-[void]$steps.Add([pscustomobject]@{ Label = 'Prettier · проверка форматирования'; Args = @('run', 'format:check'); Show = $false; Deploy = $false })
-[void]$steps.Add([pscustomobject]@{ Label = 'Тесты · сценарии проекта'; Args = @('run', 'test'); Show = $true; Deploy = $false })
+# Один параллельный прогон вместо четырёх последовательных: typecheck, lint,
+# format:check и тесты бота/панели (scripts/verify.mjs --fast).
+[void]$steps.Add([pscustomobject]@{ Label = 'Проверки · типы, lint, формат, тесты'; Args = @('run', 'verify:fast'); Show = $true; Deploy = $false })
 [void]$steps.Add([pscustomobject]@{ Label = 'Сборка · TypeScript + React-панель'; Args = @('run', 'build'); Show = $true; Deploy = $false })
 if (-not $SkipDeploy) {
     [void]$steps.Add([pscustomobject]@{ Label = 'Deploy · регистрация слэш-команд'; Args = @('run', 'deploy'); Show = $true; Deploy = $true })

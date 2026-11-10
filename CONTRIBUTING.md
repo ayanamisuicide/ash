@@ -20,18 +20,15 @@ cp .env.example .env    # DISCORD_TOKEN, DISCORD_CLIENT_ID
 ## Перед коммитом
 
 ```bash
-npm run typecheck    # бот + tests/ (tsconfig.tests.json)
-npm run lint         # src + tests + scripts + web/src
-npm run format       # Prettier, включая web/src
-npm test             # быстрые тесты бота (node:test)
-npm run test:coverage # тесты бота + порог покрытия (то же, что в CI)
-npm run test:panel   # тесты панели (Vitest + Testing Library)
-npm run test:panel:coverage # тесты панели + порог покрытия (как в CI)
+npm run verify       # типы, ESLint, Prettier и тесты с покрытием (параллельно)
+npm run format       # автоформат Prettier, если проверка ругнулась
 npm run build        # строгая сборка: tsc + panel + copy-assets
 ```
 
-Всё вместе — `npm run ci`. GitHub Actions прогоняет этот же набор на каждый
-push, PR и тег `v*`; красный CI означает, что изменения не готовы.
+Всё вместе — `npm run ci` (то же, что прогоняет GitHub Actions). Pre-commit hook
+`.githooks/pre-commit` запускает `npm run verify:fast` — те же шаги без порогов
+покрытия, ~9 с. Actions проверяет push в `main`, pull request и теги `v*`:
+ветка без PR не проверяется, чтобы один пуш не давал два прогона.
 
 ## Правила кода
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
 
-npm run typecheck
-npm run lint
-npm run format:check
+# Один параллельный прогон (типы бота и тестов, ESLint, Prettier, тесты)
+# вместо трёх последовательных npm-команд: ~9 с вместо ~20 с.
+node scripts/verify.mjs --fast

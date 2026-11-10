@@ -69,14 +69,15 @@ npm run launch:dev  # то же, но с автоперезагрузкой (tsx
 
 `npm run launch` открывает новое окно Windows Terminal (или PowerShell), показывает
 панель релиза с карточкой NEXUS, пошаговым прогрессом и итоговыми карточками,
-прогоняет `typecheck`, `lint`, `format:check`,
-тесты и сборку, регистрирует слэш-команды и запускает production-бота. Старое
+прогоняет проверки (типы, ESLint, Prettier и тесты — параллельно), сборку,
+регистрирует слэш-команды и запускает production-бота. Фазовая линейка:
+`STOP → CHECKS → BUILD → DEPLOY`. Старое
 окно можно закрыть — запуск из него уже завершён. Для CI/ручной проверки без
 запуска бота: `npm run launch:check`.
 
 Если нужен максимально быстрый старт, есть `npm run launch:live`: бот и панель
 поднимаются сразу в окне `NEXUS-LIVE`, а в текущем окне после этого выполняются
-`typecheck`, `lint`, `format:check` и тесты (`npm run verify`). При ошибке
+типы, ESLint, Prettier и тесты (`npm run verify`, параллельно). При ошибке
 появляется Windows-уведомление, бот при этом продолжает работать. Подробности —
 в `data/verify.log`, машинный результат — в `data/verify-result.json`. Новый код
 применяется после пересборки и перезапуска (`npm run build` и `npm run launch`).
@@ -107,20 +108,25 @@ npm start
 Проверки:
 
 ```bash
-npm run typecheck    # бот + tests/ (tsconfig.tests.json)
-npm run lint         # src + tests + scripts + web/src (react-hooks)
+npm run verify       # типы, ESLint, Prettier и тесты с покрытием — параллельно (~11 с)
+npm run verify:fast  # то же без покрытия — для лаунчера и pre-commit (~9 с)
+npm run ci           # verify + строгая сборка панели и копирование статики
+npm run typecheck    # отдельно: бот + tests/ (tsconfig.tests.json)
+npm run lint         # отдельно: src + tests + scripts + web/src (react-hooks)
 npm test             # быстрые тесты бота (node:test)
-npm run test:coverage # тесты бота + порог покрытия (как в CI)
 npm run test:panel   # тесты панели (Vitest + Testing Library)
-npm run test:panel:coverage # тесты панели + порог покрытия (как в CI)
-npm run ci           # всё вышеперечисленное + format:check + строгая сборка
 ```
 
-Те же проверки выполняет GitHub Actions (`.github/workflows/ci.yml`) на каждый
-push, PR и тег `v*`: сначала `npm ci` и `npm --prefix web ci`, затем
-`npm run ci`. CI работает на Node `24.x`: jsdom 31, на котором держатся тесты
-панели, требует не ниже 24.15, при этом минимальный рантайм бота остаётся
-22.13.
+Шаги `verify` независимы и идут параллельно: прогон занимает столько же, сколько
+самый долгий шаг, а не сумму шагов. Сборка панели кэшируется по хешу `web/` — если
+панель не менялась, `vite build` пропускается (`npm run build:panel -- --force`
+пересобирает принудительно).
+
+Те же проверки выполняет GitHub Actions (`.github/workflows/ci.yml`): на push в
+`main`, на каждый pull request и на тег `v*` — сначала `npm ci` и
+`npm --prefix web ci`, затем `npm run ci`. CI работает на Node `24.x`: jsdom 31,
+на котором держатся тесты панели, требует не ниже 24.15, при этом минимальный
+рантайм бота остаётся 22.13.
 
 ## Production
 

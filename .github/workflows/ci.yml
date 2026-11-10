@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # push в main — защита основной ветки; PR — любая ветка (сюда же Dependabot).
+  # Ветки без PR не проверяются: иначе один пуш в PR-ветку давал два прогона.
   push:
-    branches: ['**']
+    branches: ['main']
     tags: ['v*']
   pull_request:
   workflow_dispatch:

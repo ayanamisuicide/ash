@@ -1,15 +1,25 @@
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Фоновые проверки для `npm run launch:live`.
+ * Проверки проекта: типы бота и тестов, типы панели, ESLint, Prettier,
+ * тесты бота и панели.
  *
- * Запускает те же шаги, что и CI, но без сборки (сборка удаляет dist и
- * ломает работающую панель). Результат пишется в data/verify-result.json,
- * полный вывод — в data/verify.log; прогресс дублируется в stdout, чтобы
- * launch.ps1 мог показать его в HUD.
+ * Шаги независимы (не пишут в общие файлы), поэтому идут параллельно:
+ * последовательно это ~45 с, параллельно ~10–12 с. Этот прогон вызывают
+ * `npm run ci`, `npm run launch` и `npm run launch:live`.
+ *
+ * Режимы:
+ *   node scripts/verify.mjs           — как в CI: тесты с порогами покрытия;
+ *   node scripts/verify.mjs --fast    — тесты без покрытия (быстрый лаунчер);
+ *   node scripts/verify.mjs --serial  — по одному шагу (отладка);
+ *   node scripts/verify.mjs --jobs=2  — ограничить число параллельных шагов.
+ *
+ * Результат пишется в data/verify-result.json, полный вывод — в data/verify.log;
+ * прогресс дублируется в stdout, чтобы launch.ps1 мог показать его в HUD.
  */
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -18,6 +28,21 @@ const logPath = path.join(dataDir, 'verify.log');
 const resultPath = path.join(dataDir, 'verify-result.json');
 const isWindows = process.platform === 'win32';
 const npm = isWindows ? 'npm.cmd' : 'npm';
+
+const TIMEOUT_MS = 10 * 60 * 1000;
+const MAX_OUTPUT_BYTES = 256 * 1024;
+// ESC собираем из кода символа: литеральный \x1b в регулярке запрещён линтером.
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*[A-Za-z]`, 'g');
+
+const argv = process.argv.slice(2);
+const fast = argv.includes('--fast');
+const serial = argv.includes('--serial');
+const jobsArg = argv.find((arg) => arg.startsWith('--jobs='));
+const requestedJobs = jobsArg ? Number.parseInt(jobsArg.slice('--jobs='.length), 10) : Number.NaN;
+const cpus = os.availableParallelism?.() ?? os.cpus().length ?? 4;
+const jobs = serial
+  ? 1
+  : Math.max(1, Math.min(Number.isFinite(requestedJobs) ? requestedJobs : 6, cpus));
 
 const steps = [
   { name: 'typecheck', label: 'TypeScript · бот и тесты', args: ['run', 'typecheck'] },
@@ -28,20 +53,22 @@ const steps = [
   },
   { name: 'lint', label: 'ESLint', args: ['run', 'lint'] },
   { name: 'format', label: 'Prettier', args: ['run', 'format:check'] },
-  { name: 'bot-tests', label: 'Тесты бота', args: ['run', 'test:coverage'] },
-  { name: 'panel-tests', label: 'Тесты панели', args: ['run', 'test:panel:coverage'] },
+  { name: 'bot-tests', label: 'Тесты бота', args: ['run', fast ? 'test' : 'test:coverage'] },
+  {
+    name: 'panel-tests',
+    label: 'Тесты панели',
+    args: ['run', fast ? 'test:panel' : 'test:panel:coverage'],
+  },
 ];
 
 fs.mkdirSync(dataDir, { recursive: true });
 fs.writeFileSync(logPath, '', 'utf8');
 
-const logFd = fs.openSync(logPath, 'a');
 const startedAt = new Date().toISOString();
-const results = [];
-let failedStep = null;
+const results = new Array(steps.length).fill(null);
 
 function log(message) {
-  fs.writeSync(logFd, `${message}\n`);
+  fs.appendFileSync(logPath, `${message}\n`, 'utf8');
 }
 
 function progress(message) {
@@ -49,44 +76,137 @@ function progress(message) {
   log(`[verify] ${message}`);
 }
 
-log(`[verify] старт ${startedAt}`);
-progress('старт проверок');
-
-for (const step of steps) {
-  progress(`${step.label} · запуск`);
-  const stepStarted = Date.now();
-
-  const result = spawnSync(npm, step.args, {
-    cwd: root,
-    env: process.env,
-    shell: isWindows,
-    windowsHide: true,
-    stdio: ['ignore', logFd, logFd],
-    timeout: 10 * 60 * 1000,
-  });
-
-  const durationMs = Date.now() - stepStarted;
-  const code = result.status ?? 1;
-  const ok = code === 0;
-
-  results.push({ name: step.name, label: step.label, ok, exitCode: code, durationMs });
-  log(
-    `[verify] ${step.name} ${ok ? 'ok' : 'failed'} (${(durationMs / 1000).toFixed(1)}s, exit=${code})`,
-  );
-
-  if (result.error) {
-    log(`[verify] ${step.name} error: ${result.error.message}`);
+/** Дочерние процессы npm на Windows живут в дереве — гасим всё дерево. */
+function killTree(pid) {
+  if (!pid) return;
+  if (isWindows) {
+    spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore', windowsHide: true });
+    return;
   }
-
-  if (!ok) {
-    failedStep = step;
-    progress(`${step.label} · ошибка (exit ${code})`);
-    break;
+  try {
+    process.kill(-pid, 'SIGKILL');
+  } catch {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // Процесс уже завершился — это нормально.
+    }
   }
-
-  progress(`${step.label} · ok (${(durationMs / 1000).toFixed(1)}s)`);
 }
 
+/** Кавычки для аргументов: Node 24 предупреждает (DEP0190), если shell=true и args массив. */
+function quoteArg(arg) {
+  return /^[\w.:@/=-]+$/.test(arg) ? arg : `"${arg.replace(/"/g, '\\"')}"`;
+}
+
+function runStep(step) {
+  return new Promise((resolve) => {
+    const startedMs = Date.now();
+    const command = [npm, ...step.args].map(quoteArg).join(' ');
+    const child = spawn(command, {
+      cwd: root,
+      env: process.env,
+      shell: true,
+      windowsHide: true,
+      detached: !isWindows,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let output = '';
+    let captured = 0;
+    let timedOut = false;
+    let settled = false;
+
+    const collect = (chunk) => {
+      if (captured >= MAX_OUTPUT_BYTES) return;
+      const text = chunk.toString('utf8');
+      const room = MAX_OUTPUT_BYTES - captured;
+      const slice = text.length > room ? text.slice(0, room) : text;
+      output += slice;
+      captured += slice.length;
+      if (captured >= MAX_OUTPUT_BYTES) {
+        output += '\n[verify] вывод обрезан: превышен лимит 256 КБ\n';
+      }
+    };
+
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({
+        code: typeof code === 'number' && !timedOut ? code : 1,
+        timedOut,
+        output: output.replace(ANSI, ''),
+        durationMs: Date.now() - startedMs,
+      });
+    };
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killTree(child.pid);
+      // Если процесс не умер сам, не ждём его бесконечно.
+      setTimeout(() => finish(1), 5000).unref();
+    }, TIMEOUT_MS);
+
+    child.stdout?.on('data', collect);
+    child.stderr?.on('data', collect);
+    child.on('error', (error) => {
+      output += `\n[verify] не удалось запустить npm: ${error.message}\n`;
+      finish(1);
+    });
+    child.on('close', (code) => finish(code));
+  });
+}
+
+async function runStepWithReport(index) {
+  const step = steps[index];
+  progress(`${step.label} · запуск`);
+  log(`\n[verify] ── ${step.name} · ${step.label} · старт ${new Date().toISOString()}`);
+
+  const outcome = await runStep(step);
+  const ok = !outcome.timedOut && outcome.code === 0;
+  const seconds = (outcome.durationMs / 1000).toFixed(1);
+
+  if (outcome.output.trim()) {
+    log(outcome.output.replace(/\r\n/g, '\n').trimEnd());
+  }
+  log(`[verify] ── ${step.name} ${ok ? 'ok' : 'failed'} (${seconds}s, exit=${outcome.code})`);
+
+  results[index] = {
+    name: step.name,
+    label: step.label,
+    ok,
+    exitCode: outcome.code,
+    durationMs: outcome.durationMs,
+    timedOut: outcome.timedOut,
+  };
+
+  if (ok) {
+    progress(`${step.label} · ok (${seconds}s)`);
+  } else if (outcome.timedOut) {
+    progress(`${step.label} · таймаут (${seconds}s) → ${path.relative(root, logPath)}`);
+  } else {
+    progress(`${step.label} · ошибка (exit ${outcome.code}) → ${path.relative(root, logPath)}`);
+  }
+}
+
+log(`[verify] старт ${startedAt}`);
+progress(
+  `старт проверок · режим ${fast ? 'fast' : 'coverage'}, шагов ${steps.length}, параллельно ${jobs}`,
+);
+
+let next = 0;
+async function worker() {
+  while (next < steps.length) {
+    const index = next++;
+    await runStepWithReport(index);
+  }
+}
+
+await Promise.all(Array.from({ length: Math.min(jobs, steps.length) }, () => worker()));
+
+const failed = results.filter((item) => item && !item.ok);
+const failedStep = failed[0] ?? null;
 const summary = {
   ok: failedStep === null,
   failedStep: failedStep ? failedStep.name : null,
@@ -94,16 +214,19 @@ const summary = {
   startedAt,
   finishedAt: new Date().toISOString(),
   log: path.relative(root, logPath),
+  mode: fast ? 'fast' : 'coverage',
   steps: results,
 };
 
 fs.writeFileSync(resultPath, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
 
 if (summary.ok) {
-  progress('все проверки пройдены');
+  const total = (results.reduce((sum, item) => sum + (item?.durationMs ?? 0), 0) / 1000).toFixed(1);
+  progress(`все проверки пройдены (суммарно ${total}s работы)`);
 } else {
-  progress(`проверки упали на шаге «${summary.failedLabel}» · ${path.relative(root, logPath)}`);
+  progress(
+    `проверки упали: ${failed.map((item) => item.label).join(', ')} · ${path.relative(root, logPath)}`,
+  );
 }
 
-fs.closeSync(logFd);
 process.exit(summary.ok ? 0 : 1);

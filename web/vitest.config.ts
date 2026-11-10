@@ -26,10 +26,12 @@ export default defineConfig({
         'src/lib/demo-*.ts',
       ],
       thresholds: {
-        lines: 80,
-        statements: 80,
-        branches: 70,
-        functions: 80,
+        // Ratchet: порог — фактическое покрытие, округлённое вниз. При росте
+        // покрытия порог поднимается в том же коммите, чтобы оно не откатилось.
+        lines: 84,
+        statements: 81,
+        branches: 77,
+        functions: 81.5,
       },
     },
   },

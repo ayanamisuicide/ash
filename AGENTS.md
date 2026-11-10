@@ -16,3 +16,9 @@
 - GitHub Actions (`.github/workflows/ci.yml`) прогоняет те же проверки на push в
   `main`, в pull request и на тег `v*` — локальный `npm run ci` должен быть
   зелёным до пуша.
+- Пороги покрытия — ratchet: равны фактическому покрытию, округлённому вниз
+  (бот — флаги `--test-coverage-*` в `package.json`, панель — `thresholds` в
+  `web/vitest.config.ts`). При росте покрытия порог поднимается в том же коммите.
+- `npm run deploy` кэшируется по хешу тела регистрации (`data/deploy-state.json`):
+  неизменённые команды не отправляются в Discord повторно, принудительно —
+  `npm run deploy -- --force` или `DEPLOY_FORCE=1`.

@@ -27,7 +27,7 @@ after(() => {
 
 test('commands: unique names and descriptions', () => {
   assert.equal(byName.size, commands.length);
-  assert.equal(commands.length, 54);
+  assert.equal(commands.length, 55);
   for (const command of commands) {
     assert.ok(command.data.name.length > 0);
     assert.ok(command.data.description.length > 0);
@@ -141,6 +141,7 @@ test('commands: default permissions match expectations', () => {
     ticket: undefined,
     rank: undefined,
     top: undefined,
+    activity: undefined,
     tag: undefined,
     logs: '32',
     report: undefined,
@@ -195,4 +196,12 @@ test('commands: activity options for /top and /leveling', () => {
   };
   const subcommands = (leveling.options ?? []).map((option) => option.name);
   assert.ok(subcommands.includes('rates'), 'missing /leveling rates');
+
+  const activity = byName.get('activity')?.data.toJSON() as {
+    options?: Array<{ name: string }>;
+  };
+  assert.deepEqual(
+    (activity.options ?? []).map((option) => option.name),
+    ['summary', 'export'],
+  );
 });

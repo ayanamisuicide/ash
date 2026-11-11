@@ -8,4 +8,7 @@ data/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.crt
+*.key
+*.pem
 legacy-js/node_modules/

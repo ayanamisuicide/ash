@@ -402,6 +402,43 @@ export interface LeaderboardRow {
   voiceSeconds: number;
 }
 
+export interface ActivityEntry extends LeaderboardRow {
+  lastMessageAt: number;
+  lastXpAt: number;
+}
+
+/** Все участники с активностью — для выгрузки и полной статистики. */
+export function listActivity(guildId: string, limit = 5_000): ActivityEntry[] {
+  const rows = db
+    .prepare(
+      `
+      SELECT user_id, xp, messages, voice_seconds, last_message_at, last_xp_at
+      FROM levels
+      WHERE guild_id = ?
+      ORDER BY xp DESC, messages DESC, voice_seconds DESC
+      LIMIT ?
+    `,
+    )
+    .all(guildId, limit) as unknown as Array<{
+    user_id: string;
+    xp: number;
+    messages: number;
+    voice_seconds: number;
+    last_message_at: number;
+    last_xp_at: number;
+  }>;
+
+  return rows.map((row) => ({
+    userId: row.user_id,
+    xp: Number(row.xp),
+    level: levelFromXp(Number(row.xp)).level,
+    messages: Number(row.messages),
+    voiceSeconds: Number(row.voice_seconds),
+    lastMessageAt: Number(row.last_message_at),
+    lastXpAt: Number(row.last_xp_at),
+  }));
+}
+
 const LEADERBOARD_COLUMNS: Record<LeaderboardMetric, string> = {
   xp: 'xp',
   messages: 'messages',

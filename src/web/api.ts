@@ -10,6 +10,7 @@ import {
 } from '../lib/cases.js';
 import { casesToCsv } from '../lib/casesCsv.js';
 import { closeTicket, getTicket, listTickets, type Ticket } from '../lib/community.js';
+import { getModerationAnalytics } from '../lib/analytics.js';
 import { COLORS } from '../lib/embeds.js';
 import { logTicket } from '../features/tickets.js';
 import {
@@ -357,6 +358,29 @@ async function handleGuildRoute(
     // Доступ уже ограничен resolveGuildAccess: любой модератор сервера видит
     // те же данные, что и на обзоре, без требования ModerateMembers.
     sendJson(ctx.res, 200, { ok: true, ...getActivityOverview(guild) });
+    return;
+  }
+
+  if (section === 'analytics' && segments.length === 1) {
+    if (ctx.req.method !== 'GET') throw new HttpError(405, 'Метод не поддерживается.');
+
+    const days = parsePositiveInt(ctx.url.searchParams.get('days'), 30);
+    const analytics = getModerationAnalytics(guild.id, days);
+
+    const withName = (person: { id: string; count: number; name: string | null }) => ({
+      ...person,
+      name:
+        guild.members.cache.get(person.id)?.user.username ??
+        guild.client.users.cache.get(person.id)?.username ??
+        null,
+    });
+
+    sendJson(ctx.res, 200, {
+      ok: true,
+      ...analytics,
+      topModerators: analytics.topModerators.map(withName),
+      topUsers: analytics.topUsers.map(withName),
+    });
     return;
   }
 

@@ -28,6 +28,7 @@ import type {
   TicketListResponse,
   TicketStatus,
   UpdateCaseInput,
+  ModerationAnalyticsResponse,
 } from './types';
 
 /** Текущая сессия, список доступных серверов и CSRF-токен */
@@ -207,6 +208,18 @@ export function reviewAppeal(
   return api.post<AppealReviewResult>(
     `/api/guilds/${encodeURIComponent(guildId)}/appeals/${appealId}/review`,
     { approve, comment },
+  );
+}
+
+/** Аналитика модерации за период */
+export function getAnalytics(
+  guildId: string,
+  days = 30,
+  signal?: AbortSignal,
+): Promise<ModerationAnalyticsResponse> {
+  return api.get<ModerationAnalyticsResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/analytics`,
+    { query: { days }, signal },
   );
 }
 

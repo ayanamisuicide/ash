@@ -19,6 +19,9 @@ const DashboardPage = lazy(() =>
 const CasesPage = lazy(() =>
   import('@/pages/Cases').then((module) => ({ default: module.CasesPage })),
 );
+const AnalyticsPage = lazy(() =>
+  import('@/pages/Analytics').then((module) => ({ default: module.AnalyticsPage })),
+);
 const MembersPage = lazy(() =>
   import('@/pages/Members').then((module) => ({ default: module.MembersPage })),
 );
@@ -51,6 +54,7 @@ export default function App() {
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/cases" element={<CasesPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/members" element={<MembersPage />} />
                 <Route path="/tickets" element={<TicketsPage />} />
                 <Route path="/appeals" element={<AppealsPage />} />

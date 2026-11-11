@@ -9,6 +9,7 @@ import type {
   MemberSearchResponse,
   MemberSummary,
   MemberWarn,
+  ModerationAnalyticsResponse,
   RecentCase,
   Ticket,
   TicketListResponse,
@@ -585,6 +586,47 @@ export function createDemoTickets(status: 'open' | 'all'): TicketListResponse {
     ok: true,
     items:
       status === 'open' ? demoTickets.filter((ticket) => ticket.status === 'open') : demoTickets,
+  };
+}
+
+export function createDemoAnalytics(days = 30): ModerationAnalyticsResponse {
+  const daily = Array.from({ length: days }, (_, index) => ({
+    date: new Date(now - (days - 1 - index) * DAY).toISOString().slice(0, 10),
+    count: 2 + ((index * 7) % 9),
+  }));
+
+  return {
+    ok: true,
+    days,
+    totals: {
+      cases: 248,
+      active: 37,
+      bans: 54,
+      warnings: 96,
+      mutes: 41,
+      trackedMembers: 128,
+      messages: 24_680,
+      voiceSeconds: 1_842_000,
+    },
+    daily,
+    byType: [
+      { type: 'warn', label: 'Варн', count: 96 },
+      { type: 'timeout', label: 'Таймаут', count: 48 },
+      { type: 'ban', label: 'Бан', count: 54 },
+      { type: 'mute', label: 'Мут', count: 41 },
+      { type: 'kick', label: 'Кик', count: 9 },
+    ],
+    topModerators: [
+      { id: 'demo-user-nova', name: 'nova', count: 84 },
+      { id: 'demo-user-aya', name: 'aya', count: 63 },
+      { id: 'demo-user-ren', name: 'ren', count: 41 },
+    ],
+    topUsers: [
+      { id: 'demo-user-toxic', name: 'toxic', count: 12 },
+      { id: 'demo-user-spam', name: 'spam', count: 8 },
+      { id: 'demo-user-troll', name: 'troll', count: 5 },
+    ],
+    appeals: { pending: 3, approved: 12, rejected: 7 },
   };
 }
 export function createDemoAppeals(_guildId: string, status: 'pending' | 'all'): AppealListResponse {

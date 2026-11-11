@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   ClipboardList,
   Inbox,
   LayoutDashboard,
@@ -19,6 +20,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Обзор', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Кейсы', href: '/cases', icon: ClipboardList },
+  { label: 'Аналитика', href: '/analytics', icon: BarChart3 },
   { label: 'Участники', href: '/members', icon: Users },
   { label: 'Тикеты', href: '/tickets', icon: Ticket },
   { label: 'Апелляции', href: '/appeals', icon: Inbox },
@@ -38,6 +40,10 @@ const PAGE_META: Record<string, PageMeta> = {
   '/cases': {
     title: 'Кейсы',
     description: 'Единая история наказаний с фильтрами, поиском и управлением причинами.',
+  },
+  '/analytics': {
+    title: 'Аналитика',
+    description: 'Динамика наказаний, активность модераторов и повторные нарушители.',
   },
   '/members': {
     title: 'Участники',

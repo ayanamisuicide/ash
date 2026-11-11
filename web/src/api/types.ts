@@ -286,6 +286,47 @@ export interface TicketCloseResponse {
   transcript: boolean;
 }
 
+export interface AnalyticsPoint {
+  date: string;
+  count: number;
+}
+
+export interface AnalyticsSlice {
+  type: string;
+  label: string;
+  count: number;
+}
+
+export interface AnalyticsPerson {
+  id: string;
+  count: number;
+  name: string | null;
+}
+
+export interface ModerationAnalyticsResponse {
+  ok: true;
+  days: number;
+  totals: {
+    cases: number;
+    active: number;
+    bans: number;
+    warnings: number;
+    mutes: number;
+    trackedMembers: number;
+    messages: number;
+    voiceSeconds: number;
+  };
+  daily: AnalyticsPoint[];
+  byType: AnalyticsSlice[];
+  topModerators: AnalyticsPerson[];
+  topUsers: AnalyticsPerson[];
+  appeals: {
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
+}
+
 export type WarnActionType = 'timeout' | 'mute' | 'kick' | 'ban' | 'tempban';
 
 export interface WarnActionSettings {

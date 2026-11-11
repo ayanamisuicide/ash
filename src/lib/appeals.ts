@@ -15,6 +15,8 @@ export interface Appeal {
   messageId: string | null;
   reviewedBy: string | null;
   reviewedAt: number | null;
+  /** Комментарий модератора при решении (необязательный) */
+  reviewComment: string | null;
 }
 
 interface AppealRow {
@@ -29,6 +31,7 @@ interface AppealRow {
   message_id: string | null;
   reviewed_by: string | null;
   reviewed_at: number | null;
+  review_comment: string | null;
 }
 
 function rowToAppeal(row: AppealRow): Appeal {
@@ -44,6 +47,7 @@ function rowToAppeal(row: AppealRow): Appeal {
     messageId: row.message_id,
     reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at === null ? null : Number(row.reviewed_at),
+    reviewComment: row.review_comment ?? null,
   };
 }
 
@@ -79,13 +83,14 @@ export function createAppeal(
       messageId: null,
       reviewedBy: null,
       reviewedAt: null,
+      reviewComment: null,
     };
 
     db.prepare(
       `
       INSERT INTO appeals
-        (guild_id, id, user_id, reason, status, created_at, case_id, channel_id, message_id, reviewed_by, reviewed_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (guild_id, id, user_id, reason, status, created_at, case_id, channel_id, message_id, reviewed_by, reviewed_at, review_comment)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     ).run(
       appeal.guildId,
@@ -99,6 +104,7 @@ export function createAppeal(
       appeal.messageId,
       appeal.reviewedBy,
       appeal.reviewedAt,
+      appeal.reviewComment,
     );
 
     return appeal;
@@ -155,6 +161,10 @@ export function updateAppeal(
   if (patch.reviewedAt !== undefined) {
     sets.push('reviewed_at = ?');
     values.push(patch.reviewedAt);
+  }
+  if (patch.reviewComment !== undefined) {
+    sets.push('review_comment = ?');
+    values.push(patch.reviewComment);
   }
 
   if (sets.length === 0) return getAppeal(guildId, appealId);

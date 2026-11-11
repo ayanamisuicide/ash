@@ -178,10 +178,15 @@ test('appeals: create, update, pending lookup', () => {
   assert.equal(appeal.id, 1);
   assert.equal(appeals.findPendingAppeal(guildId, userId)?.id, appeal.id);
 
-  appeals.updateAppeal(guildId, appeal.id, { status: 'approved', reviewedBy: moderatorId });
+  appeals.updateAppeal(guildId, appeal.id, {
+    status: 'approved',
+    reviewedBy: moderatorId,
+    reviewComment: 'разбан по апелляции',
+  });
   const updated = appeals.getAppeal(guildId, appeal.id);
   assert.equal(updated?.status, 'approved');
   assert.equal(updated?.reviewedBy, moderatorId);
+  assert.equal(updated?.reviewComment, 'разбан по апелляции');
   assert.equal(appeals.findPendingAppeal(guildId, userId), null);
 
   const second = appeals.createAppeal(guildId, 'another-user', 'second appeal', 42);

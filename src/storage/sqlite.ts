@@ -359,6 +359,12 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 10,
+    up: () => {
+      db.exec('ALTER TABLE appeals ADD COLUMN review_comment TEXT;');
+    },
+  },
 ];
 
 function currentSchemaVersion(): number {

@@ -19,6 +19,7 @@ import { getAppeals, reviewAppeal } from '@/api/endpoints';
 import type { Appeal } from '@/api/types';
 import { AppealCard } from '@/components/appeals/AppealCard';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
@@ -143,9 +144,11 @@ export function AppealsPage() {
 
   const [tab, setTab] = useState<AppealTab>('pending');
   const [confirm, setConfirm] = useState<ReviewTarget | null>(null);
+  const [comment, setComment] = useState('');
 
   useEffect(() => {
     setConfirm(null);
+    setComment('');
   }, [activeGuildId]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -163,7 +166,13 @@ export function AppealsPage() {
   const reviewMutation = useMutation({
     mutationFn: (target: ReviewTarget) => {
       if (!activeGuildId) throw new Error('Сервер не выбран.');
-      return reviewAppeal(activeGuildId, target.appeal.id, target.approve);
+      const trimmed = comment.trim();
+      return reviewAppeal(
+        activeGuildId,
+        target.appeal.id,
+        target.approve,
+        trimmed ? trimmed : undefined,
+      );
     },
     onSuccess: (result) => {
       if (!result.ok) {
@@ -183,12 +192,14 @@ export function AppealsPage() {
   const requestReview = (appeal: Appeal, approve: boolean) => {
     // Не показываем ошибку предыдущего рассмотрения в новом окне.
     reviewMutation.reset();
+    setComment('');
     setConfirm({ appeal, approve });
   };
 
   const closeConfirm = () => {
     if (reviewMutation.isPending) return;
     setConfirm(null);
+    setComment('');
   };
 
   return (
@@ -442,6 +453,30 @@ export function AppealsPage() {
               </p>
               <p className="mt-2 text-[11px] text-muted-foreground">
                 Подана {formatDateTime(confirm.appeal.createdAt)}
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="appeal-review-comment"
+                className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              >
+                Комментарий для пользователя
+              </label>
+              <Textarea
+                id="appeal-review-comment"
+                value={comment}
+                onChange={(event) => setComment(event.target.value.slice(0, 500))}
+                maxLength={500}
+                placeholder={
+                  confirmingApprove
+                    ? 'Необязательно: что стоит учесть после разбана…'
+                    : 'Необязательно: объясните причину отказа…'
+                }
+                disabled={reviewMutation.isPending}
+              />
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Попадёт в личное сообщение участнику и в карточку апелляции. {comment.length}/500
               </p>
             </div>
 

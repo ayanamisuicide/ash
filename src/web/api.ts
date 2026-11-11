@@ -354,11 +354,22 @@ async function handleGuildRoute(
       if (typeof body.approve !== 'boolean') {
         throw new HttpError(400, 'Поле approve должно быть boolean.');
       }
+      let comment: string | null = null;
+      if (body.comment !== undefined && body.comment !== null) {
+        if (typeof body.comment !== 'string') {
+          throw new HttpError(400, 'Комментарий должен быть строкой.');
+        }
+        if (body.comment.length > 500) {
+          throw new HttpError(400, 'Комментарий длиннее 500 символов.');
+        }
+        comment = body.comment;
+      }
       const result = await reviewAppeal(
         guild,
         { id: session.user.id, tag: session.user.username },
         appealId,
         body.approve,
+        comment,
       );
       sendJson(ctx.res, 200, result);
       return;

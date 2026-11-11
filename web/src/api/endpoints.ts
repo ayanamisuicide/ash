@@ -183,10 +183,11 @@ export function reviewAppeal(
   guildId: string,
   appealId: number,
   approve: boolean,
+  comment?: string,
 ): Promise<AppealReviewResult> {
   return api.post<AppealReviewResult>(
     `/api/guilds/${encodeURIComponent(guildId)}/appeals/${appealId}/review`,
-    { approve },
+    { approve, comment },
   );
 }
 

@@ -97,6 +97,7 @@ function makeAppeal(guildId: string, overrides: Partial<Appeal> = {}): Appeal {
     messageId: null,
     reviewedBy: null,
     reviewedAt: null,
+    reviewComment: null,
     ...overrides,
   };
 }

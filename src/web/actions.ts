@@ -253,6 +253,7 @@ export async function reviewAppeal(
   moderator: { id: string; tag: string },
   appealId: number,
   approve: boolean,
+  comment?: string | null,
 ): Promise<AppealReviewResult> {
   const appeal = getAppeal(guild.id, appealId);
   if (!appeal) throw new HttpError(404, 'Апелляция не найдена.');
@@ -266,10 +267,12 @@ export async function reviewAppeal(
   }
 
   const reviewedAt = Date.now();
+  const reviewComment = comment?.trim() ? comment.trim().slice(0, 500) : null;
   updateAppeal(guild.id, appeal.id, {
     status: approve ? 'approved' : 'rejected',
     reviewedBy: moderator.id,
     reviewedAt,
+    reviewComment,
   });
 
   const punishedCase = appeal.caseId ? getCase(guild.id, appeal.caseId) : null;
@@ -286,6 +289,9 @@ export async function reviewAppeal(
             reason: appeal.reason,
             caseId: punishedCase?.id ?? null,
             thumbnail: user.displayAvatarURL(),
+            fields: reviewComment
+              ? [{ label: 'Комментарий модератора', value: reviewComment, block: true }]
+              : undefined,
           }),
         ],
         flags: MessageFlags.IsComponentsV2,
@@ -301,6 +307,7 @@ export async function reviewAppeal(
     appealId: appeal.id,
     reviewedAt,
     punishment,
+    comment: reviewComment,
   });
 
   await sendLog(
@@ -314,6 +321,9 @@ export async function reviewAppeal(
         { name: 'Рассмотрел', value: `<@${moderator.id}> (веб-панель)`, inline: true },
         ...(punishment ? [{ name: 'Наказание', value: punishment, inline: true }] : []),
         { name: 'Причина', value: appeal.reason },
+        ...(reviewComment
+          ? [{ name: 'Комментарий модератора', value: reviewComment, inline: false }]
+          : []),
       ],
       footer: `ID: ${appeal.userId}`,
     }),
@@ -338,6 +348,7 @@ async function updateAppealMessage(
     appealId: number;
     reviewedAt: number;
     punishment: string | null;
+    comment: string | null;
   },
 ): Promise<void> {
   if (!channelId || !messageId) return;
@@ -351,6 +362,9 @@ async function updateAppealMessage(
   const fields = [{ label: 'Причина апелляции', value: data.reason, block: true }];
   if (data.punishment) {
     fields.unshift({ label: 'Наказание', value: data.punishment, block: false });
+  }
+  if (data.comment) {
+    fields.push({ label: 'Комментарий модератора', value: data.comment, block: true });
   }
 
   await message

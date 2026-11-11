@@ -468,6 +468,7 @@ const pendingAppeals: Appeal[] = [
     messageId: 'demo-message-501',
     reviewedBy: null,
     reviewedAt: null,
+    reviewComment: null,
   },
   {
     id: 502,
@@ -484,6 +485,7 @@ const pendingAppeals: Appeal[] = [
     messageId: 'demo-message-502',
     reviewedBy: null,
     reviewedAt: null,
+    reviewComment: null,
   },
   {
     id: 503,
@@ -500,6 +502,7 @@ const pendingAppeals: Appeal[] = [
     messageId: 'demo-message-503',
     reviewedBy: null,
     reviewedAt: null,
+    reviewComment: null,
   },
 ];
 
@@ -518,6 +521,7 @@ const reviewedAppeals: Appeal[] = [
     messageId: 'demo-message-498',
     reviewedBy: 'Nova',
     reviewedAt: now - 30 * HOUR,
+    reviewComment: 'Наказание снято, постарайтесь не повторять конфликт.',
   },
   {
     id: 497,
@@ -533,6 +537,7 @@ const reviewedAppeals: Appeal[] = [
     messageId: 'demo-message-497',
     reviewedBy: 'Aya',
     reviewedAt: now - 3 * DAY,
+    reviewComment: 'Наказание оставлено в силе: токсичность подтверждена логами канала.',
   },
 ];
 

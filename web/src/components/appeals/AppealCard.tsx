@@ -154,6 +154,17 @@ export function AppealCard({
           ) : null}
         </div>
       )}
+
+      {appeal.status !== 'pending' && appeal.reviewComment ? (
+        <div className="mt-3 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Комментарий модератора
+          </p>
+          <p className="mt-1.5 whitespace-pre-line text-[12px] leading-relaxed text-foreground/90">
+            {appeal.reviewComment}
+          </p>
+        </div>
+      ) : null}
     </Card>
   );
 }

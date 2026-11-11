@@ -245,6 +245,8 @@ export interface Appeal {
   messageId: string | null;
   reviewedBy: string | null;
   reviewedAt: number | null;
+  /** Комментарий модератора при решении */
+  reviewComment: string | null;
 }
 
 export interface AppealListResponse {

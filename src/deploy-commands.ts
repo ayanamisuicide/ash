@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { REST, Routes } from 'discord.js';
 import { config } from './config.js';
 import { loadCommands } from './core/loader.js';
+import { isTransientNetworkError } from './lib/network.js';
 import { closeDatabase } from './storage/sqlite.js';
 
 async function main(): Promise<void> {
@@ -30,7 +31,9 @@ async function main(): Promise<void> {
   } catch (error) {
     console.error('[deploy] ошибка:', error);
     closeDatabase();
-    process.exit(1);
+    // Код 2 — временная сетевая ошибка: лаунчер повторит попытку, а если
+    // Discord так и недоступен, запустит бота со старыми командами.
+    process.exit(isTransientNetworkError(error) ? 2 : 1);
   }
 }
 

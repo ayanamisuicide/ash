@@ -1,6 +1,6 @@
 {
   "name": "probot-style-bot",
-  "version": "3.8.2",
+  "version": "3.8.3",
   "description": "Discord-бот в стиле ProBot: модерация, логирование, веб-панель модератора",
   "type": "module",
   "main": "dist/index.js",

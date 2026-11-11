@@ -94,30 +94,62 @@ if (!force && fs.existsSync(statePath)) {
   }
 }
 
-const result = spawnSync(
-  process.execPath,
-  ['--import=tsx', path.join('src', 'deploy-commands.ts')],
-  {
+const ATTEMPTS = 3;
+const RETRY_DELAYS_MS = [1_500, 3_000];
+const strict = process.env.DEPLOY_STRICT === '1';
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function runDeploy() {
+  return spawnSync(process.execPath, ['--import=tsx', path.join('src', 'deploy-commands.ts')], {
     cwd: root,
     stdio: 'inherit',
     env: {
       ...process.env,
       NODE_OPTIONS: process.env.NODE_OPTIONS ?? '--disable-warning=ExperimentalWarning',
     },
-  },
-);
-
-if (result.error) {
-  console.error('deploy:', result.error);
-  process.exit(1);
+  });
 }
 
-const code = result.status ?? 1;
+let result = null;
+let transientFailure = false;
 
-if (code === 0) {
+for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+  if (attempt > 1) {
+    console.log(`deploy: повторная попытка ${attempt}/${ATTEMPTS}…`);
+    sleepSync(RETRY_DELAYS_MS[Math.min(attempt - 2, RETRY_DELAYS_MS.length - 1)]);
+  }
+
+  result = runDeploy();
+  if (result.error) {
+    console.error('deploy:', result.error);
+    process.exit(1);
+  }
+
+  const code = result.status ?? 1;
+  if (code === 0) break;
+  // 2 — временная сетевая ошибка: повторяем, но не валим весь запуск.
+  if (code !== 2) process.exit(code);
+  transientFailure = true;
+  if (attempt === ATTEMPTS) {
+    if (strict) {
+      console.error(`deploy: Discord недоступен после ${ATTEMPTS} попыток (DEPLOY_STRICT=1).`);
+      process.exit(2);
+    }
+    console.warn('deploy: ⚠ Discord недоступен — команды не обновлены, запуск продолжается.');
+    console.warn('deploy: повторите `npm run deploy`, когда сеть восстановится.');
+    process.exit(0);
+  }
+}
+
+if (transientFailure && result?.status !== 0) process.exit(result?.status ?? 1);
+
+if ((result?.status ?? 1) === 0) {
   fs.mkdirSync(dataDir, { recursive: true });
   const state = { ...current, registeredAt: new Date().toISOString() };
   fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 }
 
-process.exit(code);
+process.exit(result?.status ?? 0);

@@ -391,6 +391,24 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 13,
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS case_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          guild_id TEXT NOT NULL,
+          case_id INTEGER NOT NULL,
+          actor_id TEXT NOT NULL,
+          kind TEXT NOT NULL,
+          details TEXT NOT NULL DEFAULT '{}',
+          created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_case_events_case
+          ON case_events(guild_id, case_id, created_at);
+      `);
+    },
+  },
 ];
 
 function currentSchemaVersion(): number {

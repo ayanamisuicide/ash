@@ -3,6 +3,7 @@ import { getAppeal, updateAppeal } from '../lib/appeals.js';
 import { resolveAppealPunishment } from '../lib/appealResolution.js';
 import { card } from '../lib/card.js';
 import { caseTypeLabel, getCase, updateCase, type ModCase } from '../lib/cases.js';
+import { addCaseEvent } from '../lib/caseEvents.js';
 import { COLORS, dmEmbed } from '../lib/embeds.js';
 import { logCard } from '../lib/logCard.js';
 import { sendLog } from '../lib/logger.js';
@@ -217,6 +218,7 @@ export function editCaseFromPanel(
   guildId: string,
   caseId: number,
   body: Record<string, unknown>,
+  actorId: string,
 ): ModCase {
   const existing = getCase(guildId, caseId);
   if (!existing) throw new HttpError(404, 'Кейс не найден.');
@@ -239,6 +241,20 @@ export function editCaseFromPanel(
 
   const updated = updateCase(guildId, caseId, patch);
   if (!updated) throw new HttpError(404, 'Кейс не найден.');
+
+  if (patch.reason !== undefined && patch.reason !== existing.reason) {
+    addCaseEvent(guildId, caseId, actorId, 'reason', {
+      from: existing.reason,
+      to: patch.reason,
+    });
+  }
+  if (patch.active !== undefined && patch.active !== existing.active) {
+    addCaseEvent(guildId, caseId, actorId, 'status', {
+      from: existing.active,
+      to: patch.active,
+    });
+  }
+
   return updated;
 }
 

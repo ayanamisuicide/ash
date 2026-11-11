@@ -85,6 +85,23 @@ export interface CaseListResponse {
   pages: number;
 }
 
+export type CaseEventKind = 'created' | 'reason' | 'duration' | 'status';
+
+export interface CaseEvent {
+  id: number;
+  guildId: string;
+  caseId: number;
+  actorId: string;
+  kind: CaseEventKind;
+  details: Record<string, unknown>;
+  createdAt: number;
+}
+
+export interface CaseEventsResponse {
+  ok: true;
+  events: CaseEvent[];
+}
+
 /** GET/PATCH /api/guilds/:guildId/cases/:caseId */
 export interface CaseResponse {
   ok: true;

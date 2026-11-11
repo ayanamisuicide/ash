@@ -1,6 +1,7 @@
 import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
 import { caseTypeLabel, getCase, updateCase } from '../../lib/cases.js';
+import { addCaseEvent } from '../../lib/caseEvents.js';
 import { parseDuration } from '../../lib/format.js';
 import { replyActionResult } from '../../lib/reply.js';
 
@@ -62,6 +63,12 @@ export default {
       expiresAt,
       active: true,
     });
+    if (updated) {
+      addCaseEvent(interaction.guild.id, caseId, interaction.user.id, 'duration', {
+        from: existing.expiresAt,
+        to: expiresAt,
+      });
+    }
 
     await replyActionResult(
       interaction,

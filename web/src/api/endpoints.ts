@@ -6,6 +6,7 @@ import type {
   AppealListResponse,
   AppealReviewResult,
   CaseListResponse,
+  CaseEventsResponse,
   CaseResponse,
   CaseType,
   CommunitySettingsResponse,
@@ -109,6 +110,18 @@ export function downloadCasesCsv(
     },
     signal,
   });
+}
+
+/** История изменений кейса */
+export function getCaseEvents(
+  guildId: string,
+  caseId: number,
+  signal?: AbortSignal,
+): Promise<CaseEventsResponse> {
+  return api.get<CaseEventsResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/cases/${caseId}/events`,
+    { signal },
+  );
 }
 
 /** Изменение причины или статуса кейса. Требует права moderate/admin. */
@@ -245,6 +258,19 @@ export function closeTicket(guildId: string, channelId: string): Promise<TicketC
 /** URL HTML-транскрипта тикета для открытия в новой вкладке */
 export function ticketTranscriptUrl(guildId: string, channelId: string): string {
   return `/api/guilds/${encodeURIComponent(guildId)}/tickets/${encodeURIComponent(channelId)}/transcript`;
+}
+
+/** Экспорт настроек сервера в JSON */
+export function exportSettings(guildId: string): Promise<DownloadResult> {
+  return apiDownload(`/api/guilds/${encodeURIComponent(guildId)}/settings/export`);
+}
+
+/** Импорт настроек из JSON-бандла */
+export function importSettings(guildId: string, bundle: unknown): Promise<SettingsBundleResponse> {
+  return api.post<SettingsBundleResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/settings/import`,
+    bundle,
+  );
 }
 
 /** Полный бандл настроек сервера. Доступен только администраторам. */

@@ -1,8 +1,9 @@
 import { useEffect, useState, type ComponentProps, type FormEvent } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Ban,
   Eye,
+  History,
   Save,
   ShieldAlert,
   ShieldPlus,
@@ -17,8 +18,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { getErrorMessage } from '@/api/client';
-import { updateCase } from '@/api/endpoints';
+import { getCaseEvents, updateCase } from '@/api/endpoints';
 import type {
+  CaseEvent,
   GuildAccess,
   MemberActionType,
   MemberProfile,
@@ -89,6 +91,31 @@ interface CaseMetaProps {
   mono?: boolean;
 }
 
+function shortDetail(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string') return value;
+  return String(value);
+}
+
+function caseEventText(event: CaseEvent): string {
+  const details = event.details;
+
+  switch (event.kind) {
+    case 'created':
+      return `Создан · ${shortDetail(details.type)}`;
+    case 'reason':
+      return `Причина: «${shortDetail(details.from)}» → «${shortDetail(details.to)}»`;
+    case 'duration':
+      return `Срок: ${
+        details.from ? formatDateTime(Number(details.from)) : 'бессрочно'
+      } → ${details.to ? formatDateTime(Number(details.to)) : 'бессрочно'}`;
+    case 'status':
+      return `Статус: ${details.to ? 'активен' : 'закрыт'}`;
+    default:
+      return 'Изменение';
+  }
+}
+
 function CaseMeta({ label, value, mono = false }: CaseMetaProps) {
   return (
     <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
@@ -134,6 +161,13 @@ export function EditCaseModal({
       void queryClient.invalidateQueries({ queryKey: ['guild', guildId] });
       onOpenChange(false);
     },
+  });
+
+  const { data: eventsData } = useQuery({
+    queryKey: ['guild', guildId, 'cases', item?.id, 'events'],
+    queryFn: ({ signal }) => getCaseEvents(guildId ?? '', item?.id ?? 0, signal),
+    enabled: open && Boolean(guildId && item && !demo),
+    meta: { silent: true },
   });
 
   // Сбрасываем черновик при открытии другого кейса, не затирая ввод при рефетче.
@@ -428,6 +462,31 @@ export function EditCaseModal({
                   Участник не на сервере: кик, мут, таймаут, варн и роли недоступны.
                 </p>
               ) : null}
+            </section>
+          ) : null}
+
+          {eventsData && eventsData.events.length > 0 ? (
+            <section className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3.5">
+              <div className="mb-2.5 flex items-center gap-2">
+                <History className="h-3.5 w-3.5 text-accent" />
+                <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  История изменений
+                </h3>
+              </div>
+
+              <div className="space-y-2">
+                {eventsData.events.slice(0, 8).map((event) => (
+                  <div key={event.id} className="flex items-start gap-2 text-xs">
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent/70" />
+                    <div className="min-w-0">
+                      <p className="break-words text-foreground/85">{caseEventText(event)}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {formatDateTime(event.createdAt)} · {event.actorId}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </section>
           ) : null}
         </div>

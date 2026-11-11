@@ -1,7 +1,9 @@
+import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, type Variants } from 'framer-motion';
 import {
+  Download,
   FlaskConical,
   RefreshCw,
   ScrollText,
@@ -10,14 +12,16 @@ import {
   Shield,
   ShieldCheck,
   ShieldOff,
+  Upload,
   Users,
   WifiOff,
   type LucideIcon,
 } from 'lucide-react';
 import { getErrorMessage } from '@/api/client';
-import { getSettings } from '@/api/endpoints';
+import { exportSettings, getSettings, importSettings } from '@/api/endpoints';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { CommunitySettings } from '@/components/settings/CommunitySettings';
@@ -30,6 +34,7 @@ import { EASE_OUT_SOFT } from '@/lib/constants';
 import { createDemoMeta, createDemoSettings } from '@/lib/demo-settings';
 import { cn } from '@/lib/utils';
 import { selectActiveGuild, useAuthStore } from '@/store/auth';
+import { toast } from '@/store/ui';
 
 type SettingsTab = 'moderation' | 'logs' | 'security' | 'community';
 
@@ -123,6 +128,59 @@ export function SettingsPage() {
 
   const isRefreshing = metaQuery.isFetching || settingsQuery.isFetching;
 
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importBundle, setImportBundle] = useState<unknown | null>(null);
+  const [importName, setImportName] = useState('');
+
+  const exportMutation = useMutation({
+    mutationFn: () => {
+      if (!activeGuildId) throw new Error('Сервер не выбран.');
+      return exportSettings(activeGuildId);
+    },
+    onSuccess: ({ blob, filename }) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename ?? 'nexus-settings.json';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success('Настройки экспортированы');
+    },
+  });
+
+  const importMutation = useMutation({
+    mutationFn: () => {
+      if (!activeGuildId) throw new Error('Сервер не выбран.');
+      if (!importBundle) throw new Error('Файл не выбран.');
+      return importSettings(activeGuildId, importBundle);
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['guild', activeGuildId, 'settings'], data);
+      void queryClient.invalidateQueries({ queryKey: ['guild', activeGuildId] });
+      toast.success('Настройки импортированы', 'Проверьте разделы и сохраните правки.');
+      setImportBundle(null);
+      setImportName('');
+    },
+  });
+
+  const pickImportFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        throw new Error('Ожидается JSON-объект с настройками.');
+      }
+      importMutation.reset();
+      setImportBundle(parsed);
+      setImportName(file.name);
+    } catch (error) {
+      toast.error('Не удалось прочитать файл', getErrorMessage(error));
+    }
+  };
+
   const refresh = () => {
     if (!isDemo) void metaQuery.refetch();
     if (canAdmin) void settingsQuery.refetch();
@@ -159,6 +217,44 @@ export function SettingsPage() {
               Обновление…
             </span>
           ) : null}
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => exportMutation.mutate()}
+            disabled={!canAdmin || isDemo || exportMutation.isPending}
+            className="gap-2"
+          >
+            {exportMutation.isPending ? (
+              <Spinner className="h-3.5 w-3.5" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            Экспорт
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!canAdmin || isDemo || importMutation.isPending}
+            className="gap-2"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Импорт
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(event) => {
+              void pickImportFile(event.target.files?.[0]);
+              event.target.value = '';
+            }}
+          />
 
           <Button
             type="button"
@@ -302,6 +398,59 @@ export function SettingsPage() {
           </div>
         </motion.div>
       ) : null}
+
+      <Modal
+        open={Boolean(importBundle)}
+        onOpenChange={(open) => {
+          if (!open && !importMutation.isPending) {
+            setImportBundle(null);
+            setImportName('');
+          }
+        }}
+        title="Импортировать настройки?"
+        description={importName || undefined}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setImportBundle(null);
+                setImportName('');
+              }}
+              disabled={importMutation.isPending}
+            >
+              Отмена
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => importMutation.mutate()}
+              disabled={importMutation.isPending}
+              className="gap-2"
+            >
+              {importMutation.isPending ? <Spinner /> : <Upload />}
+              {importMutation.isPending ? 'Применяем…' : 'Импортировать'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-2.5 rounded-xl border border-warning/20 bg-warning/[0.06] px-3.5 py-3">
+            <Upload className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <p className="text-xs leading-relaxed text-warning/90">
+              Настройки модерации, логов, безопасности и сообщества из файла заменят текущие. Каналы
+              и роли должны существовать на этом сервере — иначе импорт вернёт ошибку.
+            </p>
+          </div>
+
+          {importMutation.isError ? (
+            <p className="rounded-lg border border-danger/20 bg-danger/[0.07] px-3 py-2 text-xs text-danger">
+              {getErrorMessage(importMutation.error)}
+            </p>
+          ) : null}
+        </div>
+      </Modal>
     </motion.div>
   );
 }

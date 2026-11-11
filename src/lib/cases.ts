@@ -1,4 +1,5 @@
 import { db, ensureGuild, parseJson, toJson, transaction } from '../storage/sqlite.js';
+import { addCaseEvent } from './caseEvents.js';
 
 /**
  * Модерационные кейсы — единая история наказаний сервера.
@@ -128,6 +129,12 @@ export function createCase(input: CreateCaseInput): ModCase {
       entry.active ? 1 : 0,
       toJson(entry.extra),
     );
+
+    addCaseEvent(entry.guildId, entry.id, entry.moderatorId, 'created', {
+      type: entry.type,
+      reason: entry.reason,
+      expiresAt: entry.expiresAt,
+    });
 
     return entry;
   });

@@ -1,6 +1,7 @@
 import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../core/types.js';
 import { getCase, updateCase } from '../../lib/cases.js';
+import { addCaseEvent } from '../../lib/caseEvents.js';
 import { replyActionResult } from '../../lib/reply.js';
 
 export default {
@@ -31,6 +32,12 @@ export default {
     }
 
     const updated = updateCase(interaction.guild.id, caseId, { reason });
+    if (updated) {
+      addCaseEvent(interaction.guild.id, caseId, interaction.user.id, 'reason', {
+        from: existing.reason,
+        to: reason,
+      });
+    }
     await replyActionResult(
       interaction,
       {

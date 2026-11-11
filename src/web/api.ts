@@ -9,6 +9,7 @@ import {
   type ModCase,
 } from '../lib/cases.js';
 import { casesToCsv } from '../lib/casesCsv.js';
+import { listCaseEvents } from '../lib/caseEvents.js';
 import { closeTicket, getTicket, listTickets, type Ticket } from '../lib/community.js';
 import { getModerationAnalytics } from '../lib/analytics.js';
 import { COLORS } from '../lib/embeds.js';
@@ -329,6 +330,19 @@ async function handleGuildRoute(
       return;
     }
 
+    // История изменений кейса — доступна всем, кто видит список кейсов.
+    if (segments.length === 3 && segments[2] === 'events') {
+      if (ctx.req.method !== 'GET') throw new HttpError(405, 'Метод не поддерживается.');
+      const caseId = Number(segments[1]);
+      if (!Number.isInteger(caseId) || caseId <= 0) {
+        throw new HttpError(400, 'Неверный номер кейса.');
+      }
+      const item = getCase(guild.id, caseId);
+      if (!item) throw new HttpError(404, 'Кейс не найден.');
+      sendJson(ctx.res, 200, { ok: true, events: listCaseEvents(guild.id, caseId) });
+      return;
+    }
+
     if (segments.length === 2) {
       const caseId = Number(segments[1]);
       if (!Number.isInteger(caseId) || caseId <= 0)
@@ -337,14 +351,18 @@ async function handleGuildRoute(
       if (ctx.req.method === 'GET') {
         const item = getCase(guild.id, caseId);
         if (!item) throw new HttpError(404, 'Кейс не найден.');
-        sendJson(ctx.res, 200, { ok: true, case: caseDto(guild, item) });
+        sendJson(ctx.res, 200, {
+          ok: true,
+          case: caseDto(guild, item),
+          events: listCaseEvents(guild.id, caseId),
+        });
         return;
       }
 
       if (ctx.req.method === 'PATCH') {
         requireModerate(access);
         const body = await readJson(ctx.req);
-        const updated = editCaseFromPanel(guild.id, caseId, body);
+        const updated = editCaseFromPanel(guild.id, caseId, body, session.user.id);
         sendJson(ctx.res, 200, { ok: true, case: caseDto(guild, updated) });
         return;
       }
@@ -527,6 +545,59 @@ async function handleGuildRoute(
   }
 
   if (section === 'settings') {
+    if (segments.length === 2 && segments[1] === 'export') {
+      requireAdmin(access);
+      if (ctx.req.method !== 'GET') throw new HttpError(405, 'Метод не поддерживается.');
+
+      const bundle = getSettingsBundle(guild);
+      const payload = {
+        version: 1,
+        guild: { id: guild.id, name: guild.name },
+        exportedAt: new Date().toISOString(),
+        moderation: bundle.moderation,
+        logs: bundle.logs,
+        security: bundle.security,
+        community: bundle.community,
+      };
+
+      ctx.res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="nexus-settings-${guild.id}-${new Date().toISOString().slice(0, 10)}.json"`,
+      );
+      ctx.res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      ctx.res.setHeader('Cache-Control', 'no-store');
+      ctx.res.end(JSON.stringify(payload, null, 2));
+      return;
+    }
+
+    if (segments.length === 2 && segments[1] === 'import') {
+      requireAdmin(access);
+      if (ctx.req.method !== 'POST') throw new HttpError(405, 'Метод не поддерживается.');
+
+      const body = await readJson(ctx.req);
+      const sectionObject = (key: string): Record<string, unknown> => {
+        const value = body[key];
+        if (value === undefined) return {};
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+          throw new HttpError(400, `Поле «${key}» должно быть объектом.`);
+        }
+        return value as Record<string, unknown>;
+      };
+
+      const moderation = sectionObject('moderation');
+      const logs = sectionObject('logs');
+      const security = sectionObject('security');
+      const community = sectionObject('community');
+
+      if (Object.keys(moderation).length > 0) updateModerationSettings(guild, moderation);
+      if (Object.keys(logs).length > 0) updateLogSettings(guild, logs);
+      if (Object.keys(security).length > 0) updateSecuritySettings(guild, security);
+      if (Object.keys(community).length > 0) updateCommunityFromPanel(guild, community);
+
+      sendJson(ctx.res, 200, { ok: true, ...getSettingsBundle(guild) });
+      return;
+    }
+
     if (segments.length === 1) {
       requireAdmin(access);
       if (ctx.req.method !== 'GET') throw new HttpError(405, 'Метод не поддерживается.');

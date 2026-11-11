@@ -159,3 +159,50 @@ export const api = {
   delete: <T>(path: string, options?: Omit<RequestOptions, 'method' | 'body'>) =>
     apiRequest<T>(path, { ...options, method: 'DELETE' }),
 };
+
+export interface DownloadResult {
+  blob: Blob;
+  filename: string | null;
+}
+
+/** Скачивание файла (CSV и т.п.) с той же авторизацией, что и API-запросы. */
+export async function apiDownload(
+  path: string,
+  options: Omit<RequestOptions, 'method' | 'body'> = {},
+): Promise<DownloadResult> {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const headers = new Headers(options.headers);
+  headers.set('Accept', 'text/csv,application/octet-stream');
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${normalizedPath}${buildQueryString(options.query)}`, {
+      headers,
+      credentials: 'include',
+      cache: 'no-store',
+      signal: options.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    throw new ApiError('Сервер недоступен. Проверьте соединение и попробуйте ещё раз.', 0);
+  }
+
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type') ?? '';
+    const payload: unknown = contentType.includes('application/json')
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => null);
+    if (response.status === 401) {
+      const state = useAuthStore.getState();
+      if (!isDemoGuildId(state.activeGuildId)) {
+        state.clearSession();
+        state.setSessionError('Сессия истекла. Войдите через Discord заново.');
+      }
+    }
+    throw new ApiError(extractErrorMessage(payload, response.status), response.status, payload);
+  }
+
+  const disposition = response.headers.get('content-disposition') ?? '';
+  const match = /filename="?([^";]+)"?/i.exec(disposition);
+  return { blob: await response.blob(), filename: match?.[1] ?? null };
+}

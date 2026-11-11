@@ -1,9 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { motion, type Variants } from 'framer-motion';
-import { RefreshCw, RotateCcw, Search, ServerOff, ShieldAlert, WifiOff, X } from 'lucide-react';
+import {
+  Download,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  ServerOff,
+  ShieldAlert,
+  WifiOff,
+  X,
+} from 'lucide-react';
 import { getErrorMessage } from '@/api/client';
-import { getCases, getMemberProfile } from '@/api/endpoints';
+import { downloadCasesCsv, getCases, getMemberProfile } from '@/api/endpoints';
 import type { CaseType, MemberActionType, RecentCase } from '@/api/types';
 import { EditCaseModal } from '@/components/cases/EditCaseModal';
 import { RecentCasesTable } from '@/components/dashboard/RecentCasesTable';
@@ -22,6 +31,7 @@ import { createDemoCaseList, isDemoGuildId } from '@/lib/demo-data';
 import { formatNumber, pluralizeRu } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { selectActiveGuild, useAuthStore } from '@/store/auth';
+import { toast } from '@/store/ui';
 
 const PAGE_SIZE = 25;
 
@@ -156,6 +166,28 @@ export function CasesPage() {
     setPage(1);
   };
 
+  const exportMutation = useMutation({
+    mutationFn: () => {
+      if (!activeGuildId) throw new Error('Сервер не выбран.');
+      return downloadCasesCsv(activeGuildId, {
+        type: type || undefined,
+        active: status === '' ? undefined : status === 'active',
+        q: debouncedSearch || undefined,
+      });
+    },
+    onSuccess: ({ blob, filename }) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename ?? 'nexus-cases.csv';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success('Экспорт готов', 'CSV-файл с кейсами скачан.');
+    },
+  });
+
   const openCase = (item: RecentCase) => {
     setSelectedCase(item);
     setEditOpen(true);
@@ -216,6 +248,25 @@ export function CasesPage() {
               Обновление…
             </span>
           ) : null}
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => exportMutation.mutate()}
+            disabled={!activeGuildId || isDemo || exportMutation.isPending}
+            className="gap-2"
+            title={
+              isDemo ? 'Экспорт доступен на реальном сервере' : 'Скачать CSV по текущим фильтрам'
+            }
+          >
+            {exportMutation.isPending ? (
+              <Spinner className="h-3.5 w-3.5" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            Экспорт
+          </Button>
 
           <Button
             type="button"

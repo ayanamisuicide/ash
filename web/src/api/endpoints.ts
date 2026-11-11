@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api, apiDownload, type DownloadResult } from './client';
 import type {
   ActionResult,
   ActivityResponse,
@@ -83,6 +83,22 @@ export function getCases(
     query: {
       page: params.page,
       pageSize: params.pageSize,
+      type: params.type,
+      active: params.active,
+      q: params.q,
+    },
+    signal,
+  });
+}
+
+/** Скачивание кейсов в CSV по текущим фильтрам */
+export function downloadCasesCsv(
+  guildId: string,
+  params: Omit<CaseListParams, 'page' | 'pageSize'> = {},
+  signal?: AbortSignal,
+): Promise<DownloadResult> {
+  return apiDownload(`/api/guilds/${encodeURIComponent(guildId)}/cases/export`, {
+    query: {
       type: params.type,
       active: params.active,
       q: params.q,

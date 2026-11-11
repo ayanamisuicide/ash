@@ -1,6 +1,14 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { BotClient } from '../core/client.js';
-import { caseTypeLabel, getCase, isCaseType, searchCases, type ModCase } from '../lib/cases.js';
+import {
+  caseTypeLabel,
+  getCase,
+  isCaseType,
+  listCasesForExport,
+  searchCases,
+  type ModCase,
+} from '../lib/cases.js';
+import { casesToCsv } from '../lib/casesCsv.js';
 import { getAppeal, listAppeals, type Appeal, type AppealStatus } from '../lib/appeals.js';
 import { ChannelType, type Guild } from 'discord.js';
 import {
@@ -145,6 +153,25 @@ function parsePositiveInt(value: string | null, fallback: number): number {
   return Number.isInteger(number) && number > 0 ? number : fallback;
 }
 
+/** Фильтры списка кейсов — общие для JSON-выдачи и CSV-экспорта. */
+function parseCaseFilters(url: URL) {
+  const typeRaw = url.searchParams.get('type');
+  if (typeRaw && !isCaseType(typeRaw)) throw new HttpError(400, 'Неверный тип кейса.');
+
+  const activeRaw = url.searchParams.get('active');
+  let active: boolean | null = null;
+  if (activeRaw === 'true') active = true;
+  if (activeRaw === 'false') active = false;
+
+  return {
+    type: typeRaw && isCaseType(typeRaw) ? typeRaw : null,
+    userId: url.searchParams.get('userId'),
+    moderatorId: url.searchParams.get('moderatorId'),
+    active,
+    query: url.searchParams.get('q'),
+  };
+}
+
 function parseStatus(value: string | null): AppealStatus | undefined {
   if (!value || value === 'all') return undefined;
   if (value === 'pending' || value === 'approved' || value === 'rejected') return value;
@@ -245,22 +272,10 @@ async function handleGuildRoute(
     if (segments.length === 1) {
       if (ctx.req.method !== 'GET') throw new HttpError(405, 'Метод не поддерживается.');
 
-      const typeRaw = ctx.url.searchParams.get('type');
-      if (typeRaw && !isCaseType(typeRaw)) throw new HttpError(400, 'Неверный тип кейса.');
-
-      const activeRaw = ctx.url.searchParams.get('active');
-      let active: boolean | null = null;
-      if (activeRaw === 'true') active = true;
-      if (activeRaw === 'false') active = false;
-
       const result = searchCases(guild.id, {
         page: parsePositiveInt(ctx.url.searchParams.get('page'), 1),
         pageSize: parsePositiveInt(ctx.url.searchParams.get('pageSize'), 25),
-        type: typeRaw && isCaseType(typeRaw) ? typeRaw : null,
-        userId: ctx.url.searchParams.get('userId'),
-        moderatorId: ctx.url.searchParams.get('moderatorId'),
-        active,
-        query: ctx.url.searchParams.get('q'),
+        ...parseCaseFilters(ctx.url),
       });
 
       sendJson(ctx.res, 200, {
@@ -271,6 +286,23 @@ async function handleGuildRoute(
         pageSize: result.pageSize,
         pages: result.pages,
       });
+      return;
+    }
+
+    // CSV-экспорт по тем же фильтрам, что и список. Отдаём до разбора
+    // числового id, иначе «export» попадёт в проверку номера кейса.
+    if (segments.length === 2 && segments[1] === 'export') {
+      if (ctx.req.method !== 'GET') throw new HttpError(405, 'Метод не поддерживается.');
+
+      const items = listCasesForExport(guild.id, parseCaseFilters(ctx.url));
+      ctx.res.statusCode = 200;
+      ctx.res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      ctx.res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="nexus-cases-${guild.id}-${new Date().toISOString().slice(0, 10)}.csv"`,
+      );
+      ctx.res.setHeader('Cache-Control', 'no-store');
+      ctx.res.end(`\uFEFF${casesToCsv(items)}`);
       return;
     }
 

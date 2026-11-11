@@ -178,11 +178,11 @@ function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
-/** Поиск кейсов с фильтрами и пагинацией для веб-панели */
-export function searchCases(guildId: string, options: CaseSearchOptions = {}): CaseSearchResult {
-  const page = Math.max(1, Math.floor(options.page ?? 1));
-  const pageSize = Math.min(100, Math.max(1, Math.floor(options.pageSize ?? 25)));
-
+/** Собирает WHERE по фильтрам кейсов — общий для поиска и экспорта. */
+function buildCaseFilter(
+  guildId: string,
+  options: Omit<CaseSearchOptions, 'page' | 'pageSize'>,
+): { clause: string; values: Array<string | number> } {
   const where = ['guild_id = ?'];
   const values: Array<string | number> = [guildId];
 
@@ -212,7 +212,16 @@ export function searchCases(guildId: string, options: CaseSearchOptions = {}): C
     values.push(like, like, like);
   }
 
-  const clause = where.join(' AND ');
+  return { clause: where.join(' AND '), values };
+}
+
+/** Поиск кейсов с фильтрами и пагинацией для веб-панели */
+export function searchCases(guildId: string, options: CaseSearchOptions = {}): CaseSearchResult {
+  const page = Math.max(1, Math.floor(options.page ?? 1));
+  const pageSize = Math.min(100, Math.max(1, Math.floor(options.pageSize ?? 25)));
+
+  const { clause, values } = buildCaseFilter(guildId, options);
+
   const totalRow = db
     .prepare(`SELECT COUNT(*) AS count FROM cases WHERE ${clause}`)
     .get(...values) as { count: number } | undefined;
@@ -230,6 +239,18 @@ export function searchCases(guildId: string, options: CaseSearchOptions = {}): C
     pageSize,
     pages,
   };
+}
+
+/** Все кейсы по фильтру без пагинации — для CSV-экспорта из панели. */
+export function listCasesForExport(
+  guildId: string,
+  options: Omit<CaseSearchOptions, 'page' | 'pageSize'> = {},
+): ModCase[] {
+  const { clause, values } = buildCaseFilter(guildId, options);
+  const rows = db
+    .prepare(`SELECT * FROM cases WHERE ${clause} ORDER BY id DESC LIMIT 10000`)
+    .all(...values) as unknown as CaseRow[];
+  return rows.map(rowToCase);
 }
 
 export function updateCase(

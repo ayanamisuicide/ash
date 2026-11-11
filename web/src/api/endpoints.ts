@@ -24,6 +24,9 @@ import type {
   SecuritySettingsResponse,
   SecuritySettingsUpdate,
   SettingsBundleResponse,
+  TicketCloseResponse,
+  TicketListResponse,
+  TicketStatus,
   UpdateCaseInput,
 } from './types';
 
@@ -205,6 +208,30 @@ export function reviewAppeal(
     `/api/guilds/${encodeURIComponent(guildId)}/appeals/${appealId}/review`,
     { approve, comment },
   );
+}
+
+/** Тикеты сервера с фильтром по статусу */
+export function getTickets(
+  guildId: string,
+  status?: TicketStatus,
+  signal?: AbortSignal,
+): Promise<TicketListResponse> {
+  return api.get<TicketListResponse>(`/api/guilds/${encodeURIComponent(guildId)}/tickets`, {
+    query: { status },
+    signal,
+  });
+}
+
+/** Закрытие тикета из панели (транскрипт сохраняется, канал удаляется) */
+export function closeTicket(guildId: string, channelId: string): Promise<TicketCloseResponse> {
+  return api.post<TicketCloseResponse>(
+    `/api/guilds/${encodeURIComponent(guildId)}/tickets/${encodeURIComponent(channelId)}/close`,
+  );
+}
+
+/** URL HTML-транскрипта тикета для открытия в новой вкладке */
+export function ticketTranscriptUrl(guildId: string, channelId: string): string {
+  return `/api/guilds/${encodeURIComponent(guildId)}/tickets/${encodeURIComponent(channelId)}/transcript`;
 }
 
 /** Полный бандл настроек сервера. Доступен только администраторам. */

@@ -3,6 +3,7 @@ import {
   Inbox,
   LayoutDashboard,
   Settings2,
+  Ticket,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Обзор', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Кейсы', href: '/cases', icon: ClipboardList },
   { label: 'Участники', href: '/members', icon: Users },
+  { label: 'Тикеты', href: '/tickets', icon: Ticket },
   { label: 'Апелляции', href: '/appeals', icon: Inbox },
   { label: 'Настройки', href: '/settings', icon: Settings2, adminOnly: true },
 ];
@@ -44,6 +46,10 @@ const PAGE_META: Record<string, PageMeta> = {
   '/appeals': {
     title: 'Апелляции',
     description: 'Очередь обращений и решения по разбанам.',
+  },
+  '/tickets': {
+    title: 'Тикеты',
+    description: 'Обращения в поддержку: статусы, транскрипты и закрытие из панели.',
   },
   '/settings': {
     title: 'Настройки',

@@ -25,6 +25,9 @@ const MembersPage = lazy(() =>
 const AppealsPage = lazy(() =>
   import('@/pages/Appeals').then((module) => ({ default: module.AppealsPage })),
 );
+const TicketsPage = lazy(() =>
+  import('@/pages/Tickets').then((module) => ({ default: module.TicketsPage })),
+);
 const SettingsPage = lazy(() =>
   import('@/pages/Settings').then((module) => ({ default: module.SettingsPage })),
 );
@@ -49,6 +52,7 @@ export default function App() {
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/cases" element={<CasesPage />} />
                 <Route path="/members" element={<MembersPage />} />
+                <Route path="/tickets" element={<TicketsPage />} />
                 <Route path="/appeals" element={<AppealsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>

@@ -9,6 +9,14 @@ import {
   type ModCase,
 } from '../lib/cases.js';
 import { casesToCsv } from '../lib/casesCsv.js';
+import { closeTicket, getTicket, listTickets, type Ticket } from '../lib/community.js';
+import { COLORS } from '../lib/embeds.js';
+import { logTicket } from '../features/tickets.js';
+import {
+  archiveTicketTranscript,
+  getTicketTranscript,
+  hasTicketTranscript,
+} from '../lib/ticketTranscript.js';
 import { getAppeal, listAppeals, type Appeal, type AppealStatus } from '../lib/appeals.js';
 import { ChannelType, type Guild } from 'discord.js';
 import {
@@ -144,6 +152,20 @@ function appealDto(guildId: string, item: Appeal) {
     ...item,
     caseType: punished?.type ?? null,
     caseReason: punished?.reason ?? null,
+  };
+}
+
+function ticketDto(guild: Guild, item: Ticket) {
+  const channel = guild.channels.cache.get(item.channelId);
+  const user =
+    guild.members.cache.get(item.userId)?.user ?? guild.client.users.cache.get(item.userId);
+
+  return {
+    ...item,
+    channelName: channel?.name ?? null,
+    channelExists: Boolean(channel),
+    userName: user?.username ?? null,
+    hasTranscript: hasTicketTranscript(guild.id, item.channelId),
   };
 }
 
@@ -336,6 +358,76 @@ async function handleGuildRoute(
     // те же данные, что и на обзоре, без требования ModerateMembers.
     sendJson(ctx.res, 200, { ok: true, ...getActivityOverview(guild) });
     return;
+  }
+
+  if (section === 'tickets') {
+    if (segments.length === 1) {
+      if (ctx.req.method !== 'GET') throw new HttpError(405, 'Метод не поддерживается.');
+
+      const statusRaw = ctx.url.searchParams.get('status');
+      if (statusRaw && statusRaw !== 'open' && statusRaw !== 'closed') {
+        throw new HttpError(400, 'Неверный статус тикета.');
+      }
+      const status = statusRaw === 'open' || statusRaw === 'closed' ? statusRaw : undefined;
+      const items = listTickets(guild.id, status).map((ticket) => ticketDto(guild, ticket));
+      sendJson(ctx.res, 200, { ok: true, items });
+      return;
+    }
+
+    const channelId = segments[1] ?? '';
+
+    if (segments.length === 3 && segments[2] === 'transcript') {
+      if (ctx.req.method !== 'GET') throw new HttpError(405, 'Метод не поддерживается.');
+      requireModerate(access);
+
+      const html = getTicketTranscript(guild.id, channelId);
+      if (!html) throw new HttpError(404, 'Транскрипт не найден.');
+      ctx.res.statusCode = 200;
+      ctx.res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      ctx.res.setHeader('Content-Disposition', `inline; filename="ticket-${channelId}.html"`);
+      ctx.res.setHeader('Cache-Control', 'no-store');
+      ctx.res.end(html);
+      return;
+    }
+
+    if (segments.length === 3 && segments[2] === 'close') {
+      if (ctx.req.method !== 'POST') throw new HttpError(405, 'Метод не поддерживается.');
+      requireModerate(access);
+
+      const ticket = getTicket(guild.id, channelId);
+      if (!ticket) throw new HttpError(404, 'Тикет не найден.');
+      if (ticket.status !== 'open') throw new HttpError(409, 'Тикет уже закрыт.');
+
+      closeTicket(guild.id, ticket.channelId);
+      const closed = getTicket(guild.id, ticket.channelId) ?? {
+        ...ticket,
+        status: 'closed' as const,
+        closedAt: Date.now(),
+      };
+      const archived = await archiveTicketTranscript(guild, closed);
+
+      await logTicket(guild, '🎫 Тикет закрыт', COLORS.danger, [
+        { name: 'Канал', value: `<#${ticket.channelId}>`, inline: true },
+        { name: 'Автор', value: `<@${ticket.userId}>`, inline: true },
+        { name: 'Закрыл', value: `<@${session.user.id}> (веб-панель)`, inline: true },
+      ]);
+
+      const channel = guild.channels.cache.get(ticket.channelId);
+      if (channel && 'delete' in channel) {
+        setTimeout(() => {
+          void channel.delete('Тикет закрыт из панели').catch(() => undefined);
+        }, 3_000);
+      }
+
+      sendJson(ctx.res, 200, {
+        ok: true,
+        ticket: ticketDto(guild, closed),
+        transcript: archived,
+      });
+      return;
+    }
+
+    throw new HttpError(404, 'Не найдено.');
   }
 
   if (section === 'members') {

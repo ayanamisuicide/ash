@@ -65,6 +65,25 @@ test('community settings: награды за уровни нормализую�
   assert.equal(settings.levelRewardsReplacePrevious, false);
 });
 
+test('tickets: открытие, закрытие и список', () => {
+  const openTicket = community.createTicket(guildId, 'channel-open', userId);
+  assert.equal(openTicket.status, 'open');
+  assert.equal(openTicket.closedAt, null);
+  assert.equal(community.findOpenTicket(guildId, userId)?.channelId, 'channel-open');
+
+  community.closeTicket(guildId, 'channel-open');
+  const closed = community.getTicket(guildId, 'channel-open');
+  assert.equal(closed?.status, 'closed');
+  assert.ok(closed?.closedAt);
+
+  const openAgain = community.createTicket(guildId, 'channel-open-2', 'user-2');
+  assert.equal(openAgain.status, 'open');
+  const tickets = community.listTickets(guildId);
+  assert.equal(tickets.length, 2);
+  assert.equal(community.listTickets(guildId, 'open').length, 1);
+  assert.equal(community.listTickets(guildId, 'closed').length, 1);
+});
+
 test('levels: xp, level and leaderboard', () => {
   const first = community.addXp(guildId, userId, 100, 0);
   assert.equal(first.gained, true);

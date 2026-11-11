@@ -260,6 +260,32 @@ export interface AppealReviewResult {
   message: string;
 }
 
+export type TicketStatus = 'open' | 'closed';
+
+/** GET /api/guilds/:guildId/tickets */
+export interface Ticket {
+  channelId: string;
+  userId: string;
+  status: TicketStatus;
+  createdAt: number;
+  closedAt: number | null;
+  channelName: string | null;
+  channelExists: boolean;
+  userName: string | null;
+  hasTranscript: boolean;
+}
+
+export interface TicketListResponse {
+  ok: true;
+  items: Ticket[];
+}
+
+export interface TicketCloseResponse {
+  ok: true;
+  ticket: Ticket;
+  transcript: boolean;
+}
+
 export type WarnActionType = 'timeout' | 'mute' | 'kick' | 'ban' | 'tempban';
 
 export interface WarnActionSettings {

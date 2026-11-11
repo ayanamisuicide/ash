@@ -620,6 +620,7 @@ export interface Ticket {
   userId: string;
   status: 'open' | 'closed';
   createdAt: number;
+  closedAt: number | null;
 }
 
 export function createTicket(guildId: string, channelId: string, userId: string): Ticket {
@@ -629,6 +630,7 @@ export function createTicket(guildId: string, channelId: string, userId: string)
     userId,
     status: 'open',
     createdAt: Date.now(),
+    closedAt: null,
   };
   db.prepare(
     `
@@ -643,23 +645,55 @@ export function getTicket(guildId: string, channelId: string): Ticket | null {
   const row = db
     .prepare('SELECT * FROM tickets WHERE guild_id = ? AND channel_id = ?')
     .get(guildId, channelId) as
-    { channel_id: string; user_id: string; status: string; created_at: number } | undefined;
+    | {
+        channel_id: string;
+        user_id: string;
+        status: string;
+        created_at: number;
+        closed_at: number | null;
+      }
+    | undefined;
   if (!row) return null;
   return {
     channelId: row.channel_id,
     userId: row.user_id,
     status: row.status === 'closed' ? 'closed' : 'open',
     createdAt: Number(row.created_at),
+    closedAt: row.closed_at === null ? null : Number(row.closed_at),
   };
 }
 
 export function closeTicket(guildId: string, channelId: string): void {
   db.prepare(
     `
-    UPDATE tickets SET status = 'closed'
-    WHERE guild_id = ? AND channel_id = ?
+    UPDATE tickets SET status = 'closed', closed_at = ?
+    WHERE guild_id = ? AND channel_id = ? AND status = 'open'
   `,
-  ).run(guildId, channelId);
+  ).run(Date.now(), guildId, channelId);
+}
+
+export function listTickets(guildId: string, status?: 'open' | 'closed'): Ticket[] {
+  const rows = (status
+    ? db
+        .prepare('SELECT * FROM tickets WHERE guild_id = ? AND status = ? ORDER BY created_at DESC')
+        .all(guildId, status)
+    : db
+        .prepare('SELECT * FROM tickets WHERE guild_id = ? ORDER BY created_at DESC')
+        .all(guildId)) as unknown as Array<{
+    channel_id: string;
+    user_id: string;
+    status: string;
+    created_at: number;
+    closed_at: number | null;
+  }>;
+
+  return rows.map((row) => ({
+    channelId: row.channel_id,
+    userId: row.user_id,
+    status: row.status === 'closed' ? 'closed' : 'open',
+    createdAt: Number(row.created_at),
+    closedAt: row.closed_at === null ? null : Number(row.closed_at),
+  }));
 }
 
 export function findOpenTicket(guildId: string, userId: string): Ticket | null {
@@ -672,13 +706,21 @@ export function findOpenTicket(guildId: string, userId: string): Ticket | null {
     `,
     )
     .get(guildId, userId) as
-    { channel_id: string; user_id: string; status: string; created_at: number } | undefined;
+    | {
+        channel_id: string;
+        user_id: string;
+        status: string;
+        created_at: number;
+        closed_at: number | null;
+      }
+    | undefined;
   if (!row) return null;
   return {
     channelId: row.channel_id,
     userId: row.user_id,
     status: 'open',
     createdAt: Number(row.created_at),
+    closedAt: null,
   };
 }
 

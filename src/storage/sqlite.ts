@@ -376,6 +376,21 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    version: 12,
+    up: () => {
+      db.exec('ALTER TABLE tickets ADD COLUMN closed_at INTEGER;');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS ticket_transcripts (
+          guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+          channel_id TEXT NOT NULL,
+          html TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (guild_id, channel_id)
+        );
+      `);
+    },
+  },
 ];
 
 function currentSchemaVersion(): number {

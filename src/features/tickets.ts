@@ -17,8 +17,9 @@ import {
 } from '../lib/community.js';
 import { logCard } from '../lib/logCard.js';
 import { ticketCreated } from '../lib/responses.js';
+import { archiveTicketTranscript } from '../lib/ticketTranscript.js';
 
-async function logTicket(
+export async function logTicket(
   guild: Guild,
   title: string,
   color: number,
@@ -198,6 +199,12 @@ export async function handleTicketButton(interaction: ButtonInteraction<'cached'
     }
 
     closeTicket(guild.id, ticket.channelId);
+    const closedTicket = getTicket(guild.id, ticket.channelId) ?? {
+      ...ticket,
+      status: 'closed' as const,
+      closedAt: Date.now(),
+    };
+    await archiveTicketTranscript(guild, closedTicket);
     await logTicket(guild, '🎫 Тикет закрыт', COLORS.danger, [
       { name: 'Канал', value: `<#${ticket.channelId}>`, inline: true },
       { name: 'Автор', value: `<@${ticket.userId}>`, inline: true },
@@ -240,6 +247,12 @@ export async function closeTicketCommand(
   }
 
   closeTicket(guild.id, ticket.channelId);
+  const closedTicket = getTicket(guild.id, ticket.channelId) ?? {
+    ...ticket,
+    status: 'closed' as const,
+    closedAt: Date.now(),
+  };
+  await archiveTicketTranscript(guild, closedTicket);
   await logTicket(guild, '🎫 Тикет закрыт', COLORS.danger, [
     { name: 'Канал', value: `<#${ticket.channelId}>`, inline: true },
     { name: 'Автор', value: `<@${ticket.userId}>`, inline: true },

@@ -10,6 +10,8 @@ import type {
   MemberSummary,
   MemberWarn,
   RecentCase,
+  Ticket,
+  TicketListResponse,
 } from '@/api/types';
 import { caseTypeLabel } from '@/lib/cases';
 import { DEMO_ROLES } from '@/lib/demo-settings';
@@ -542,7 +544,49 @@ const reviewedAppeals: Appeal[] = [
 ];
 
 export const DEMO_APPEALS: Appeal[] = [...pendingAppeals, ...reviewedAppeals];
+const demoTickets: Ticket[] = [
+  {
+    channelId: '100000000000000201',
+    userId: '428512736094112771',
+    status: 'open',
+    createdAt: now - 25 * MINUTE,
+    closedAt: null,
+    channelName: 'ticket-aya',
+    channelExists: true,
+    userName: 'aya',
+    hasTranscript: false,
+  },
+  {
+    channelId: '100000000000000202',
+    userId: '583927104662118405',
+    status: 'open',
+    createdAt: now - 2 * HOUR,
+    closedAt: null,
+    channelName: 'ticket-nova',
+    channelExists: true,
+    userName: 'nova',
+    hasTranscript: false,
+  },
+  {
+    channelId: '100000000000000203',
+    userId: '612048395771904002',
+    status: 'closed',
+    createdAt: now - 2 * DAY,
+    closedAt: now - 30 * HOUR,
+    channelName: 'ticket-ren',
+    channelExists: false,
+    userName: 'ren',
+    hasTranscript: true,
+  },
+];
 
+export function createDemoTickets(status: 'open' | 'all'): TicketListResponse {
+  return {
+    ok: true,
+    items:
+      status === 'open' ? demoTickets.filter((ticket) => ticket.status === 'open') : demoTickets,
+  };
+}
 export function createDemoAppeals(_guildId: string, status: 'pending' | 'all'): AppealListResponse {
   return {
     ok: true,

@@ -8,6 +8,7 @@ import {
 import type { AnyBotEvent } from '../core/types.js';
 import { getCommunitySettings, recordMessage } from '../lib/community.js';
 import { sendCommunityTemplate } from '../lib/communityMessages.js';
+import { applyLevelRewards } from '../lib/levelRewards.js';
 
 const events: AnyBotEvent[] = [
   {
@@ -74,6 +75,8 @@ const events: AnyBotEvent[] = [
       const member =
         message.member ?? (await guild.members.fetch(message.author.id).catch(() => null));
       if (!member) return;
+
+      await applyLevelRewards(guild, member, gained.before.level, gained.after.level);
 
       await sendCommunityTemplate(
         settings.levelupChannelId ?? message.channelId,

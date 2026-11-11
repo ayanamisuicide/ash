@@ -169,6 +169,11 @@ const community: CommunitySettings = {
   messageCooldownSec: 0,
   voiceXp: 10,
   voiceTrackingEnabled: true,
+  levelRewards: [
+    { level: 5, roleId: '100000000000000105' },
+    { level: 20, roleId: '100000000000000103' },
+  ],
+  levelRewardsReplacePrevious: true,
   tempVoiceChannelId: '100000000000000021',
   ticketCategoryId: '100000000000000011',
   ticketLogChannelId: '100000000000000003',

@@ -491,6 +491,35 @@ export function updateCommunityFromPanel(
   if (body.voiceTrackingEnabled !== undefined) {
     patch.voiceTrackingEnabled = asBoolean(body.voiceTrackingEnabled, 'voiceTrackingEnabled');
   }
+  if (body.levelRewards !== undefined) {
+    if (!Array.isArray(body.levelRewards)) {
+      throw new HttpError(400, 'Награды за уровни должны быть массивом.');
+    }
+    if (body.levelRewards.length > 100) {
+      throw new HttpError(400, 'Наград за уровни может быть не больше 100.');
+    }
+
+    const rewards: Array<{ level: number; roleId: string }> = [];
+    for (const item of body.levelRewards) {
+      const raw = asObject(item, 'Награда за уровень');
+      const level = asInt(raw.level, 'Уровень награды', 1, 1_000);
+      const rewardRole = role(guild, raw.roleId, 'Роль награды');
+      if (!rewardRole) throw new HttpError(400, 'Укажите роль награды.');
+      if (rewardRole.managed) throw new HttpError(400, 'Управляемую роль выдать нельзя.');
+      if (rewards.some((reward) => reward.level === level || reward.roleId === rewardRole.id)) {
+        continue;
+      }
+      rewards.push({ level, roleId: rewardRole.id });
+    }
+
+    patch.levelRewards = rewards.sort((a, b) => a.level - b.level);
+  }
+  if (body.levelRewardsReplacePrevious !== undefined) {
+    patch.levelRewardsReplacePrevious = asBoolean(
+      body.levelRewardsReplacePrevious,
+      'levelRewardsReplacePrevious',
+    );
+  }
   if (body.tempVoiceChannelId !== undefined) {
     patch.tempVoiceChannelId = voiceChannelId(
       guild,

@@ -365,6 +365,17 @@ const MIGRATIONS: Migration[] = [
       db.exec('ALTER TABLE appeals ADD COLUMN review_comment TEXT;');
     },
   },
+  {
+    version: 11,
+    up: () => {
+      db.exec(
+        "ALTER TABLE community_settings ADD COLUMN level_rewards TEXT NOT NULL DEFAULT '[]';",
+      );
+      db.exec(
+        'ALTER TABLE community_settings ADD COLUMN level_rewards_replace_previous INTEGER NOT NULL DEFAULT 1;',
+      );
+    },
+  },
 ];
 
 function currentSchemaVersion(): number {

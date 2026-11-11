@@ -391,6 +391,11 @@ export interface SettingsCatalog {
   logEvents: Record<LogEventKey, LogEventCatalogEntry>;
 }
 
+export interface LevelReward {
+  level: number;
+  roleId: string;
+}
+
 export interface CommunitySettings {
   welcomeChannelId: string | null;
   welcomeMessage: string;
@@ -407,6 +412,8 @@ export interface CommunitySettings {
   /** XP за каждые 5 минут в голосе */
   voiceXp: number;
   voiceTrackingEnabled: boolean;
+  levelRewards: LevelReward[];
+  levelRewardsReplacePrevious: boolean;
   tempVoiceChannelId: string | null;
   ticketCategoryId: string | null;
   ticketLogChannelId: string | null;
@@ -460,6 +467,8 @@ export interface CommunitySettingsUpdate {
   messageCooldownSec?: number;
   voiceXp?: number;
   voiceTrackingEnabled?: boolean;
+  levelRewards?: LevelReward[];
+  levelRewardsReplacePrevious?: boolean;
   tempVoiceChannelId?: string | null;
   ticketCategoryId?: string | null;
   ticketLogChannelId?: string | null;

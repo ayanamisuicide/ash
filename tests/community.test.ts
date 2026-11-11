@@ -30,6 +30,8 @@ test('community settings: defaults and updates', () => {
   assert.equal(defaults.messageCooldownSec, 0);
   assert.equal(defaults.voiceXp, 10);
   assert.equal(defaults.voiceTrackingEnabled, true);
+  assert.deepEqual(defaults.levelRewards, []);
+  assert.equal(defaults.levelRewardsReplacePrevious, true);
 
   community.updateCommunitySettings(guildId, {
     welcomeChannelId: 'welcome-channel',
@@ -42,6 +44,25 @@ test('community settings: defaults and updates', () => {
   assert.equal(updated.welcomeChannelId, 'welcome-channel');
   assert.deepEqual(updated.autoroleIds, ['role-1', 'role-2']);
   assert.equal(updated.levelingEnabled, true);
+});
+
+test('community settings: награды за уровни нормализуются', () => {
+  community.updateCommunitySettings(guildId, {
+    levelRewards: [
+      { level: 10, roleId: 'role-10' },
+      { level: 5, roleId: 'role-5' },
+      { level: 5, roleId: 'role-5-duplicate' },
+      { level: 0, roleId: 'role-invalid' },
+    ],
+    levelRewardsReplacePrevious: false,
+  });
+
+  const settings = community.getCommunitySettings(guildId);
+  assert.deepEqual(settings.levelRewards, [
+    { level: 5, roleId: 'role-5' },
+    { level: 10, roleId: 'role-10' },
+  ]);
+  assert.equal(settings.levelRewardsReplacePrevious, false);
 });
 
 test('levels: xp, level and leaderboard', () => {

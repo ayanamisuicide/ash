@@ -1,5 +1,10 @@
 import { db, ensureGuild, parseJson, toJson } from '../storage/sqlite.js';
 
+export interface LevelReward {
+  level: number;
+  roleId: string;
+}
+
 export interface CommunitySettings {
   welcomeChannelId: string | null;
   welcomeMessage: string;
@@ -17,6 +22,10 @@ export interface CommunitySettings {
   voiceXp: number;
   /** Считать время в голосовых каналах */
   voiceTrackingEnabled: boolean;
+  /** Роли за достижение уровня */
+  levelRewards: LevelReward[];
+  /** Снимать предыдущую награду при получении новой */
+  levelRewardsReplacePrevious: boolean;
   tempVoiceChannelId: string | null;
   ticketCategoryId: string | null;
   ticketLogChannelId: string | null;
@@ -36,6 +45,8 @@ export const DEFAULT_COMMUNITY_SETTINGS: CommunitySettings = {
   messageCooldownSec: 0,
   voiceXp: 10,
   voiceTrackingEnabled: true,
+  levelRewards: [],
+  levelRewardsReplacePrevious: true,
   tempVoiceChannelId: null,
   ticketCategoryId: null,
   ticketLogChannelId: null,
@@ -56,6 +67,8 @@ interface CommunityRow {
   message_cooldown_sec: number | null;
   voice_xp: number | null;
   voice_tracking_enabled: number | null;
+  level_rewards: string | null;
+  level_rewards_replace_previous: number | null;
   temp_voice_channel_id: string | null;
   ticket_category_id: string | null;
   ticket_log_channel_id: string | null;
@@ -80,6 +93,30 @@ function invalidate(guildId: string): void {
 function ensureRow(guildId: string): void {
   ensureGuild(guildId);
   db.prepare('INSERT OR IGNORE INTO community_settings (guild_id) VALUES (?)').run(guildId);
+}
+
+function parseLevelRewards(raw: string | null | undefined): LevelReward[] {
+  if (!raw) return [];
+  const parsed = parseJson<unknown>(raw, []);
+  if (!Array.isArray(parsed)) return [];
+
+  const levels = new Set<number>();
+  const roles = new Set<string>();
+  const rewards: LevelReward[] = [];
+
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') continue;
+    const level = Number((item as { level?: unknown }).level);
+    const roleId = (item as { roleId?: unknown }).roleId;
+    if (!Number.isInteger(level) || level < 1 || level > 1_000) continue;
+    if (typeof roleId !== 'string' || !roleId) continue;
+    if (levels.has(level) || roles.has(roleId)) continue;
+    levels.add(level);
+    roles.add(roleId);
+    rewards.push({ level, roleId });
+  }
+
+  return rewards.sort((a, b) => a.level - b.level);
 }
 
 export function getCommunitySettings(guildId: string): CommunitySettings {
@@ -113,6 +150,8 @@ export function getCommunitySettings(guildId: string): CommunitySettings {
       Number(
         row?.voice_tracking_enabled ?? (DEFAULT_COMMUNITY_SETTINGS.voiceTrackingEnabled ? 1 : 0),
       ) === 1,
+    levelRewards: parseLevelRewards(row?.level_rewards),
+    levelRewardsReplacePrevious: Number(row?.level_rewards_replace_previous ?? 1) === 1,
     tempVoiceChannelId: row?.temp_voice_channel_id ?? null,
     ticketCategoryId: row?.ticket_category_id ?? null,
     ticketLogChannelId: row?.ticket_log_channel_id ?? null,
@@ -130,6 +169,7 @@ export function updateCommunitySettings(
   ensureRow(guildId);
   const current = getCommunitySettings(guildId);
   const next = { ...current, ...patch };
+  next.levelRewards = parseLevelRewards(JSON.stringify(next.levelRewards ?? []));
 
   db.prepare(
     `
@@ -146,6 +186,8 @@ export function updateCommunitySettings(
       message_cooldown_sec = ?,
       voice_xp = ?,
       voice_tracking_enabled = ?,
+      level_rewards = ?,
+      level_rewards_replace_previous = ?,
       temp_voice_channel_id = ?,
       ticket_category_id = ?,
       ticket_log_channel_id = ?,
@@ -165,6 +207,8 @@ export function updateCommunitySettings(
     Math.max(0, Math.floor(next.messageCooldownSec)),
     Math.max(0, Math.floor(next.voiceXp)),
     next.voiceTrackingEnabled ? 1 : 0,
+    toJson(next.levelRewards),
+    next.levelRewardsReplacePrevious ? 1 : 0,
     next.tempVoiceChannelId,
     next.ticketCategoryId,
     next.ticketLogChannelId,

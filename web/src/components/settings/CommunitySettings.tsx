@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MessageSquare,
+  Medal,
   Mic,
   Plus,
   Save,
@@ -10,6 +11,7 @@ import {
   Ticket,
   UserPlus,
   Users,
+  X,
 } from 'lucide-react';
 import { getErrorMessage } from '@/api/client';
 import { updateCommunitySettings } from '@/api/endpoints';
@@ -135,6 +137,8 @@ export function CommunitySettings({
     settings.ticketSupportRoleId ?? '',
   );
   const [autoroleId, setAutoroleId] = useState('');
+  const [rewardLevel, setRewardLevel] = useState('');
+  const [rewardRoleId, setRewardRoleId] = useState('');
   const [savingArea, setSavingArea] = useState<string | null>(null);
 
   useEffect(() => {
@@ -256,6 +260,27 @@ export function CommunitySettings({
   const removeAutorole = (roleId: string) => {
     if (busy) return;
     save('autoroles', { autoroleIds: autoroles.filter((id) => id !== roleId) });
+  };
+
+  const addLevelReward = () => {
+    const level = clampInt(rewardLevel, 1, 1_000, 0);
+    if (!level || !rewardRoleId || busy) return;
+
+    const next = settings.levelRewards.filter(
+      (reward) => reward.level !== level && reward.roleId !== rewardRoleId,
+    );
+    next.push({ level, roleId: rewardRoleId });
+    next.sort((a, b) => a.level - b.level);
+    save('rewards', { levelRewards: next });
+    setRewardLevel('');
+    setRewardRoleId('');
+  };
+
+  const removeLevelReward = (roleId: string) => {
+    if (busy) return;
+    save('rewards', {
+      levelRewards: settings.levelRewards.filter((reward) => reward.roleId !== roleId),
+    });
   };
 
   return (
@@ -607,6 +632,89 @@ export function CommunitySettings({
                 onCheckedChange={setVoiceTrackingEnabled}
                 disabled={busy}
               />
+
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <div className="flex items-center gap-2">
+                  <Medal className="h-3.5 w-3.5 text-premium" />
+                  <h4 className="text-xs font-semibold">Роли за уровни</h4>
+                </div>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  Бот выдаст роль при достижении уровня. При замене прошлая награда снимается.
+                </p>
+
+                {settings.levelRewards.length > 0 ? (
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {settings.levelRewards.map((reward) => (
+                      <span
+                        key={reward.roleId}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-premium/20 bg-premium/10 py-1 pl-2 pr-1 text-[11px] text-premium"
+                      >
+                        Ур. {reward.level} → {roleNames.get(reward.roleId) ?? reward.roleId}
+                        <button
+                          type="button"
+                          onClick={() => removeLevelReward(reward.roleId)}
+                          disabled={busy}
+                          aria-label={`Убрать награду за уровень ${reward.level}`}
+                          className="rounded p-0.5 transition-colors hover:bg-white/[0.08] disabled:opacity-50"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[11px] text-muted-foreground">Наград пока нет.</p>
+                )}
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-[110px_minmax(0,1fr)_auto]">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    placeholder="Уровень"
+                    value={rewardLevel}
+                    onChange={(event) => setRewardLevel(event.target.value)}
+                    disabled={busy}
+                    aria-label="Уровень награды"
+                  />
+                  <Select
+                    value={rewardRoleId}
+                    onChange={(event) => setRewardRoleId(event.target.value)}
+                    disabled={busy || assignableRoles.length === 0}
+                    aria-label="Роль награды"
+                  >
+                    <option value="">Выберите роль</option>
+                    {assignableRoles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={addLevelReward}
+                    disabled={busy || !rewardLevel || !rewardRoleId}
+                    className="gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Добавить
+                  </Button>
+                </div>
+
+                <div className="mt-2">
+                  <SwitchRow
+                    label="Заменять прошлую награду"
+                    description="При новом уровне старая роль снимается, остаётся только последняя"
+                    checked={settings.levelRewardsReplacePrevious}
+                    onCheckedChange={(checked) =>
+                      save('rewards', { levelRewardsReplacePrevious: checked })
+                    }
+                    disabled={busy}
+                  />
+                </div>
+              </div>
+
               <DiscordPreview
                 tone="premium"
                 title="🎉 Новый уровень!"

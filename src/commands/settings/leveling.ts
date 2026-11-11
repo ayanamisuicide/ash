@@ -69,6 +69,31 @@ export default {
           option.setName('voice_tracking').setDescription('Считать время в голосовых каналах'),
         ),
     )
+    .addSubcommand((sub) =>
+      sub
+        .setName('reward_add')
+        .setDescription('Выдать роль за достижение уровня')
+        .addIntegerOption((option) =>
+          option
+            .setName('level')
+            .setDescription('Уровень')
+            .setMinValue(1)
+            .setMaxValue(1_000)
+            .setRequired(true),
+        )
+        .addRoleOption((option) =>
+          option.setName('role').setDescription('Роль-награда').setRequired(true),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName('reward_remove')
+        .setDescription('Убрать награду за уровень')
+        .addRoleOption((option) =>
+          option.setName('role').setDescription('Роль-награда').setRequired(true),
+        ),
+    )
+    .addSubcommand((sub) => sub.setName('rewards').setDescription('Список наград за уровни'))
     .addSubcommand((sub) => sub.setName('status').setDescription('Показать настройки'))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
@@ -151,6 +176,76 @@ export default {
       return;
     }
 
+    if (sub === 'reward_add') {
+      const level = interaction.options.getInteger('level', true);
+      const role = interaction.options.getRole('role', true);
+      if (role.managed) {
+        await interaction.editReply({
+          components: [errorCard('Эту роль управляет интеграция — выдать её нельзя.')],
+          flags: V2,
+        });
+        return;
+      }
+
+      const settings = getCommunitySettings(guildId);
+      const rewards = settings.levelRewards.filter(
+        (reward) => reward.level !== level && reward.roleId !== role.id,
+      );
+      rewards.push({ level, roleId: role.id });
+      rewards.sort((a, b) => a.level - b.level);
+      updateCommunitySettings(guildId, { levelRewards: rewards });
+
+      await interaction.editReply({
+        components: [
+          successCard('🏅 Награда за уровень', `Уровень **${level}** → <@&${role.id}>.`),
+        ],
+        flags: V2,
+      });
+      return;
+    }
+
+    if (sub === 'reward_remove') {
+      const role = interaction.options.getRole('role', true);
+      const settings = getCommunitySettings(guildId);
+      const rewards = settings.levelRewards.filter((reward) => reward.roleId !== role.id);
+      if (rewards.length === settings.levelRewards.length) {
+        await interaction.editReply({
+          components: [errorCard('Для этой роли награда не назначена.')],
+          flags: V2,
+        });
+        return;
+      }
+
+      updateCommunitySettings(guildId, { levelRewards: rewards });
+      await interaction.editReply({
+        components: [successCard('🏅 Награда за уровень', `Роль <@&${role.id}> убрана.`)],
+        flags: V2,
+      });
+      return;
+    }
+
+    if (sub === 'rewards') {
+      const settings = getCommunitySettings(guildId);
+      await interaction.editReply({
+        components: [
+          card({
+            tone: settings.levelRewards.length > 0 ? 'premium' : 'neutral',
+            title: '🏅 Награды за уровни',
+            description:
+              settings.levelRewards.length > 0
+                ? settings.levelRewards
+                    .map((reward) => `**${reward.level}** → <@&${reward.roleId}>`)
+                    .join('\n') +
+                  `\n\nЗамена прошлой награды: **${settings.levelRewardsReplacePrevious ? 'да' : 'нет'}**`
+                : 'Пока нет наград. Добавьте: `/leveling reward_add`.',
+            timestamp: false,
+          }),
+        ],
+        flags: V2,
+      });
+      return;
+    }
+
     const settings = getCommunitySettings(guildId);
     const info = getLevelInfo(guildId, interaction.user.id);
     await interaction.editReply({
@@ -181,6 +276,16 @@ export default {
                 ? `${settings.voiceXp} XP за 5 минут`
                 : 'учёт выключен',
               block: false,
+            },
+            {
+              label: 'Награды',
+              value:
+                settings.levelRewards.length > 0
+                  ? settings.levelRewards
+                      .map((reward) => `${reward.level} → <@&${reward.roleId}>`)
+                      .join(', ')
+                  : 'нет',
+              block: true,
             },
             {
               label: 'Ваш уровень',

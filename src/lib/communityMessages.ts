@@ -1,6 +1,7 @@
 import type { Guild, GuildMember } from 'discord.js';
 import { V2 } from './card.js';
 import { getCommunitySettings, renderTemplate } from './community.js';
+import { applyLevelRewards } from './levelRewards.js';
 import { goodbyeMessage, levelUpMessage, welcomeMessage } from './responses.js';
 
 export type CommunityTemplateKind = 'welcome' | 'goodbye' | 'levelup';
@@ -62,6 +63,8 @@ export async function announceLevelUps(guild: Guild, notices: LevelUpNotice[]): 
       guild.members.cache.get(notice.userId) ??
       (await guild.members.fetch(notice.userId).catch(() => null));
     if (!member) continue;
+
+    await applyLevelRewards(guild, member, Math.max(0, notice.level - 1), notice.level);
 
     await sendCommunityTemplate(
       settings.levelupChannelId,

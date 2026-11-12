@@ -1,0 +1,14 @@
+[build]
+  # Корневой npm ci на Netlify не ставит зависимости панели: web/ — отдельный
+  # проект со своим lock-файлом. Сначала ставим их, потом собираем панель.
+  command = "npm --prefix web ci && npm --prefix web run build"
+  publish = "web/dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+# Панель использует HashRouter, но fallback не мешает и покрывает прямые ссылки.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
